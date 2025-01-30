@@ -21,7 +21,8 @@ cesium_godot/native
 godot-cpp/
 
 # Build directories
-godot3dtiles/bin
+godot3dtiles/
+!godot3dtiles/addons
 
 # Ignore large files
 *.ipch
