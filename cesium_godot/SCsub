@@ -99,8 +99,7 @@ env.Append(
         "Cesium3DTilesContent",
         "async++",
         "ktx",
-        "meshoptimizer",
-        "astcenc-avx2-static",
+        #"astcenc-avx2-static",
         "jpeg",
         "turbojpeg",
         "draco",
@@ -203,8 +202,9 @@ env.Append(
         "libwebp",
         "libwebpdecoder",
         "zstd",
-        "zlib"
+        "zlib",
         "libssl",
+        "meshoptimizer"
     ],
     LIBPATH=[
         cesium_build_utils.get_root_dir_native() + "/CesiumGltfReader/RelWithDebInfo",

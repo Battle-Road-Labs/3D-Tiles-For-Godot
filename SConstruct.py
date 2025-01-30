@@ -14,7 +14,7 @@ def add_source_files(self, p_sources):
 
 env = SConscript("godot-cpp/SConstruct")
 env.Append(CXXFLAGS=["/std:c++17"])
-env.Append(LINKFLAGS=["/IGNORE:4098", "/FORCE", "/IGNORE:4217"])
+env.Append(LINKFLAGS=["/IGNORE:4217"])
 
 compilationTarget: str = cesium_build_utils.get_compile_target_definition(ARGUMENTS)
 
