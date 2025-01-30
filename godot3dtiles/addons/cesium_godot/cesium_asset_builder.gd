@@ -44,6 +44,9 @@ func instantiate_dynamic_cam() -> void:
 	print("Created cam!")
 	camera.globe_node = globe
 	camera.tileset = globe.find_child(CESIUM_TILESET_NAME) as CesiumGDTileset
+	const 
+	camera.near = 9
+	camera.
 	if (camera.tileset == null):
 		# Blank tileset as default instantiation
 		self.instantiate_tileset(TILESET_TYPE.Blank)

@@ -178,9 +178,9 @@ func _handle_collisions(_delta: float) -> void:
 	
 
 func _update_orientation() -> void:
-		# Get surface normal from the globe
-		var normal: Vector3 = self.globe_node.get_normal_at_surface_pos(self.global_position)
-		self.transform.basis = _create_local_directions(normal)
+	# Get surface normal from the globe
+	var normal: Vector3 = self.globe_node.get_normal_at_surface_pos(self.global_position)
+	self.transform.basis = _create_local_directions(normal)
 				
 
 func update_camera_pos(delta: float) -> void:
@@ -230,20 +230,14 @@ func calculate_speed_by_distance(current_depth: float, target_depth: float) -> f
 	return step
 
 func handle_input(delta: float) -> void:
-	if (Input.is_action_just_pressed("Jump")):
+	if (Input.is_key_pressed(KEY_SPACE) && !self.loaded):
 		self.initial_zoom_speed = self.cam_zoom_speed
 		self.loaded = true
-	if (Input.is_action_pressed("IncreaseMoveSpeed")):
-		self.move_speed = lerpf(self.move_speed, self.move_speed * 1.2, delta * 2) 
-	if (Input.is_action_pressed("DecreaseMoveSpeed")):
+	if (Input.is_key_pressed(KEY_KP_ADD) || Input.is_key_pressed(KEY_PLUS)):
+		self.move_speed = lerpf(self.move_speed, self.move_speed * 1.2, delta * 2)
+	if (Input.is_key_pressed(KEY_KP_SUBTRACT) || Input.is_key_pressed(KEY_MINUS)):
 		self.move_speed = lerpf(self.move_speed, self.move_speed * 0.8, delta * 2)
-	if (Input.is_action_pressed("ForceZoom")):
-		self.zoom_acceleration += delta * 2
-		self.apply_zoom(-self.zoom_acceleration)
-	if (Input.is_action_just_released("ForceZoom")):
-		self.zoom_acceleration = 0
-
-	if (Input.is_action_pressed("RightClick")):
+	if (Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)):
 		var mouse_velocity : Vector2 = Input.get_last_mouse_velocity()
 		var delta_yaw : float = mouse_velocity.x * delta * self.yaw_sensitivity
 		var delta_pitch : float = mouse_velocity.y * delta * self.picth_sensitivity
@@ -251,21 +245,22 @@ func handle_input(delta: float) -> void:
 
 	var direction = Vector3.ZERO
 	var movingBasis : Basis = self.global_transform.basis
-	if (Input.is_action_pressed("camera_down")):
-		#direction -= self.global_transform.basis.y
+
+	if (Input.is_key_pressed(KEY_Q)):
 		direction -= movingBasis.y
-	if (Input.is_action_pressed("camera_up")):
-		#direction += self.global_transform.basis.y
+	if (Input.is_key_pressed(KEY_E)):
 		direction += movingBasis.y
 
-	if (Input.is_action_pressed("up")):
+	if (Input.is_key_pressed(KEY_W)):
 		direction -= movingBasis.z
-	if (Input.is_action_pressed("down")):
+	if (Input.is_key_pressed(KEY_S)):
 		direction += movingBasis.z
-	if (Input.is_action_pressed("right")):
+
+	if (Input.is_key_pressed(KEY_D)):
 		direction += movingBasis.x
-	if (Input.is_action_pressed("left")):
+	if (Input.is_key_pressed(KEY_A)):
 		direction -= movingBasis.x
+
 	camera_walk(direction)
 
 func camera_walk(direction: Vector3) -> void:
@@ -279,14 +274,6 @@ func camera_walk(direction: Vector3) -> void:
 	if (self.is_moving):
 		self.last_input_dir = direction.normalized()
 
-func _input(event: InputEvent) -> void:
-	if !(event is InputEventMouseButton):
-		return
-	var mouse_event := event as InputEventMouseButton
-	if (mouse_event.is_action("Zoom In")):
-		self.apply_zoom(-mouse_event.factor)
-	elif(mouse_event.is_action("Zoom Out")):
-		self.apply_zoom(mouse_event.factor)
 
 func _create_local_directions(up: Vector3) -> Basis:
 	# We need to adjust the up direction by x degrees
