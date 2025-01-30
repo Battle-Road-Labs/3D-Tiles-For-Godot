@@ -25,9 +25,9 @@ void initialize_cesium_godot_module(ModuleInitializationLevel p_level) {
 	if (p_level != ModuleInitializationLevel::MODULE_INITIALIZATION_LEVEL_SCENE)
 		return;
 	//We will have to register all external classes to the class DB (we probably don't want this for common DataStructures, but rather Nodes)
+	ClassDB::register_class<CesiumGlobe>();
 	ClassDB::register_class<CesiumGDGeoreference>();
 	ClassDB::register_class<CesiumGDTileset>();
-	ClassDB::register_class<CesiumGlobe>();
 	ClassDB::register_class<CesiumHTTPRequestNode>();
 	ClassDB::register_class<CesiumDebugUtils>();
 	ClassDB::register_class<CesiumGDPanel>();

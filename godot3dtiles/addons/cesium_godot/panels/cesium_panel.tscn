@@ -1,0 +1,139 @@
+[gd_scene load_steps=4 format=3 uid="uid://cvqjpxi8g18cp"]
+
+[ext_resource type="Texture2D" uid="uid://ch4tilnu5t68j" path="res://addons/cesium_godot/panels/Cesium_dark_color.png" id="1_43y2k"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_h2mxq"]
+font_size = 24
+
+[sub_resource type="LabelSettings" id="LabelSettings_o68q6"]
+font_size = 24
+font_color = Color(0, 0, 0, 1)
+
+[node name="CesiumPanel" type="MarginContainer"]
+custom_minimum_size = Vector2(100, 100)
+offset_right = 486.0
+offset_bottom = 551.0
+
+[node name="VSplitContainer" type="VSplitContainer" parent="."]
+layout_mode = 2
+
+[node name="ButtonsHContainer" type="HBoxContainer" parent="VSplitContainer"]
+layout_mode = 2
+alignment = 1
+
+[node name="AddButton" type="Button" parent="VSplitContainer/ButtonsHContainer"]
+layout_mode = 2
+text = "Add"
+
+[node name="UploadButton" type="Button" parent="VSplitContainer/ButtonsHContainer"]
+layout_mode = 2
+text = "Upload"
+
+[node name="TokenButton" type="Button" parent="VSplitContainer/ButtonsHContainer"]
+layout_mode = 2
+text = "Token"
+
+[node name="LearnButton" type="Button" parent="VSplitContainer/ButtonsHContainer"]
+layout_mode = 2
+text = "Learn	"
+
+[node name="HelpButton" type="Button" parent="VSplitContainer/ButtonsHContainer"]
+layout_mode = 2
+text = "Help"
+
+[node name="SignOutButton" type="Button" parent="VSplitContainer/ButtonsHContainer"]
+layout_mode = 2
+text = "Sign out"
+
+[node name="VBoxContainer" type="VBoxContainer" parent="VSplitContainer"]
+layout_mode = 2
+
+[node name="Add assets label" type="Label" parent="VSplitContainer/VBoxContainer"]
+layout_mode = 2
+text = "Quick Add Basic Assets"
+label_settings = SubResource("LabelSettings_h2mxq")
+
+[node name="HSeparator" type="HSeparator" parent="VSplitContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="HBoxContainer4" type="HBoxContainer" parent="VSplitContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="Georeference Label" type="Label" parent="VSplitContainer/VBoxContainer/HBoxContainer4"]
+layout_mode = 2
+text = "Use georeferences"
+
+[node name="MarginContainer" type="MarginContainer" parent="VSplitContainer/VBoxContainer/HBoxContainer4"]
+custom_minimum_size = Vector2(50, 1.45519e-11)
+layout_mode = 2
+
+[node name="GeoRefCheckButton" type="CheckButton" parent="VSplitContainer/VBoxContainer/HBoxContainer4"]
+layout_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="VSplitContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="Blank 3D Label" type="Label" parent="VSplitContainer/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "Blank 3D Tiles Tileset"
+
+[node name="MarginContainer" type="MarginContainer" parent="VSplitContainer/VBoxContainer/HBoxContainer"]
+custom_minimum_size = Vector2(50, 1.45519e-11)
+layout_mode = 2
+
+[node name="BlankTilesetButton" type="Button" parent="VSplitContainer/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "Add"
+
+[node name="HBoxContainer2" type="HBoxContainer" parent="VSplitContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="Dynamic Camera" type="Label" parent="VSplitContainer/VBoxContainer/HBoxContainer2"]
+layout_mode = 2
+text = "Dynamic Camera"
+
+[node name="MarginContainer" type="MarginContainer" parent="VSplitContainer/VBoxContainer/HBoxContainer2"]
+custom_minimum_size = Vector2(75, 1.45519e-11)
+layout_mode = 2
+
+[node name="DynamicCameraButton" type="Button" parent="VSplitContainer/VBoxContainer/HBoxContainer2"]
+layout_mode = 2
+text = "Add"
+
+[node name="TextureRect" type="TextureRect" parent="VSplitContainer/VBoxContainer"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+texture = ExtResource("1_43y2k")
+expand_mode = 3
+
+[node name="Label" type="Label" parent="VSplitContainer/VBoxContainer"]
+layout_mode = 2
+text = "For Godot (in development)"
+label_settings = SubResource("LabelSettings_o68q6")
+horizontal_alignment = 1
+
+[node name="Label2" type="Label" parent="VSplitContainer/VBoxContainer"]
+custom_minimum_size = Vector2(300, 1.45519e-11)
+layout_mode = 2
+text = "Access global high-resolution 3D content, including photogrammetry, terrain, imagery, and buildings. Bring your own data for tiling, hosting, and streaming to Godot."
+autowrap_mode = 3
+
+[node name="MarginContainer3" type="MarginContainer" parent="VSplitContainer/VBoxContainer"]
+custom_minimum_size = Vector2(1.45519e-11, 50)
+layout_mode = 2
+
+[node name="HBoxContainer3" type="HBoxContainer" parent="VSplitContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="MarginContainer2" type="MarginContainer" parent="VSplitContainer/VBoxContainer/HBoxContainer3"]
+custom_minimum_size = Vector2(150, 50)
+layout_mode = 2
+
+[node name="ConnectButton" type="Button" parent="VSplitContainer/VBoxContainer/HBoxContainer3"]
+custom_minimum_size = Vector2(1.45519e-11, 50)
+layout_mode = 2
+text = "Connect to Cesium ION"
+
+[node name="MarginContainer" type="MarginContainer" parent="VSplitContainer/VBoxContainer/HBoxContainer3"]
+custom_minimum_size = Vector2(100, 50)
+layout_mode = 2

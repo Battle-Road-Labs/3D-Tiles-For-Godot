@@ -1,0 +1,136 @@
+[gd_scene load_steps=2 format=3 uid="uid://bg13hhs46nnn"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_r4tjn"]
+outline_size = 1
+
+[node name="CesiumPanel" type="MarginContainer"]
+custom_minimum_size = Vector2(100, 100)
+offset_right = 486.0
+offset_bottom = 551.0
+
+[node name="VSplitContainer" type="VSplitContainer" parent="."]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="VSplitContainer"]
+layout_mode = 2
+
+[node name="DescriptionLabel" type="Label" parent="VSplitContainer/VBoxContainer"]
+custom_minimum_size = Vector2(20, 10)
+layout_mode = 2
+text = "Cesium for Godot embeds a Cesium ion token in your project in order to allow it to access the assets you add to your levels. Select the Cesium ion token to use."
+autowrap_mode = 2
+
+[node name="HSeparator" type="HSeparator" parent="VSplitContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="VSplitContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="NewTokenCheck" type="CheckBox" parent="VSplitContainer/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="VSplitContainer/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Label" type="Label" parent="VSplitContainer/VBoxContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+text = "Create a new token"
+label_settings = SubResource("LabelSettings_r4tjn")
+
+[node name="Label2" type="Label" parent="VSplitContainer/VBoxContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+text = "Name:"
+
+[node name="TokenName" type="TextEdit" parent="VSplitContainer/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "Name of your token here"
+
+[node name="Spacing" type="MarginContainer" parent="VSplitContainer/VBoxContainer"]
+custom_minimum_size = Vector2(150, 50)
+layout_mode = 2
+
+[node name="HBoxContainer2" type="HBoxContainer" parent="VSplitContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="ExistingTokenCheck" type="CheckBox" parent="VSplitContainer/VBoxContainer/HBoxContainer2"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="VSplitContainer/VBoxContainer/HBoxContainer2"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Use an existing token"
+label_settings = SubResource("LabelSettings_r4tjn")
+
+[node name="ItemList" type="ItemList" parent="VSplitContainer/VBoxContainer/HBoxContainer2"]
+custom_minimum_size = Vector2(1.45519e-11, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+item_count = 1
+item_0/text = "Default Token"
+
+[node name="Spacing2" type="MarginContainer" parent="VSplitContainer/VBoxContainer"]
+custom_minimum_size = Vector2(150, 50)
+layout_mode = 2
+
+[node name="HBoxContainer5" type="HBoxContainer" parent="VSplitContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="SpecificTokenCheck" type="CheckBox" parent="VSplitContainer/VBoxContainer/HBoxContainer5"]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="VSplitContainer/VBoxContainer/HBoxContainer5"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Label" type="Label" parent="VSplitContainer/VBoxContainer/HBoxContainer5/VBoxContainer"]
+layout_mode = 2
+text = "Specify a token"
+label_settings = SubResource("LabelSettings_r4tjn")
+
+[node name="Label2" type="Label" parent="VSplitContainer/VBoxContainer/HBoxContainer5/VBoxContainer"]
+layout_mode = 2
+text = "Token:"
+
+[node name="TokenName" type="TextEdit" parent="VSplitContainer/VBoxContainer/HBoxContainer5"]
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "Your token here"
+
+[node name="MarginContainer3" type="MarginContainer" parent="VSplitContainer/VBoxContainer"]
+custom_minimum_size = Vector2(1.45519e-11, 50)
+layout_mode = 2
+
+[node name="HBoxContainer4" type="HBoxContainer" parent="VSplitContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="MarginContainer2" type="MarginContainer" parent="VSplitContainer/VBoxContainer/HBoxContainer4"]
+custom_minimum_size = Vector2(150, 50)
+layout_mode = 2
+
+[node name="ConnectButton" type="Button" parent="VSplitContainer/VBoxContainer/HBoxContainer4"]
+custom_minimum_size = Vector2(1.45519e-11, 50)
+layout_mode = 2
+text = "Create / Use token for project"
+
+[node name="MarginContainer" type="MarginContainer" parent="VSplitContainer/VBoxContainer/HBoxContainer4"]
+custom_minimum_size = Vector2(100, 50)
+layout_mode = 2
+
+[node name="HBoxContainer3" type="HBoxContainer" parent="VSplitContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="MarginContainer2" type="MarginContainer" parent="VSplitContainer/VBoxContainer/HBoxContainer3"]
+custom_minimum_size = Vector2(150, 50)
+layout_mode = 2
+
+[node name="ConnectButton" type="Button" parent="VSplitContainer/VBoxContainer/HBoxContainer3"]
+custom_minimum_size = Vector2(1.45519e-11, 50)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Test token"
+
+[node name="MarginContainer" type="MarginContainer" parent="VSplitContainer/VBoxContainer/HBoxContainer3"]
+custom_minimum_size = Vector2(100, 50)
+layout_mode = 2
