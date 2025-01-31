@@ -472,8 +472,6 @@ void CesiumGDTileset::despawn_tile(const Cesium3DTilesSelection::Tile& tile)
 	size_t hash = std::visit(CesiumVariantHash{}, tile.getTileID());
 
 	if (this->m_instancedTilesByHash.find(hash) == this->m_instancedTilesByHash.end()) {
-		std::string tileIdStr = Cesium3DTilesSelection::TileIdUtilities::createTileIdString(tile.getTileID());
-		ERR_PRINT(String("Could not find node with name ") + itos(hash));
 		return;
 	}
 
@@ -482,23 +480,18 @@ void CesiumGDTileset::despawn_tile(const Cesium3DTilesSelection::Tile& tile)
 		WARN_PRINT("Failed to despawn tile, address is nullptr");
 		return;
 	}
-	float fadingPercentage = tile.getContent().getRenderContent()->getLodTransitionFadePercentage();
-	if (fadingPercentage <= 0.0f) {
-		foundNode->hide();
-		// Deactivate the collisions
-		if (this->m_createPhysicsMeshes) {
-			Node* collisionNode = foundNode->get_child(0);
-			if (collisionNode == nullptr) return;
+	
+	const Cesium3DTilesSelection::TileRenderContent* renderContent = tile.getContent().getRenderContent();
+
+	foundNode->hide();
+	// Deactivate the collisions
+	if (this->m_createPhysicsMeshes) {
+		Node* collisionNode = foundNode->get_child(0);
+		if (collisionNode == nullptr) return;
 			CollisionShape3D* shape = Object::cast_to<CollisionShape3D>(collisionNode->get_child(0));
 			if (shape == nullptr) return;
 			shape->set_disabled(true);
-		}
-		return;
 	}
-	Ref<StandardMaterial3D> mat = foundNode->get_active_material(0);
-	Color color = mat->get_albedo();
-	color.a = fadingPercentage;
-	mat->set_albedo(color);
 }
 
 void CesiumGDTileset::despawn_tile_deferred(const Cesium3DTilesSelection::Tile& tile)

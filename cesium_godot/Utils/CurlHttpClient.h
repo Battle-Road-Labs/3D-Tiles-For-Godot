@@ -13,6 +13,7 @@
 #include "godot_cpp/variant/string.hpp"
 #include "godot_cpp/core/error_macros.hpp"
 #include <godot_cpp/templates/vector.hpp>
+#include "godot_cpp/classes/http_client.hpp"
 using namespace godot;
 #elif defined(CESIUM_GD_MODULE)
 #include "core/templates/vector.h"
@@ -113,17 +114,17 @@ public:
 		this->m_threadPool.init(maxThreads);		
 	}
 
-	void send_get(const char* url, const HighLevelResponseCallback_t& callback, const std::vector<CesiumHeader_t>& headers = {}) {
+	void send_get(const char* url, const HighLevelResponseCallback_t& callback, const std::vector<CesiumHeader_t>& headers) {
 		// Just send a request here
 		this->send_request(url, HTTPClient::METHOD_GET, callback, headers);
 	}
 
-	void send_get_same_thread(const char *url, const HighLevelResponseCallback_t &callback, const std::vector<CesiumHeader_t> &headers = {}) {
+	void send_get_same_thread(const char *url, const HighLevelResponseCallback_t &callback, const std::vector<CesiumHeader_t> &headers) {
 		// Just send a request here
 		this->send_request_same_thread(url, HTTPClient::METHOD_GET, callback, headers);
 	}
 
-	void send_request(const char* url, HTTPClient::Method method, const HighLevelResponseCallback_t& callback, const std::vector<CesiumHeader_t>& headers = {}) {
+	void send_request(const char* url, HTTPClient::Method method, const HighLevelResponseCallback_t& callback, const std::vector<CesiumHeader_t>& headers) {
 		//Get any active handle
 		int32_t handleIdx = this->get_available_handle_index();
 		this->m_activeHandles[handleIdx].available = false;
@@ -140,7 +141,7 @@ public:
 	}
 
 
-	void send_request_same_thread(const char *url, HTTPClient::Method method, const HighLevelResponseCallback_t &callback, const std::vector<CesiumHeader_t> &headers = {}) {
+	void send_request_same_thread(const char *url, HTTPClient::Method method, const HighLevelResponseCallback_t &callback, const std::vector<CesiumHeader_t> &headers) {
 		//Get any active handle
 		int32_t handleIdx = this->get_available_handle_index();
 		this->m_activeHandles[handleIdx].available = false;
@@ -157,7 +158,7 @@ public:
 private:
 	static inline uint16_t s_activeInstances = 0;
 
-	Vector<uint8_t> pull_url(const char *url, CURL *handle, long*outStatus , const std::vector<CesiumHeader_t> &headers = {}) {
+	Vector<uint8_t> pull_url(const char *url, CURL *handle, long*outStatus , const std::vector<CesiumHeader_t> &headers) {
 		Vector<uint8_t> buffer;
 		//Options stuff
 		curl_easy_setopt(handle, CURLOPT_URL, url);
@@ -170,11 +171,12 @@ private:
 		{
 			std::string strHeader = h.first + ": ";
 			strHeader += h.second;
-			curl_slist_append(curlHeaders, strHeader.c_str());
+			curlHeaders = curl_slist_append(curlHeaders, strHeader.c_str());
 		}
 
-		//Perform the request
-		
+		curl_easy_setopt(handle, CURLOPT_HTTPHEADER, curlHeaders);
+
+		//Perform the request		
 		CURLcode code = curl_easy_perform(handle);
 		//Then from the result we can do error handling
 		if (code != CURLcode::CURLE_OK) {

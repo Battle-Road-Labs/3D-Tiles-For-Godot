@@ -44,9 +44,8 @@ func instantiate_dynamic_cam() -> void:
 	print("Created cam!")
 	camera.globe_node = globe
 	camera.tileset = globe.find_child(CESIUM_TILESET_NAME) as CesiumGDTileset
-	const 
 	camera.near = 9
-	camera.
+	camera.fov = 39
 	if (camera.tileset == null):
 		# Blank tileset as default instantiation
 		self.instantiate_tileset(TILESET_TYPE.Blank)
@@ -80,4 +79,3 @@ func _find_or_create_globe() -> CesiumGlobe:
 func _get_root_of_edit_scene() -> Node3D:
 	var root : Node3D = self.get_tree().edited_scene_root
 	return root
-
