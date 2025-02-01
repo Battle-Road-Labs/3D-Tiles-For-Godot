@@ -12,6 +12,12 @@ sources = Glob("cesium_auxiliars/*.cpp")
 def add_source_files(self, p_sources):
     sources.extend(p_sources)
 
+
+if (cesium_build_utils.is_extension_target(ARGUMENTS)):
+    cesium_build_utils.clone_bindings_repo_if_needed()
+
+cesium_build_utils.clone_native_repo_if_needed()
+
 env = SConscript("godot-cpp/SConstruct")
 env.Append(CXXFLAGS=["/std:c++17"])
 env.Append(LINKFLAGS=["/IGNORE:4217"])
