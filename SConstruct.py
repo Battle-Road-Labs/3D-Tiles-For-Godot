@@ -18,6 +18,8 @@ if (cesium_build_utils.is_extension_target(ARGUMENTS)):
 
 cesium_build_utils.clone_native_repo_if_needed()
 
+cesium_build_utils.compile_native(ARGUMENTS)
+
 env = SConscript("godot-cpp/SConstruct")
 env.Append(CXXFLAGS=["/std:c++17"])
 env.Append(LINKFLAGS=["/IGNORE:4217"])
