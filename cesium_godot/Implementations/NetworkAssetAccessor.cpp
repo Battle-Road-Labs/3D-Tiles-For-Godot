@@ -102,7 +102,7 @@ CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>> NetworkAssetAcc
 {
 	CesiumAsync::Promise<FutureResult_t> p_promise = asyncSystem.createPromise<FutureResult_t>();
 	CesiumAsync::Future<FutureResult_t> future = p_promise.getFuture();
-	this->m_curlClient.send_get("http://localhost:8000/test", [](int32_t, const Vector<uint8_t>& body){}, headers);
+
 	this->m_curlClient.send_request(
 			url.c_str(),
 			method,

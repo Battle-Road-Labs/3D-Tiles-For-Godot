@@ -164,6 +164,7 @@ private:
 		curl_easy_setopt(handle, CURLOPT_URL, url);
 		curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, &CurlHttpClient::write_callback);
 		curl_easy_setopt(handle, CURLOPT_WRITEDATA, &buffer);
+		curl_easy_setopt(handle, CURLOPT_ACCEPT_ENCODING, "");
 
 
 		curl_slist* curlHeaders = nullptr;
@@ -183,6 +184,7 @@ private:
 			ERR_PRINT(String("Could not make request to: ") + url + String(" error: ") + itos(code));
 			return Vector<uint8_t>();
 		}
+
 		curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, outStatus);
 		return buffer;
 	}
@@ -195,6 +197,7 @@ private:
 		for (size_t i = 0; i < realSize; i++) {
 			vectorBuffer->push_back(contentCStr[i]);
 		}
+	
 		return realSize;
 	}
 
