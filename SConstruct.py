@@ -24,6 +24,8 @@ env = SConscript("godot-cpp/SConstruct")
 env.Append(CXXFLAGS=["/std:c++20", "/Zc:__cplusplus"])
 env.Append(LINKFLAGS=["/IGNORE:4217"])
 
+cesium_build_utils.install_additional_libs()
+
 compilationTarget: str = cesium_build_utils.get_compile_target_definition(ARGUMENTS)
 
 env.Append(CPPDEFINES=[compilationTarget])

@@ -22,6 +22,8 @@ CESIUM_NATIVE_DIR_MODULE = "#modules/cesium_godot/native"
 
 OS_WIN = "nt"
 
+STATIC_TRIPLET = "x64-windows-static"
+
 
 def is_extension_target(argsDict) -> bool:
     return get_compile_target_definition(argsDict) == CESIUM_EXT_DEF
@@ -140,6 +142,14 @@ def clean_cesium_definitions():
         file.write(fileData)
 
 
+def install_additional_libs():
+    vcpkgPath = find_ezvcpkg_path()
+    executable = "%s/%s" % (vcpkgPath, "vcpkg.exe")
+    subprocess.run([executable, "install", "curl:%s" % (STATIC_TRIPLET)])
+    subprocess.run([executable, "install", "uriparser:%s" % (STATIC_TRIPLET)])
+    subprocess.run([executable, "install", "ada-url:%s" % (STATIC_TRIPLET)])
+
+
 def find_ms_build() -> str:
     print("Searching for MS Build")
     # Try to search for an msbuild executable in the system
@@ -184,7 +194,7 @@ def find_in_dir_recursive(path: str, pattern: str) -> (bool, str):
     return False, ''
 
 
-def find_ezvcpkg_triplet_path() -> str:
+def find_ezvcpkg_path() -> str:
     # Search the C drive
     assumedPath = "C:/.ezvcpkg"
     if (not os.path.exists(assumedPath)):
@@ -194,8 +204,7 @@ def find_ezvcpkg_triplet_path() -> str:
     subDirs.sort(reverse=True, key=lambda x: os.stat(
         "%s/%s" % (assumedPath, x)).st_ctime)
     latestDir = subDirs[0]
-    assumedPath = "%s/%s/%s" % (assumedPath, latestDir,
-                                "installed/x64-windows-static")
+    assumedPath = "%s/%s" % (assumedPath, latestDir)
     return assumedPath
 
 
