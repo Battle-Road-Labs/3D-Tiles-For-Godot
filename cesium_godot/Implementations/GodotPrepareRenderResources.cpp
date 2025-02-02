@@ -1,4 +1,6 @@
 #include "GodotPrepareRenderResources.h"
+#include "CesiumGltf/ImageAsset.h"
+#include "CesiumGltfReader/ImageDecoder.h"
 #include "error_names.hpp"
 
 #if defined(CESIUM_GD_EXT)
@@ -178,16 +180,16 @@ void GodotPrepareRenderResources::detachRasterInMainThread(const Tile& tile, int
 
 }
 
-void* GodotPrepareRenderResources::prepareRasterInLoadThread(CesiumGltf::ImageCesium& image, const std::any& rendererOptions)
+void* GodotPrepareRenderResources::prepareRasterInLoadThread(CesiumGltf::ImageAsset& image, const std::any& rendererOptions)
 {
 	//I guess we just generate mip maps here (?
-	CesiumGltfReader::GltfReader::generateMipMaps(image);
+	CesiumGltfReader::ImageDecoder::generateMipMaps(image);
 	return nullptr;
 }
 
 void* GodotPrepareRenderResources::prepareRasterInMainThread(CesiumRasterOverlays::RasterOverlayTile& rasterTile, void* pLoadThreadResult)
 {
-	const CesiumGltf::ImageCesium& imageCesium = rasterTile.getImage();
+	const CesiumGltf::ImageAsset& imageCesium = *rasterTile.getImage().get();
 	Ref<ImageTexture> godotTexture = CesiumGDTextureLoader::load_image_texture(imageCesium, false, true);
 	godotTexture->reference();
 	return static_cast<void*>(godotTexture.ptr());

@@ -78,11 +78,16 @@ if (cesium_build_utils.is_extension_target(ARGUMENTS)):
 else:
     cesium_env.add_source_files(cesium_env.modules_sources, sources)
 
+vcpkgIncludePath = cesium_build_utils.find_ezvcpkg_triplet_path() + "/include"
+includePaths.append(vcpkgIncludePath)
+
 env.Append(CPPPATH=includePaths)
+
 
 # Library paths and linking
 env.Append(
     LIBS=[
+        cesium_build_utils.find_ezvcpkg_triplet_path() + "/lib",
         "GSL",
         "CesiumGltfReader",
         "CesiumAsync",

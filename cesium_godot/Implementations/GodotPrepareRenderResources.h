@@ -4,6 +4,7 @@
 #include "Cesium3DTilesSelection/IPrepareRendererResources.h"
 #include "../Models/CesiumDataSource.h"
 #include "../Utils/BRThreadPool.h"
+#include "CesiumGltf/ImageAsset.h"
 
 class CesiumGDTileset;
 
@@ -43,7 +44,7 @@ public:
 
 
 	void* prepareRasterInLoadThread(
-		CesiumGltf::ImageCesium& image,
+		CesiumGltf::ImageAsset& image,
 		const std::any& rendererOptions) override;
 
 	/**

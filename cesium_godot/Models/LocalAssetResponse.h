@@ -3,7 +3,6 @@
 
 #include <CesiumAsync/IAssetResponse.h>
 #include <cstdint>
-#include <vector>
 #if defined(CESIUM_GD_EXT)
 #include <godot_cpp/variant/variant.hpp>
 #include <godot_cpp/templates/vector.hpp>
@@ -48,9 +47,9 @@ public:
 	/**
 	 * @brief Returns the data of this response
 	 */
-	gsl::span<const std::byte> data() const override {
+	std::span<const std::byte> data() const override {
 		const std::byte* bytePtr = reinterpret_cast<const std::byte*>(this->m_data.ptr());
-		return gsl::span<const std::byte>(bytePtr, bytePtr + this->m_data.size());
+		return std::span<const std::byte>(bytePtr, bytePtr + this->m_data.size());
 	}
 
 private:

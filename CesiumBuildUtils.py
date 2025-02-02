@@ -157,6 +157,21 @@ def find_in_dir_recursive(path: str, pattern: str) -> (bool, str):
     return False, ''
 
 
+def find_ezvcpkg_triplet_path() -> str:
+    # Search the C drive
+    assumedPath = "C:/.ezvcpkg"
+    if (not os.path.exists(assumedPath)):
+        print("EZVCPKG not found, run with buildCesium=true to install dependencies")
+    # Then find the latest version (use the last created folder)
+    subDirs = [x for x in next(os.walk(assumedPath))[1]]
+    subDirs.sort(reverse=True, key=lambda x: os.stat(
+        "%s/%s" % (assumedPath, x)).st_ctime)
+    latestDir = subDirs[0]
+    assumedPath = "%s/%s/%s" % (assumedPath, latestDir,
+                                "installed/x64-windows-static")
+    return assumedPath
+
+
 def clone_engine_repo_if_needed():
     pass
 

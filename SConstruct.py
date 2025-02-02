@@ -21,7 +21,7 @@ cesium_build_utils.clone_native_repo_if_needed()
 cesium_build_utils.compile_native(ARGUMENTS)
 
 env = SConscript("godot-cpp/SConstruct")
-env.Append(CXXFLAGS=["/std:c++17"])
+env.Append(CXXFLAGS=["/std:c++20"])
 env.Append(LINKFLAGS=["/IGNORE:4217"])
 
 compilationTarget: str = cesium_build_utils.get_compile_target_definition(ARGUMENTS)
