@@ -337,7 +337,7 @@ void CesiumGDModelLoader::set_colors_and_texture(const CesiumGltf::Material& ces
 
 	const int32_t imageIndex = modelReference.textures.at(baseTexture->index).source;
 	const CesiumGltf::Image& image = modelReference.images.at(imageIndex);
-	Ref<Texture> textureToUse = CesiumGDTextureLoader::load_image_texture(image.cesium, true, false);
+	Ref<Texture> textureToUse = CesiumGDTextureLoader::load_image_texture(*image.pAsset.get(), true, false);
 	godotMaterial->set_texture(BaseMaterial3D::TEXTURE_ALBEDO, textureToUse);
 }
 
@@ -394,7 +394,7 @@ Error CesiumGDModelLoader::parse_gltf(const String& assetPath, CesiumGltfReader:
 	//Get the raw data as a gsl span to pass it onto the GLTF reader for Cesium
 	PackedByteArray rawData = assetRef->get_buffer(assetRef->get_length());
 	std::byte* dataPtr = reinterpret_cast<std::byte*>(rawData.ptrw());
-	gsl::span<const std::byte> dataSpan(dataPtr, rawData.size());
+	std::span<const std::byte> dataSpan(dataPtr, rawData.size());
 
 	CesiumGltfReader::GltfReader reader;
 	CesiumGltfReader::GltfReaderOptions options = {};

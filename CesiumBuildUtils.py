@@ -110,7 +110,34 @@ def compile_native(argumentsDict):
     result = subprocess.run([msbuildPath, solutionName, releaseConfig])
     if result.returncode != 0:
         print("Error building Cesium Native: %s" % str(result.stderr))
+    print("Cleaning definitions on generated files...")
+    clean_cesium_definitions()
     print("Finished building Cesium Native!")
+
+
+def clean_cesium_definitions():
+    """
+    This function modifies some of Cesium's header files to clean up
+    definitions that conflict with the engine's
+    """
+    # Get the conflicting file (Material.h in our case)
+
+    conflictFilePath: str = "%s/%s" % (CESIUM_NATIVE_DIR_EXT,
+                                       "/CesiumGltf/generated/include/CesiumGltf")
+    conflictFilePath = _scons_to_abs_path(conflictFilePath) + "/Material.h"
+    # Load the file into memory
+
+    # Read in the file
+    fileData: str = ""
+    with open(conflictFilePath, 'r') as file:
+        fileData = file.read()
+
+    # Replace the target string
+    fileData = fileData.replace('#pragma once', '#pragma once\n#undef OPAQUE')
+
+    # Write the file out again
+    with open(conflictFilePath, 'w') as file:
+        file.write(fileData)
 
 
 def find_ms_build() -> str:
