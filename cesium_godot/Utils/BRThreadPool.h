@@ -9,6 +9,7 @@
 #include <queue>
 #include <stdexcept>
 #include <thread>
+#include <type_traits>
 #include <vector>
 
 class BRThreadPool {
@@ -17,7 +18,7 @@ public:
 	void init(size_t);
 	template <class F, class... Args>
 	auto enqueue(F &&f, Args &&...args)
-			-> std::future<typename std::result_of<F(Args...)>::type>;
+			-> std::future<typename std::invoke_result_t<F,Args... >>;
 	~BRThreadPool();
 
 	size_t size();
@@ -63,8 +64,8 @@ inline void BRThreadPool::init(size_t threads) {
 // add new work item to the pool
 template <class F, class... Args>
 auto BRThreadPool::enqueue(F &&f, Args &&...args)
-		-> std::future<typename std::result_of<F(Args...)>::type> {
-	using return_type = typename std::result_of<F(Args...)>::type;
+		-> std::future<typename std::invoke_result_t<F, Args...>> {
+	using return_type = typename std::invoke_result_t<F, Args...>;
 
 	auto task = std::make_shared<std::packaged_task<return_type()>>(
 			std::bind(std::forward<F>(f), std::forward<Args>(args)...));

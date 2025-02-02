@@ -22,6 +22,8 @@ CESIUM_NATIVE_DIR_MODULE = "#modules/cesium_godot/native"
 
 OS_WIN = "nt"
 
+STATIC_TRIPLET = "x64-windows-static"
+
 
 def is_extension_target(argsDict) -> bool:
     return get_compile_target_definition(argsDict) == CESIUM_EXT_DEF
@@ -110,7 +112,42 @@ def compile_native(argumentsDict):
     result = subprocess.run([msbuildPath, solutionName, releaseConfig])
     if result.returncode != 0:
         print("Error building Cesium Native: %s" % str(result.stderr))
+    print("Cleaning definitions on generated files...")
+    clean_cesium_definitions()
     print("Finished building Cesium Native!")
+
+
+def clean_cesium_definitions():
+    """
+    This function modifies some of Cesium's header files to clean up
+    definitions that conflict with the engine's
+    """
+    # Get the conflicting file (Material.h in our case)
+
+    conflictFilePath: str = "%s/%s" % (CESIUM_NATIVE_DIR_EXT,
+                                       "/CesiumGltf/generated/include/CesiumGltf")
+    conflictFilePath = _scons_to_abs_path(conflictFilePath) + "/Material.h"
+    # Load the file into memory
+
+    # Read in the file
+    fileData: str = ""
+    with open(conflictFilePath, 'r') as file:
+        fileData = file.read()
+
+    # Replace the target string
+    fileData = fileData.replace('#pragma once', '#pragma once\n#undef OPAQUE')
+
+    # Write the file out again
+    with open(conflictFilePath, 'w') as file:
+        file.write(fileData)
+
+
+def install_additional_libs():
+    vcpkgPath = find_ezvcpkg_path()
+    executable = "%s/%s" % (vcpkgPath, "vcpkg.exe")
+    subprocess.run([executable, "install", "curl:%s" % (STATIC_TRIPLET)])
+    subprocess.run([executable, "install", "uriparser:%s" % (STATIC_TRIPLET)])
+    subprocess.run([executable, "install", "ada-url:%s" % (STATIC_TRIPLET)])
 
 
 def find_ms_build() -> str:
@@ -155,6 +192,20 @@ def find_in_dir_recursive(path: str, pattern: str) -> (bool, str):
             return True, os.path.join(root, filename)
 
     return False, ''
+
+
+def find_ezvcpkg_path() -> str:
+    # Search the C drive
+    assumedPath = "C:/.ezvcpkg"
+    if (not os.path.exists(assumedPath)):
+        print("EZVCPKG not found, run with buildCesium=true to install dependencies")
+    # Then find the latest version (use the last created folder)
+    subDirs = [x for x in next(os.walk(assumedPath))[1]]
+    subDirs.sort(reverse=True, key=lambda x: os.stat(
+        "%s/%s" % (assumedPath, x)).st_ctime)
+    latestDir = subDirs[0]
+    assumedPath = "%s/%s" % (assumedPath, latestDir)
+    return assumedPath
 
 
 def clone_engine_repo_if_needed():

@@ -1,10 +1,12 @@
 #ifndef LOCAL_ASSET_ACCESSOR_H
 #define LOCAL_ASSET_ACCESSOR_H
 
-#include "godot_cpp/variant/packed_byte_array.hpp"
+#include "CesiumAsync/AsyncSystem.h"
+#include "CesiumAsync/Promise.h"
 #include "missing_functions.hpp"
 #include <cstdint>
 #if defined(CESIUM_GD_EXT)
+#include "godot_cpp/variant/packed_byte_array.hpp"
 //#include <godot_cpp/core/error_macros.hpp>
 #elif defined(CESIUM_GD_MODULE)
 #include "core/error/error_list.h"
@@ -97,7 +99,7 @@ Vector<uint8_t> data;
 		const std::string& verb,
 		const std::string& url,
 		const std::vector<THeader>& headers = std::vector<THeader>(),
-		const gsl::span<const std::byte>& contentPayload = {}) override {
+		const std::span<const std::byte>& contentPayload = {}) override {
 
 		return asyncSystem.createFuture<std::shared_ptr<CesiumAsync::IAssetRequest>>([=](CesiumAsync::Promise<std::shared_ptr<CesiumAsync::IAssetRequest>> p_promise) {
 			std::exception notImplemented("Method not implemented yet!");

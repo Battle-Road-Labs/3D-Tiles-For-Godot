@@ -32,7 +32,7 @@ public:
 		const std::string& verb,
 		const std::string& url,
 		const std::vector<THeader>& headers = std::vector<THeader>(),
-		const gsl::span<const std::byte>& contentPayload = {}) override;
+		const std::span<const std::byte>& contentPayload = {}) override;
 
 	void tick() noexcept override;
 

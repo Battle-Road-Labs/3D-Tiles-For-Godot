@@ -1,11 +1,12 @@
 #include "CesiumGDTextureLoader.h"
+#include "CesiumGltf/ImageAsset.h"
 #include "godot_cpp/core/error_macros.hpp"
 #include "error_names.hpp"
 
 constexpr int32_t RGBA_CHANNEL_COUNT = 4;
 constexpr int32_t RGB_CHANNEL_COUNT = 3;
 
-Ref<ImageTexture> CesiumGDTextureLoader::load_image_texture(const CesiumGltf::ImageCesium& image, bool generateMipMaps, bool imageHasMipMaps)
+Ref<ImageTexture> CesiumGDTextureLoader::load_image_texture(const CesiumGltf::ImageAsset& image, bool generateMipMaps, bool imageHasMipMaps)
 {
 	//TODO: we can probably optimize this
 	PackedByteArray rawImageData;

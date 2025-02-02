@@ -1,6 +1,7 @@
 #include "NetworkAssetAccessor.h"
 #include "../Models/LocalAssetResponse.h"
 #include "../Models/LocalAssetRequest.h"
+#include "CesiumAsync/AsyncSystem.h"
 #include "CesiumUtility/Uri.h"
 #include "../Models/CesiumGDTileset.h"
 #include "godot_cpp/templates/vector.hpp"
@@ -37,12 +38,12 @@ void NetworkAssetAccessor::set_source_node(CesiumGDTileset* nodeReference)
 
 CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>> NetworkAssetAccessor::get(const CesiumAsync::AsyncSystem& asyncSystem, const std::string& url, const std::vector<THeader>& headers /*= {}*/)
 {
-	return asyncSystem.runInWorkerThread([=]() {
+	return asyncSystem.runInWorkerThread([=, this]() {
 		return process_request(HTTPClient::METHOD_GET, asyncSystem, url, headers);
 	});
 }
 
-CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>> NetworkAssetAccessor::request(const CesiumAsync::AsyncSystem& asyncSystem, const std::string& verb, const std::string& url, const std::vector<THeader>& headers /*= std::vector<THeader>()*/, const gsl::span<const std::byte>& contentPayload /*= {}*/)
+CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>> NetworkAssetAccessor::request(const CesiumAsync::AsyncSystem& asyncSystem, const std::string& verb, const std::string& url, const std::vector<THeader>& headers /*= std::vector<THeader>()*/, const std::span<const std::byte>& contentPayload /*= {}*/)
 {
 	using HttpMethod_t = HTTPClient::Method;
 
