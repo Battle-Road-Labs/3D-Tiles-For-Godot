@@ -1,6 +1,8 @@
 # SCub for building the Godot Cesium submodule
 import CesiumBuildUtils as cesium_build_utils
 
+CESIUM_RELEASE_CONFIG = "Release"
+
 Import("env")
 
 cesium_env = env.Clone()
@@ -87,8 +89,6 @@ env.Append(CPPPATH=includePaths)
 # Library paths and linking
 env.Append(
     LIBS=[
-        cesium_build_utils.find_ezvcpkg_triplet_path() + "/lib",
-        "GSL",
         "CesiumGltfReader",
         "CesiumAsync",
         "CesiumJsonReader",
@@ -212,23 +212,24 @@ env.Append(
         "meshoptimizer"
     ],
     LIBPATH=[
-        cesium_build_utils.get_root_dir_native() + "/CesiumGltfReader/RelWithDebInfo",
-        cesium_build_utils.get_root_dir_native() + "/CesiumGeospatial/RelWithDebInfo",
-        cesium_build_utils.get_root_dir_native() + "/CesiumGltf/RelWithDebInfo",
-        cesium_build_utils.get_root_dir_native() + "/CesiumJsonReader/RelWithDebInfo",
-        cesium_build_utils.get_root_dir_native() + "/CesiumUtility/RelWithDebInfo",
-        cesium_build_utils.get_root_dir_native() + "/Cesium3DTilesSelection/RelWithDebInfo",
-        cesium_build_utils.get_root_dir_native() + "/CesiumRasterOverlays/RelWithDebInfo",
-        cesium_build_utils.get_root_dir_native() + "/CesiumGeometry/RelWithDebInfo",
-        cesium_build_utils.get_root_dir_native() + "/Cesium3DTilesReader/RelWithDebInfo",
-        cesium_build_utils.get_root_dir_native() + "/CesiumGltfContent/RelWithDebInfo",
+        cesium_build_utils.get_root_dir_native() + "/CesiumGltfReader/%s" % (CESIUM_RELEASE_CONFIG),
+        cesium_build_utils.get_root_dir_native() + "/CesiumGeospatial/%s" % (CESIUM_RELEASE_CONFIG),
+        cesium_build_utils.get_root_dir_native() + "/CesiumGltf/%s" % (CESIUM_RELEASE_CONFIG),
+        cesium_build_utils.get_root_dir_native() + "/CesiumJsonReader/%s" % (CESIUM_RELEASE_CONFIG),
+        cesium_build_utils.get_root_dir_native() + "/CesiumUtility/%s" % (CESIUM_RELEASE_CONFIG),
+        cesium_build_utils.get_root_dir_native() + "/Cesium3DTilesSelection/%s" % (CESIUM_RELEASE_CONFIG),
+        cesium_build_utils.get_root_dir_native() + "/CesiumRasterOverlays/%s" % (CESIUM_RELEASE_CONFIG),
+        cesium_build_utils.get_root_dir_native() + "/CesiumGeometry/%s" % (CESIUM_RELEASE_CONFIG),
+        cesium_build_utils.get_root_dir_native() + "/Cesium3DTilesReader/%s" % (CESIUM_RELEASE_CONFIG),
+        cesium_build_utils.get_root_dir_native() + "/CesiumGltfContent/%s" % (CESIUM_RELEASE_CONFIG),
         cesium_build_utils.get_root_dir_native(
-        ) + "/CesiumQuantizedMeshTerrain/RelWithDebInfo",
-        cesium_build_utils.get_root_dir_native() + "/Cesium3DTilesContent/RelWithDebInfo",
+        ) + "/CesiumQuantizedMeshTerrain/%s" % (CESIUM_RELEASE_CONFIG),
+        cesium_build_utils.get_root_dir_native() + "/Cesium3DTilesContent/%s" % (CESIUM_RELEASE_CONFIG),
         cesium_build_utils.get_root_dir_native() + "/libs/gsl",
         cesium_build_utils.get_root_dir_native() + "/libs/absl",
         cesium_build_utils.get_root_dir_native() + "/libs",
-        cesium_build_utils.get_root_dir_native() + "/CesiumAsync/RelWithDebInfo",
-        cesium_build_utils.get_root_dir() + "/third_party"
+        cesium_build_utils.get_root_dir_native() + "/CesiumAsync/%s" % (CESIUM_RELEASE_CONFIG),
+        cesium_build_utils.get_root_dir() + "/third_party",
+        cesium_build_utils.find_ezvcpkg_triplet_path() + "/lib"
     ],
 )
