@@ -343,7 +343,6 @@ bool CesiumGDTileset::is_georeferenced(CesiumGDGeoreference** outRef) const
 
 void CesiumGDTileset::recreate_tileset()
 {
-	ERR_PRINT("Recreate tileset not implemented yet!");
 }
 
 void CesiumGDTileset::load_tileset()

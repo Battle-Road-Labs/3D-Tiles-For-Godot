@@ -39,7 +39,7 @@ Ref<ImageTexture> CesiumGDTextureLoader::load_image_texture(const CesiumGltf::Im
 
 	}
 	Ref<ImageTexture> textureToUse = ImageTexture::create_from_image(godotImage);
-    return textureToUse;
+  return textureToUse;
 }
 
 Error CesiumGDTextureLoader::try_get_image_format(int32_t channelCount, int32_t bytesPerChannel, Image::Format* outFormat)

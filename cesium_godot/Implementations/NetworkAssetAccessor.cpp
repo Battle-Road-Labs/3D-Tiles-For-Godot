@@ -90,7 +90,7 @@ CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>> NetworkAssetAcc
 	}
 
 	//Check what the method is and then request it accordingly
-	return asyncSystem.runInWorkerThread([=]() {
+	return asyncSystem.runInWorkerThread([=, this]() {
 		return process_request(ENUM_METHODS[idx], asyncSystem, url, headers);
 	});
 }
@@ -103,7 +103,6 @@ CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>> NetworkAssetAcc
 {
 	CesiumAsync::Promise<FutureResult_t> p_promise = asyncSystem.createPromise<FutureResult_t>();
 	CesiumAsync::Future<FutureResult_t> future = p_promise.getFuture();
-
 	this->m_curlClient.send_request(
 			url.c_str(),
 			method,
