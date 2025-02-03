@@ -186,6 +186,7 @@ private:
 		}
 
 		curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, outStatus);
+		curl_slist_free_all(curlHeaders);
 		return buffer;
 	}
 

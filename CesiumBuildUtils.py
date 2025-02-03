@@ -24,6 +24,7 @@ OS_WIN = "nt"
 
 STATIC_TRIPLET = "x64-windows-static"
 
+RELEASE_CONFIG = "RelWithDebInfo"
 
 def is_extension_target(argsDict) -> bool:
     return get_compile_target_definition(argsDict) == CESIUM_EXT_DEF
@@ -101,7 +102,7 @@ def compile_native(argumentsDict):
               os.name, file=sys.stderr)
 
     # execute MSBuild
-    buildConfig: str = "Release"
+    buildConfig: str = RELEASE_CONFIG
     solutionName: str = "cesium-native.sln"
     msbuildPath: str = find_ms_build()
     if msbuildPath == '':
