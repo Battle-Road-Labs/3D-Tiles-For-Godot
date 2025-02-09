@@ -46,7 +46,7 @@ private:
 
 	void create_and_add_overlay(CesiumGDTileset* tilesetInstance);
 
-	int64_t m_assetId;
+	int64_t m_assetId = 0;
 
 	String m_materialKey = "0";
 

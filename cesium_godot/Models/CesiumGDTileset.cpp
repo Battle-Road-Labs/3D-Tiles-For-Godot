@@ -668,11 +668,8 @@ bool CesiumGDTileset::_get(const StringName& p_name, Variant& r_property) const
 void CesiumGDTileset::_enter_tree() {
 	CesiumGlobe* globe = Godot3DTiles::AssetManipulation::find_or_create_globe(this);
 	//Parent to the globe
-	this->reparent(globe);
-	//Set the rotation and config here
-	Vector3 euler = this->get_rotation_degrees();
-	euler.x = 90;
-	this->set_rotation_degrees(euler);
+	this->reparent(globe, true);
+	this->set_owner(globe->get_parent_node_3d());
 }
 	
 

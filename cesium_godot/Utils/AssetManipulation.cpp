@@ -9,19 +9,24 @@ const char* CESIUM_TILESET_NAME = "CesiumGDTileset";
 
 CesiumGlobe* Godot3DTiles::AssetManipulation::find_or_create_globe(Node3D* baseNode) {
   Node3D* root = get_root_of_edit_scene(baseNode);
+  printf("Root name: %s\n", root->get_name().to_utf8_buffer().ptr());
 	CesiumGlobe* globe = nullptr;
-	for (int32_t i = 0; i < root->get_child_count(); i++) {
+	int32_t count = root->get_child_count();
+	printf("Child count: %d\n", count);
+	for (int32_t i = 0; i < count; i++) {
 		Node* child = root->get_child(i);
 		CesiumGlobe* foundChild = Object::cast_to<CesiumGlobe>(child);
 		if (foundChild != nullptr) {
 			return foundChild;
 		}
 	}
+	
 	//Create a globe
 	globe = memnew(CesiumGlobe);
 	globe->set_name(CESIUM_GLOBE_NAME);
+	globe->set_rotation_degrees(Vector3(-90.0, 0.0, 0.0));
 	root->add_child(globe);
-	globe->_owner = root;
+	globe->set_owner(root);
 	return globe;
 }
 

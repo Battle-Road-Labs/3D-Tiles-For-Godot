@@ -143,7 +143,7 @@ private:
 
 	String m_url{};
 
-	int64_t m_cesiumIonAssetId;
+	int64_t m_cesiumIonAssetId = 0;
 	std::unordered_map<size_t, MeshInstance3D*> m_instancedTilesByHash{};
 
 	bool m_initialLoadingFinished;
