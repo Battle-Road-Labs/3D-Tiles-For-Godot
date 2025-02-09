@@ -110,6 +110,8 @@ public:
 
 	bool is_georeferenced(CesiumGDGeoreference** outRef) const;
 
+	void _enter_tree() override;
+
 private:
 
 	void recreate_tileset();
@@ -156,6 +158,7 @@ private:
 
 protected:
 	static void _bind_methods();
+
 	void _get_property_list(List<PropertyInfo>* properties) const;
 
 	bool _set(const StringName& p_name, const Variant& p_property);

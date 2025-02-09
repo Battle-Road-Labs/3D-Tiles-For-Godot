@@ -15,7 +15,7 @@ var initial_rotation_speed : float
 var initial_zoom_speed : float
 
 @export
-var tileset : CesiumGDTileset
+var tilesets : Array[CesiumGDTileset]
 
 @export
 var globe_node : CesiumGlobe
@@ -98,6 +98,8 @@ var current_yaw : float = 0
 
 var eus_basis : Basis
 
+var shouldRaycast: bool = false
+
 func _ready() -> void:
 	
 	self.position_blend = 0
@@ -110,6 +112,10 @@ func _ready() -> void:
 	const defaultPos := Vector3(-1292935, -4740026, 4056960)
 	var engineTestPos := self.globe_node.get_tx_ecef_to_engine() * defaultPos
 	self.global_position = engineTestPos
+	for tileset in self.tilesets:
+		if tileset.create_physics_meshes:
+			continue
+		self.shouldRaycast = true
 
 
 func _post_init() -> void:
@@ -143,10 +149,11 @@ func _process(delta: float) -> void:
 	
 	adjust_far_and_near(delta)
 	if (self.loaded):
-		self.tileset.test_rendering(engineToEcefTransform)
+		for tileset in self.tilesets:
+			tileset.test_rendering(engineToEcefTransform)
 	self.ray_hit_pos = self.globe_node.ray_to_surface(self.global_position, self.global_transform.basis.z)
 	
-	if(self.tileset.create_physics_meshes):
+	if(self.shouldRaycast):
 		self.distance_to_surface = self._get_surface_distance_raycast()
 	else:	
 		self.distance_to_surface = self.ray_hit_pos.distance_to(self.global_position)
@@ -211,8 +218,6 @@ func _get_surface_distance_raycast() -> float:
 func adjust_far_and_near(delta: float) -> void:
 	#So, here let's calculate the amount of z-far based on the distance
 	#It should be about 1.5 radii
-	if (!self.tileset.is_initial_loading_finished()):
-		return
 	self.far = self.global_position.length() * 1.8
 
 func calculate_rotation_speed(delta: float) -> float:

@@ -1,3 +1,4 @@
+#include "Models/CesiumGlobe.h"
 #define SPDLOG_COMPILED_LIB
 #define SPDLOG_FMT_EXTERNAL
 
@@ -14,6 +15,7 @@
 #include <godot_cpp/classes/dir_access.hpp>
 #include <godot_cpp/classes/collision_shape3d.hpp>
 #include <godot_cpp/core/error_macros.hpp>
+#include <godot_cpp/classes/scene_tree.hpp>
 using namespace godot;
 #elif defined(CESIUM_GD_MODULE)
 #include "scene/3d/mesh_instance_3d.h"
@@ -28,6 +30,7 @@ using namespace godot;
 #endif
 
 
+#include "Utils/AssetManipulation.h"
 #include "Cesium3DTilesSelection/Tileset.h"
 #include "../CesiumGDModelLoader.h"
 #include "Cesium3DTilesSelection/TilesetExternals.h"
@@ -235,6 +238,7 @@ bool CesiumGDTileset::get_create_physics_meshes() const
 
 void CesiumGDTileset::test_rendering(const Transform3D& cameraTransform)
 {
+	
 	bool isGeoreferenced = this->is_georeferenced(&this->m_georeference);
 	if (this->m_activeTileset == nullptr) {
 
@@ -326,6 +330,7 @@ void CesiumGDTileset::add_overlay(CesiumGDRasterOverlay* overlay)
 
 bool CesiumGDTileset::is_georeferenced(CesiumGDGeoreference** outRef) const
 {
+	
 	//HACK: Georeference static var
 	static bool hadGeoReference = true;
 	if (this->m_georeference != nullptr) {
@@ -338,6 +343,7 @@ bool CesiumGDTileset::is_georeferenced(CesiumGDGeoreference** outRef) const
 	Node3D* parent = this->get_parent_node_3d();
 	*outRef = Object::cast_to<CesiumGDGeoreference>(parent);
 	hadGeoReference = *outRef != nullptr;
+	
 	return hadGeoReference;
 }
 
@@ -347,6 +353,7 @@ void CesiumGDTileset::recreate_tileset()
 
 void CesiumGDTileset::load_tileset()
 {
+	
 	//Get the options to read the tileset and then load it into memory
 	const Cesium3DTilesSelection::TilesetOptions& options = this->m_tilesetConfig->options;
 	const Cesium3DTilesSelection::TilesetContentOptions& contentOptions = this->m_tilesetConfig->contentOptions;
@@ -377,6 +384,7 @@ void CesiumGDTileset::load_tileset()
 		if (overlay == nullptr) continue;
 		overlay->add_to_tileset(this);
 	}
+
 }
 
 Cesium3DTilesSelection::TilesetExternals CesiumGDTileset::create_tileset_externals()
@@ -656,3 +664,15 @@ bool CesiumGDTileset::_get(const StringName& p_name, Variant& r_property) const
 
 	return false;
 }
+
+void CesiumGDTileset::_enter_tree() {
+	CesiumGlobe* globe = Godot3DTiles::AssetManipulation::find_or_create_globe(this);
+	//Parent to the globe
+	this->reparent(globe);
+	//Set the rotation and config here
+	Vector3 euler = this->get_rotation_degrees();
+	euler.x = 90;
+	this->set_rotation_degrees(euler);
+}
+	
+

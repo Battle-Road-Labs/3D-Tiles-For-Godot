@@ -29,10 +29,6 @@ public:
 
 	void set_asset_id(int64_t id);
 
-	void set_ion_access_token(const String& token);
-
-	const String& get_ion_access_token() const;
-
 	void set_material_key(const String& key);
 
 	const String& get_material_key() const;
@@ -52,8 +48,6 @@ private:
 
 	int64_t m_assetId;
 
-	String m_cesiumIonToken{};
-
 	String m_materialKey = "0";
 
 	Ref<CesiumGDConfig> m_configInstance;
@@ -65,5 +59,4 @@ protected:
 };
 
 #endif // !CESIUM_GD_RASTER_OVERLAY_H
-
 

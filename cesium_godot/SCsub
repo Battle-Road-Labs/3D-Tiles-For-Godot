@@ -36,6 +36,7 @@ sources = [
     cesium_build_utils.get_root_dir() + "/CesiumGDModelLoader.cpp",
     cesium_build_utils.get_root_dir() + "/Utils/CesiumGDTextureLoader.cpp",
     cesium_build_utils.get_root_dir() + "/Utils/CesiumDebugUtils.cpp",
+    cesium_build_utils.get_root_dir() + "/Utils/AssetManipulation.cpp",
 ]
 
 
