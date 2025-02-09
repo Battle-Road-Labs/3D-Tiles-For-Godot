@@ -43,6 +43,8 @@ public:
 
 	Vector3 get_normal_at_surface_pos(const EcefVector3& ecef) const;
 
+	void _enter_tree() override;
+
 private:
 	EcefVector3 trace_ray_to_ellipsoid(const EcefVector3& origin, const EcefVector3& rayDirection) const;
 

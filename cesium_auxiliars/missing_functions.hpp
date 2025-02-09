@@ -11,4 +11,6 @@ using namespace godot;
 
 Ref<FileAccess> open_file_access_with_err(const String &p_path, FileAccess::ModeFlags p_flags, Error* err);
 
+bool is_editor_mode();
+
 #endif

@@ -114,9 +114,14 @@ void* GodotPrepareRenderResources::prepareInMainThread(Tile& tile, void* pLoadTh
 
 void GodotPrepareRenderResources::free(Tile& tile, void* pLoadThreadResult, void* pMainThreadResult) noexcept
 {
-	//auto* instance = static_cast<MeshInstance3D*>(pMainThreadResult);
-	//if (instance == nullptr) return;
-	//instance->queue_free();
+	auto* instance = static_cast<MeshInstance3D*>(pMainThreadResult);
+	printf("Cast finished\n");
+	if (instance == nullptr){
+		printf("Instance was null\n");		
+		return;
+	} 
+	instance->queue_free();
+	printf("Freed instance\n");
 }
 
 void GodotPrepareRenderResources::attachRasterInMainThread(const Tile& tile, int32_t overlayTextureCoordinateID, const CesiumRasterOverlays::RasterOverlayTile& rasterTile, void* pMainThreadRendererResources, const glm::dvec2& translation, const glm::dvec2& scale)

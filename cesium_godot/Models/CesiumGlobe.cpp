@@ -1,4 +1,6 @@
 #include "CesiumGlobe.h"
+#include "godot_cpp/classes/engine.hpp"
+#include "missing_functions.hpp"
 
 #if defined(CESIUM_GD_EXT)
 #include <godot_cpp/classes/viewport.hpp>
@@ -108,6 +110,12 @@ EcefVector3 CesiumGlobe::trace_ray_to_ellipsoid(const EcefVector3& origin, const
 
 	Vector3 pf = origin + rayDirection * d;
 	return pf;
+}
+
+
+void CesiumGlobe::_enter_tree() {
+	if (!is_editor_mode()) return;
+	this->set_rotation_degrees(Vector3(-90.0, 0.0, 0.0));	
 }
 
 void CesiumGlobe::_bind_methods()

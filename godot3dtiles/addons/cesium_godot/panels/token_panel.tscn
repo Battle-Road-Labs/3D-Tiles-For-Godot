@@ -1,15 +1,27 @@
-[gd_scene load_steps=2 format=3 uid="uid://bg13hhs46nnn"]
+[gd_scene load_steps=3 format=3 uid="uid://bg13hhs46nnn"]
+
+[ext_resource type="Script" path="res://addons/cesium_godot/scripts/token_panel.gd" id="1_mah40"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_r4tjn"]
 outline_size = 1
 
-[node name="CesiumPanel" type="MarginContainer"]
-custom_minimum_size = Vector2(100, 100)
-offset_right = 486.0
-offset_bottom = 551.0
+[node name="Popup" type="Popup" node_paths=PackedStringArray("existing_token_check", "specific_token_check")]
+title = "Cesium Token Utilities"
+initial_position = 2
+size = Vector2i(499, 1263)
+visible = true
+unresizable = false
+borderless = false
+content_scale_mode = 1
+script = ExtResource("1_mah40")
+existing_token_check = NodePath("VSplitContainer/VBoxContainer/HBoxContainer2/ExistingTokenCheck")
+specific_token_check = NodePath("VSplitContainer/VBoxContainer/HBoxContainer5/SpecificTokenCheck")
 
 [node name="VSplitContainer" type="VSplitContainer" parent="."]
-layout_mode = 2
+offset_left = 4.0
+offset_top = 4.0
+offset_right = 499.0
+offset_bottom = 1263.0
 
 [node name="VBoxContainer" type="VBoxContainer" parent="VSplitContainer"]
 layout_mode = 2
@@ -56,6 +68,7 @@ layout_mode = 2
 
 [node name="ExistingTokenCheck" type="CheckBox" parent="VSplitContainer/VBoxContainer/HBoxContainer2"]
 layout_mode = 2
+button_pressed = true
 
 [node name="Label" type="Label" parent="VSplitContainer/VBoxContainer/HBoxContainer2"]
 layout_mode = 2

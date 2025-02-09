@@ -666,6 +666,7 @@ bool CesiumGDTileset::_get(const StringName& p_name, Variant& r_property) const
 }
 
 void CesiumGDTileset::_enter_tree() {
+	if (!is_editor_mode()) return;
 	CesiumGlobe* globe = Godot3DTiles::AssetManipulation::find_or_create_globe(this);
 	//Parent to the globe
 	this->reparent(globe, true);

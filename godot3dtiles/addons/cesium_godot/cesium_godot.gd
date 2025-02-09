@@ -3,6 +3,8 @@ extends EditorPlugin
 
 const editorAddon := preload("res://addons/cesium_godot/panels/cesium_panel.tscn")
 
+const token_panel_popup := preload("res://addons/cesium_godot/panels/token_panel.tscn")
+
 const CESIUM_GLOBE_NAME = "CesiumGlobe"
 const CESIUM_TILESET_NAME = "CesiumGDTileset"
 
@@ -21,6 +23,7 @@ var dynamic_camera_button : Button
 
 var auth_controller_node : OAuthController = null
 var cesium_builder_node : CesiumAssetBuilder = null
+var token_panel: TokenPanel = null
 
 func _enter_tree() -> void:
 	self.docked_scene = editorAddon.instantiate()
@@ -31,6 +34,9 @@ func _enter_tree() -> void:
 	self.add_child(self.auth_controller_node)
 	self.cesium_builder_node = CesiumAssetBuilder.new()
 	self.add_child(self.cesium_builder_node)
+	self.token_panel = self.token_panel_popup.instantiate()
+	self.add_child(self.token_panel)
+	self.token_panel.hide()
 	print("Enabled Cesium plugin")
 
 func _exit_tree() -> void:
@@ -58,6 +64,10 @@ func init_buttons() -> void:
 	self.blank_tileset_button.pressed.connect(add_tileset)
 	self.dynamic_camera_button.pressed.connect(create_dynamic_camera)
 	self.geo_ref_checkbox.toggled.connect(on_georef_checked)
+	self.token_button.pressed.connect(on_token_panel_pressed)
+
+func on_token_panel_pressed() -> void:
+	self.token_panel.popup()
 
 func set_utility_buttons_enabled(enabled: bool) -> void:
 	var utilityButtons := self.get_utility_buttons();
