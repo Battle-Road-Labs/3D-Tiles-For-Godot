@@ -116,6 +116,7 @@ func request_token(receivedCode: String) -> Array:
 			for key in bodyDict.keys():
 				message += "; " + bodyDict[key]
 		return [ERR_CONNECTION_ERROR, message]
+	print("New access token: " + bodyDict["access_token"])
 	self.config.accessToken = bodyDict["access_token"]
 	cancel_connection()
 	return [OK, ""]

@@ -139,7 +139,7 @@ layout_mode = 2
 custom_minimum_size = Vector2(150, 50)
 layout_mode = 2
 
-[node name="ConnectButton" type="Button" parent="VSplitContainer/VBoxContainer/HBoxContainer4"]
+[node name="CreateOrUseToken" type="Button" parent="VSplitContainer/VBoxContainer/HBoxContainer4"]
 custom_minimum_size = Vector2(1.45519e-11, 50)
 layout_mode = 2
 text = "Create / Use token for project"
