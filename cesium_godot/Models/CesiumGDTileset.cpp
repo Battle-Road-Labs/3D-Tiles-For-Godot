@@ -537,9 +537,19 @@ void CesiumGDTileset::process_tile_chunk(const std::vector<Cesium3DTilesSelectio
 
 
 void CesiumGDTileset::register_tile(MeshInstance3D *instance, size_t hash) {
-	this->add_child(instance);
+	auto internalMode = this->m_showHierarchy ? Node::InternalMode::INTERNAL_MODE_DISABLED : Node::InternalMode::INTERNAL_MODE_FRONT; 
+	this->add_child(instance, false, internalMode);
 	this->m_instancedTilesByHash.insert({ hash, instance });
 	tileCount++;
+}
+
+
+bool CesiumGDTileset::get_show_hierarchy() const {
+	return this->m_showHierarchy;
+}
+
+void CesiumGDTileset::set_show_hierarchy(bool show) {
+	this->m_showHierarchy = show;
 }
 
 void CesiumGDTileset::_bind_methods()
@@ -601,6 +611,12 @@ void CesiumGDTileset::_bind_methods()
 	ClassDB::bind_method(D_METHOD("set_ion_asset_id", ION_ASSET_ID_P_NAME), &CesiumGDTileset::set_ion_asset_id);
 	ClassDB::bind_method(D_METHOD("get_ion_asset_id"), &CesiumGDTileset::get_ion_asset_id);
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "ion_asset_id"), "set_ion_asset_id", "get_ion_asset_id");
+
+
+	ClassDB::bind_method(D_METHOD("set_show_hierarchy)", "showHierarchy"), &CesiumGDTileset::set_show_hierarchy);
+	ClassDB::bind_method(D_METHOD("get_show_hierarchy)"), &CesiumGDTileset::get_show_hierarchy);
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_hierarchy)"), "set_show_hierarchy)", "get_show_hierarchy)");
+	
 #pragma endregion
 
 #pragma region Public methods

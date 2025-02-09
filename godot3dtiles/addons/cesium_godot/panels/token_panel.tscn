@@ -1,21 +1,21 @@
 [gd_scene load_steps=3 format=3 uid="uid://bg13hhs46nnn"]
 
-[ext_resource type="Script" path="res://addons/cesium_godot/scripts/token_panel.gd" id="1_mah40"]
+[sub_resource type="LabelSettings" id="LabelSettings_200ih"]
+font_size = 18
 
 [sub_resource type="LabelSettings" id="LabelSettings_r4tjn"]
 outline_size = 1
 
-[node name="Popup" type="Popup" node_paths=PackedStringArray("existing_token_check", "specific_token_check")]
+[node name="Popup" type="Popup"]
+transparent_bg = true
 title = "Cesium Token Utilities"
 initial_position = 2
-size = Vector2i(499, 1263)
+size = Vector2i(499, 700)
 visible = true
 unresizable = false
 borderless = false
+max_size = Vector2i(499, 700)
 content_scale_mode = 1
-script = ExtResource("1_mah40")
-existing_token_check = NodePath("VSplitContainer/VBoxContainer/HBoxContainer2/ExistingTokenCheck")
-specific_token_check = NodePath("VSplitContainer/VBoxContainer/HBoxContainer5/SpecificTokenCheck")
 
 [node name="VSplitContainer" type="VSplitContainer" parent="."]
 offset_left = 4.0
@@ -29,7 +29,8 @@ layout_mode = 2
 [node name="DescriptionLabel" type="Label" parent="VSplitContainer/VBoxContainer"]
 custom_minimum_size = Vector2(20, 10)
 layout_mode = 2
-text = "Cesium for Godot embeds a Cesium ion token in your project in order to allow it to access the assets you add to your levels. Select the Cesium ion token to use."
+text = "3D Tiles For Godot embeds a Cesium ion token in your project in order to allow it to access the assets you add to your levels. Select the Cesium ion token to use."
+label_settings = SubResource("LabelSettings_200ih")
 autowrap_mode = 2
 
 [node name="HSeparator" type="HSeparator" parent="VSplitContainer/VBoxContainer"]
@@ -68,7 +69,6 @@ layout_mode = 2
 
 [node name="ExistingTokenCheck" type="CheckBox" parent="VSplitContainer/VBoxContainer/HBoxContainer2"]
 layout_mode = 2
-button_pressed = true
 
 [node name="Label" type="Label" parent="VSplitContainer/VBoxContainer/HBoxContainer2"]
 layout_mode = 2
@@ -92,6 +92,7 @@ layout_mode = 2
 
 [node name="SpecificTokenCheck" type="CheckBox" parent="VSplitContainer/VBoxContainer/HBoxContainer5"]
 layout_mode = 2
+button_pressed = true
 
 [node name="VBoxContainer" type="VBoxContainer" parent="VSplitContainer/VBoxContainer/HBoxContainer5"]
 layout_mode = 2
@@ -110,6 +111,22 @@ text = "Token:"
 layout_mode = 2
 size_flags_horizontal = 3
 placeholder_text = "Your token here"
+
+[node name="Spacing3" type="MarginContainer" parent="VSplitContainer/VBoxContainer"]
+custom_minimum_size = Vector2(150, 50)
+layout_mode = 2
+
+[node name="ConfigurationContainer" type="HBoxContainer" parent="VSplitContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="VSplitContainer/VBoxContainer/ConfigurationContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Label" type="Label" parent="VSplitContainer/VBoxContainer/ConfigurationContainer/VBoxContainer"]
+layout_mode = 2
+text = "Configuration to write to"
+label_settings = SubResource("LabelSettings_r4tjn")
 
 [node name="MarginContainer3" type="MarginContainer" parent="VSplitContainer/VBoxContainer"]
 custom_minimum_size = Vector2(1.45519e-11, 50)

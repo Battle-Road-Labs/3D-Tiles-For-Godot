@@ -23,21 +23,28 @@ var dynamic_camera_button : Button
 
 var auth_controller_node : OAuthController = null
 var cesium_builder_node : CesiumAssetBuilder = null
-var token_panel: TokenPanel = null
+
+# So, for some reason we cannot have a custom popup because some definitions get lost in instantiation
+# We don't really know why this is, but we circunvent it by just storing the data on another class
+var token_panel: Popup = null
+
+var token_panel_data : TokenPanelData = null
 
 func _enter_tree() -> void:
 	self.docked_scene = editorAddon.instantiate()
 	add_control_to_dock(EditorPlugin.DOCK_SLOT_RIGHT_UL, self.docked_scene)
-	self.init_buttons()
 	self.set_utility_buttons_enabled(false)
 	self.auth_controller_node = OAuthController.new()
 	self.add_child(self.auth_controller_node)
 	self.cesium_builder_node = CesiumAssetBuilder.new()
 	self.add_child(self.cesium_builder_node)
 	self.token_panel = self.token_panel_popup.instantiate()
+	self.token_panel_data = TokenPanelData.new()
 	self.add_child(self.token_panel)
 	self.token_panel.hide()
 	print("Enabled Cesium plugin")
+	self.init_buttons()
+
 
 func _exit_tree() -> void:
 	print("Disabled Cesium plugin")
@@ -55,6 +62,7 @@ func init_buttons() -> void:
 	self.blank_tileset_button = self.docked_scene.find_child("BlankTilesetButton") as Button
 	self.dynamic_camera_button = self.docked_scene.find_child("DynamicCameraButton") as Button
 	self.geo_ref_checkbox = self.docked_scene.find_child("GeoRefCheckButton") as CheckButton
+	self.token_panel_data.initialize_fields(self.token_panel)
 	# Connect to their signals
 	self.upload_button.pressed.connect(on_upload_pressed)
 	self.learn_button.pressed.connect(on_learn_pressed)

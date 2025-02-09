@@ -95,6 +95,9 @@ public:
 
 	bool get_create_physics_meshes() const;
 
+	bool get_show_hierarchy() const;
+
+	void set_show_hierarchy(bool show);
 
 #pragma endregion
 
@@ -147,6 +150,8 @@ private:
 	std::unordered_map<size_t, MeshInstance3D*> m_instancedTilesByHash{};
 
 	bool m_initialLoadingFinished;
+
+	bool m_showHierarchy;
 
 	CesiumDataSource m_selectedDataSource = CesiumDataSource::FromCesiumIon;
 
