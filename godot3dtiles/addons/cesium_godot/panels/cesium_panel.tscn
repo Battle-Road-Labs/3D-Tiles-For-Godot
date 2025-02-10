@@ -56,20 +56,6 @@ label_settings = SubResource("LabelSettings_h2mxq")
 [node name="HSeparator" type="HSeparator" parent="VSplitContainer/VBoxContainer"]
 layout_mode = 2
 
-[node name="HBoxContainer4" type="HBoxContainer" parent="VSplitContainer/VBoxContainer"]
-layout_mode = 2
-
-[node name="Georeference Label" type="Label" parent="VSplitContainer/VBoxContainer/HBoxContainer4"]
-layout_mode = 2
-text = "Use georeferences"
-
-[node name="MarginContainer" type="MarginContainer" parent="VSplitContainer/VBoxContainer/HBoxContainer4"]
-custom_minimum_size = Vector2(50, 1.45519e-11)
-layout_mode = 2
-
-[node name="GeoRefCheckButton" type="CheckButton" parent="VSplitContainer/VBoxContainer/HBoxContainer4"]
-layout_mode = 2
-
 [node name="HBoxContainer" type="HBoxContainer" parent="VSplitContainer/VBoxContainer"]
 layout_mode = 2
 
