@@ -80,8 +80,44 @@ text = "Blank 3D Tiles Tileset"
 [node name="MarginContainer" type="MarginContainer" parent="VSplitContainer/VBoxContainer/HBoxContainer"]
 custom_minimum_size = Vector2(50, 1.45519e-11)
 layout_mode = 2
+size_flags_horizontal = 3
 
 [node name="BlankTilesetButton" type="Button" parent="VSplitContainer/VBoxContainer/HBoxContainer"]
+custom_minimum_size = Vector2(60, 0)
+layout_mode = 2
+text = "Add"
+
+[node name="HBoxContainer5" type="HBoxContainer" parent="VSplitContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="Blank 3D Label" type="Label" parent="VSplitContainer/VBoxContainer/HBoxContainer5"]
+layout_mode = 2
+text = "Cesium World Terrain + Bing Maps Aerial Imagery"
+
+[node name="MarginContainer" type="MarginContainer" parent="VSplitContainer/VBoxContainer/HBoxContainer5"]
+custom_minimum_size = Vector2(10, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="WorldAndBingButton" type="Button" parent="VSplitContainer/VBoxContainer/HBoxContainer5"]
+custom_minimum_size = Vector2(60, 0)
+layout_mode = 2
+text = "Add"
+
+[node name="HBoxContainer6" type="HBoxContainer" parent="VSplitContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="Blank 3D Label" type="Label" parent="VSplitContainer/VBoxContainer/HBoxContainer6"]
+layout_mode = 2
+text = "Cesium World Terrain + OSM Buildings"
+
+[node name="MarginContainer" type="MarginContainer" parent="VSplitContainer/VBoxContainer/HBoxContainer6"]
+custom_minimum_size = Vector2(25, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="WorldAndOsmButton" type="Button" parent="VSplitContainer/VBoxContainer/HBoxContainer6"]
+custom_minimum_size = Vector2(60, 0)
 layout_mode = 2
 text = "Add"
 
@@ -95,8 +131,10 @@ text = "Dynamic Camera"
 [node name="MarginContainer" type="MarginContainer" parent="VSplitContainer/VBoxContainer/HBoxContainer2"]
 custom_minimum_size = Vector2(75, 1.45519e-11)
 layout_mode = 2
+size_flags_horizontal = 3
 
 [node name="DynamicCameraButton" type="Button" parent="VSplitContainer/VBoxContainer/HBoxContainer2"]
+custom_minimum_size = Vector2(60, 0)
 layout_mode = 2
 text = "Add"
 

@@ -240,6 +240,7 @@ void CesiumGDTileset::test_rendering(const Transform3D& cameraTransform)
 {
 	
 	bool isGeoreferenced = this->is_georeferenced(&this->m_georeference);
+	printf("Is georef: %d\n", isGeoreferenced);
 	if (this->m_activeTileset == nullptr) {
 
 		if (isGeoreferenced) {
@@ -328,30 +329,24 @@ void CesiumGDTileset::add_overlay(CesiumGDRasterOverlay* overlay)
 }
 
 
-
 bool CesiumGDTileset::is_georeferenced(CesiumGlobe** outRef) const
 {
-	//HACK: Georeference static var
-	static bool hadGeoReference = true;
 	if (this->m_georeference != nullptr) {
-		//Still need to set the address to the right node
-		*outRef = this->m_georeference;
-		return true;
+		return this->m_georeference->get_origin_type() == static_cast<int32_t>(CesiumGlobe::OriginType::CartographicOrigin);
 	}
-	if (!hadGeoReference) return false;
 	//Check if the parent is of type CesiumGDGeoreference
 	Node3D* parent = this->get_parent_node_3d();
 	*outRef = Object::cast_to<CesiumGlobe>(parent);
-	hadGeoReference = (*outRef)->get_origin_type() == static_cast<int32_t>(CesiumGlobe::OriginType::CartographicOrigin);
-	return hadGeoReference;
+	return (*outRef)->get_origin_type() == static_cast<int32_t>(CesiumGlobe::OriginType::CartographicOrigin);
 }
+
 void CesiumGDTileset::recreate_tileset()
 {
 }
 
 void CesiumGDTileset::load_tileset()
 {
-	
+	printf("Tileset loading started\n");
 	//Get the options to read the tileset and then load it into memory
 	const Cesium3DTilesSelection::TilesetOptions& options = this->m_tilesetConfig->options;
 	const Cesium3DTilesSelection::TilesetContentOptions& contentOptions = this->m_tilesetConfig->contentOptions;
@@ -382,6 +377,8 @@ void CesiumGDTileset::load_tileset()
 		if (overlay == nullptr) continue;
 		overlay->add_to_tileset(this);
 	}
+
+	printf("Tileset loading end\n");
 
 }
 

@@ -88,7 +88,7 @@ private:
 	
 	glm::dvec3 m_ecefPosition{};
 
-	real_t m_scaleFactor;
+	real_t m_scaleFactor = 1.0;
 
 	bool m_shouldUpdateOrigin = false;
 	

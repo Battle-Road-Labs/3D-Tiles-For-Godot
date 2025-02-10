@@ -125,6 +125,7 @@ func _post_init() -> void:
 	self.get_tree().root.add_child(self.ray_caster)
 	self.ray_caster.enabled = true
 	self.initialized = true
+	print("Origin type: " + str(self.globe_node.origin_type))
 
 
 func _process(delta: float) -> void:

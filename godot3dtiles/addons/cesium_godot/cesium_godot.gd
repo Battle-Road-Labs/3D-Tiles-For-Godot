@@ -20,9 +20,10 @@ var connect_button : Button
 var blank_tileset_button : Button
 var geo_ref_checkbox : CheckButton
 var dynamic_camera_button : Button
+var world_and_bing_button : Button
 
 var auth_controller_node : OAuthController = null
-var cesium_builder_node : CesiumAssetBuilder = null
+var cesium_builder_node : CesiumGDAssetBuilder = null
 
 # So, for some reason we cannot have a custom popup because some definitions get lost in instantiation
 # We don't really know why this is, but we circunvent it by just storing the data on another class
@@ -36,7 +37,7 @@ func _enter_tree() -> void:
 	self.set_utility_buttons_enabled(false)
 	self.auth_controller_node = OAuthController.new()
 	self.add_child(self.auth_controller_node)
-	self.cesium_builder_node = CesiumAssetBuilder.new()
+	self.cesium_builder_node = CesiumGDAssetBuilder.new()
 	self.add_child(self.cesium_builder_node)
 	self.token_panel = self.token_panel_popup.instantiate()
 	self.token_panel_data = TokenPanelData.new()
@@ -62,6 +63,7 @@ func init_buttons() -> void:
 	self.blank_tileset_button = self.docked_scene.find_child("BlankTilesetButton") as Button
 	self.dynamic_camera_button = self.docked_scene.find_child("DynamicCameraButton") as Button
 	self.geo_ref_checkbox = self.docked_scene.find_child("GeoRefCheckButton") as CheckButton
+	self.world_and_bing_button = self.docked_scene.find_child("WorldAndBingButton") as Button
 	self.token_panel_data.initialize_fields(self.token_panel)
 	# Connect to their signals
 	self.upload_button.pressed.connect(on_upload_pressed)
@@ -73,6 +75,10 @@ func init_buttons() -> void:
 	self.dynamic_camera_button.pressed.connect(create_dynamic_camera)
 	self.geo_ref_checkbox.toggled.connect(on_georef_checked)
 	self.token_button.pressed.connect(on_token_panel_pressed)
+	self.world_and_bing_button.pressed.connect(on_world_and_bing_button)
+
+func on_world_and_bing_button() -> void:
+	self.cesium_builder_node.instantiate_tileset(3)
 
 func on_token_panel_pressed() -> void:
 	self.token_panel.popup()

@@ -3,6 +3,8 @@
 #include "../Models/CesiumGlobe.h"
 #include "Models/CesiumGDRasterOverlay.h"
 #include "Models/CesiumGDTileset.h"
+#include "godot_cpp/classes/camera3d.hpp"
+#include "godot_cpp/classes/resource_loader.hpp"
 #include "godot_cpp/classes/scene_tree.hpp"
 #include "godot_cpp/core/error_macros.hpp"
 #include "godot_cpp/core/memory.hpp"
@@ -87,12 +89,28 @@ void Godot3DTiles::AssetManipulation::instantiate_tileset(Node3D* baseNode, int3
 
 	if (rasterOverlay != nullptr) {
 		tileset->add_child(rasterOverlay);
+		rasterOverlay->set_owner(root);
 	}
 	
 }
 
 
 void Godot3DTiles::AssetManipulation::instantiate_dynamic_cam(Node3D* baseNode) {
-	
+	const char* georefCameraScript = "res://addons/cesium_godot/scripts/georeference_camera_controller.gd";
+	const char* trueOriginCameraScript = "res://addons/cesium_godot/scripts/cesium_camera_controller.gd";
+	Node3D* root = get_root_of_edit_scene(baseNode);
+	CesiumGlobe* globe = find_or_create_globe(baseNode);
+	Camera3D* camera = memnew(Camera3D);
+	root->add_child(camera);
+	camera->set_owner(root);
+	auto originType = static_cast<CesiumGlobe::OriginType>(globe->get_origin_type());
+	if (originType == CesiumGlobe::OriginType::CartographicOrigin) {
+		//Use the georef
+		Ref<Resource> script = ResourceLoader::get_singleton()->load(georefCameraScript, "Script");
+		camera->set_script(script);
+		return;
+	}
+	Ref<Resource> script = ResourceLoader::get_singleton()->load(trueOriginCameraScript, "Script");
+	camera->set_script(script);
 }
 

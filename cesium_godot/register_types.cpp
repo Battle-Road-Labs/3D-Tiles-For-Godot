@@ -9,6 +9,7 @@
 #include "Models/CesiumGDPanel.h"
 #include "Models/CesiumGDConfig.h"
 #include "Models/CesiumGDGeoreference.h"
+#include "Utils/CesiumGDAssetBuilder.h"
 
 #if defined(CESIUM_GD_EXT)
 #include <gdextension_interface.h>
@@ -33,6 +34,7 @@ void initialize_cesium_godot_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<CesiumGDPanel>();
 	ClassDB::register_class<CesiumGDRasterOverlay>();
 	ClassDB::register_class<CesiumGDConfig>();
+	ClassDB::register_class<CesiumGDAssetBuilder>();
 }
 
 void uninitialize_cesium_godot_module(ModuleInitializationLevel p_level) {
