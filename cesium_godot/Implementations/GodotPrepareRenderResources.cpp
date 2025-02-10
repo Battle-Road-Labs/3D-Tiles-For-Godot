@@ -1,6 +1,7 @@
 #include "GodotPrepareRenderResources.h"
 #include "CesiumGltf/ImageAsset.h"
 #include "CesiumGltfReader/ImageDecoder.h"
+#include "Models/CesiumGlobe.h"
 #include "error_names.hpp"
 
 #if defined(CESIUM_GD_EXT)
@@ -35,7 +36,7 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> Go
 
 	//TODO: Check if we should generate the physics meshes
 
-	return asyncSystem.createFuture<TileLoadResultAndRenderResources>([=](Promise<TileLoadResultAndRenderResources> p_promise) {
+	return asyncSystem.createFuture<TileLoadResultAndRenderResources>([=, this](Promise<TileLoadResultAndRenderResources> p_promise) {
 		Error err;
 		Ref<ArrayMesh> meshData = CesiumGDModelLoader::generate_meshes_from_model(*model, &err);
 
@@ -80,7 +81,7 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> Go
 			position = *reinterpret_cast<const glm::dvec3*>(translationArray.data());
 		}
 
-		CesiumGDGeoreference* geoReferenceNode = nullptr;
+		CesiumGlobe* geoReferenceNode = nullptr;
 
 		if (this->m_tileset->is_georeferenced(&geoReferenceNode)) {
 			real_t scaleFactor = geoReferenceNode->get_scale_factor();

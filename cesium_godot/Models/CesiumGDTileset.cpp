@@ -328,9 +328,9 @@ void CesiumGDTileset::add_overlay(CesiumGDRasterOverlay* overlay)
 }
 
 
-bool CesiumGDTileset::is_georeferenced(CesiumGDGeoreference** outRef) const
+
+bool CesiumGDTileset::is_georeferenced(CesiumGlobe** outRef) const
 {
-	
 	//HACK: Georeference static var
 	static bool hadGeoReference = true;
 	if (this->m_georeference != nullptr) {
@@ -341,12 +341,10 @@ bool CesiumGDTileset::is_georeferenced(CesiumGDGeoreference** outRef) const
 	if (!hadGeoReference) return false;
 	//Check if the parent is of type CesiumGDGeoreference
 	Node3D* parent = this->get_parent_node_3d();
-	*outRef = Object::cast_to<CesiumGDGeoreference>(parent);
-	hadGeoReference = *outRef != nullptr;
-	
+	*outRef = Object::cast_to<CesiumGlobe>(parent);
+	hadGeoReference = (*outRef)->get_origin_type() == static_cast<int32_t>(CesiumGlobe::OriginType::CartographicOrigin);
 	return hadGeoReference;
 }
-
 void CesiumGDTileset::recreate_tileset()
 {
 }

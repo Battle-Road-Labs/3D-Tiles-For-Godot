@@ -10,6 +10,8 @@ using namespace godot;
 #include "scene/3d/node_3d.h"
 #endif
 
+#include <glm/ext/vector_double3.hpp>
+
 /// @brief small typedef for clarity
 using EcefVector3 = Vector3;
 
@@ -17,6 +19,12 @@ using EcefVector3 = Vector3;
 class CesiumGlobe : public Node3D {
 	GDCLASS(CesiumGlobe, Node3D)
 public:
+
+	enum class OriginType {
+		CartographicOrigin, //Georeference
+		TrueOrigin
+	};
+
 	CesiumGlobe() {
 		this->m_initialOriginTransform = this->get_global_transform();
 	};
@@ -43,13 +51,49 @@ public:
 
 	Vector3 get_normal_at_surface_pos(const EcefVector3& ecef) const;
 
-	void _enter_tree() override;
+	int get_origin_type() const;
 
+	void set_origin_type(int type);
+
+	double get_ecef_x() const;
+
+	void set_ecef_x(double x);
+
+	double get_ecef_y() const;
+
+	void set_ecef_y(double y);
+
+	double get_ecef_z() const;
+
+	void set_ecef_z(double z);
+
+	real_t get_scale_factor() const;
+
+	void set_scale_factor(real_t factor);
+	
+	glm::dvec3 get_ecef_position() const;
+
+	void move_origin();
+
+	void set_should_update_origin(bool updateOrigin);
+
+	bool get_should_update_origin() const;
+	
+	void _enter_tree() override;
+	
 private:
 	EcefVector3 trace_ray_to_ellipsoid(const EcefVector3& origin, const EcefVector3& rayDirection) const;
 
 	Transform3D m_initialOriginTransform;
+	
+	glm::dvec3 m_ecefPosition{};
 
+	real_t m_scaleFactor;
+
+	bool m_shouldUpdateOrigin = false;
+	
+	OriginType m_originType = OriginType::CartographicOrigin;
+	
 protected:
 	static void _bind_methods();
 
