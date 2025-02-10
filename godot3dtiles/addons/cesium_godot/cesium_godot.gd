@@ -18,7 +18,6 @@ var token_button : Button
 var sign_out_button : Button
 var connect_button : Button
 var blank_tileset_button : Button
-var geo_ref_checkbox : CheckButton
 var dynamic_camera_button : Button
 var world_and_bing_button : Button
 
@@ -62,7 +61,6 @@ func init_buttons() -> void:
 	self.connect_button = self.docked_scene.find_child("ConnectButton") as Button
 	self.blank_tileset_button = self.docked_scene.find_child("BlankTilesetButton") as Button
 	self.dynamic_camera_button = self.docked_scene.find_child("DynamicCameraButton") as Button
-	self.geo_ref_checkbox = self.docked_scene.find_child("GeoRefCheckButton") as CheckButton
 	self.world_and_bing_button = self.docked_scene.find_child("WorldAndBingButton") as Button
 	self.token_panel_data.initialize_fields(self.token_panel)
 	# Connect to their signals
@@ -73,7 +71,6 @@ func init_buttons() -> void:
 	self.sign_out_button.pressed.connect(on_sign_out_pressed)
 	self.blank_tileset_button.pressed.connect(add_tileset)
 	self.dynamic_camera_button.pressed.connect(create_dynamic_camera)
-	self.geo_ref_checkbox.toggled.connect(on_georef_checked)
 	self.token_button.pressed.connect(on_token_panel_pressed)
 	self.world_and_bing_button.pressed.connect(on_world_and_bing_button)
 
