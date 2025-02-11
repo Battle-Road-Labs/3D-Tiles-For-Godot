@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://tgy43bpyp4ac"
+path="res://.godot/imported/AtmosphereTexture.glsl-1107818d45b26e6fc6dd65709aba1cbc.res"
+
+[deps]
+
+source_file="res://addons/cesium_godot/visuals/AtmosphereTexture.glsl"
+dest_files=["res://.godot/imported/AtmosphereTexture.glsl-1107818d45b26e6fc6dd65709aba1cbc.res"]
+
+[params]
+

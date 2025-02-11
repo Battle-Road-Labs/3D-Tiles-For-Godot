@@ -21,9 +21,13 @@ cesium_godot/native
 # Ignore the actual godotcpp module
 godot-cpp/
 
-# Build directories
-godot3dtiles/
-!godot3dtiles/addons
+
+
+# Ignore everything in godot3dtiles
+godot3dtiles/**
+# Except the addons subdirectory and its contents
+!godot3dtiles/addons/
+!godot3dtiles/addons/**
 
 # Ignore large files
 *.ipch

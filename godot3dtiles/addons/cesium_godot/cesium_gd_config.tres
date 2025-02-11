@@ -1,0 +1,4 @@
+[gd_resource type="CesiumGDConfig" format=3 uid="uid://dkbd856q0durb"]
+
+[resource]
+accessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJhOTRkN2M4YS03ZTlhLTRjNDEtYmEwZC0yYjk0ZGRhZWI2NjUiLCJpZCI6MjM5MTM1LCJpYXQiOjE3MzkyNTA5NjB9.FC6BOLdloaE7tlugtb-TeMBGWcdjj33Hq9kCdq_qJeI"
