@@ -240,7 +240,6 @@ void CesiumGDTileset::update_tileset(const Transform3D& cameraTransform)
 {
 	
 	bool isGeoreferenced = this->is_georeferenced(&this->m_georeference);
-	printf("Is georef: %d\n", isGeoreferenced);
 	if (this->m_activeTileset == nullptr) {
 
 		if (isGeoreferenced) {

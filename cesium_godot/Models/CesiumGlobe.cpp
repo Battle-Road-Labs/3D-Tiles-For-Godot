@@ -173,7 +173,6 @@ Vector3 CesiumGlobe::get_normal_at_surface_pos(const EcefVector3& ecef) const
 	glm::dvec3 surfaceNormal = wgs84.geodeticSurfaceNormal(CesiumMathUtils::to_glm_dvec3(ecef));
 	Vector3 gdNormal = CesiumMathUtils::from_glm_vec3(surfaceNormal);
 	gdNormal = this->get_initial_tx_ecef_to_engine().xform(gdNormal);
-	gdNormal.y *= -1; //Invert the Y Axis because otherwise we puke
 	return gdNormal;
 }
 
@@ -235,7 +234,11 @@ void CesiumGlobe::_bind_methods()
 }
 
 void CesiumGlobe::_enter_tree() {	
-		if (!is_editor_mode()) return;
-			this->set_rotation_degrees(Vector3(-90.0, 0.0, 0.0));
+		this->m_initialOriginTransform = this->get_global_transform();
+		if (!is_editor_mode()) {
+				return;
+		} 
+		
+		this->set_rotation_degrees(Vector3(-90.0, 0.0, 0.0));
 }
 	

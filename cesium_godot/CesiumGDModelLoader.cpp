@@ -72,11 +72,13 @@ Ref<ArrayMesh> CesiumGDModelLoader::generate_meshes_from_model(const CesiumGltf:
 			//Try to get Cesium Overlays if the texcoords are not updated
 			if (textureCoords.is_empty()) {
 				textureCoords = get_attribute_from_primitive<Vector2>(primitive, model, "_CESIUMOVERLAY_0", [](Vector2& uv) {
+	        uv = uv.clamp(Vector2(0, 0), Vector2(1, 1));
 					uv.y = 1 - uv.y;
 				});
 			}
 			if (textureCoords1.is_empty()) {
 				textureCoords1 = get_attribute_from_primitive<Vector2>(primitive, model, "_CESIUMOVERLAY_1", [](Vector2& uv) {
+					uv = uv.clamp(Vector2(0, 0), Vector2(1, 1));
 					uv.y = 1 - uv.y;
     		});
 			}
