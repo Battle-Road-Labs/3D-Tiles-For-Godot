@@ -1,6 +1,7 @@
 #ifndef CESIUM_GD_CREDIT_SYSTEM
 #define CESIUM_GD_CREDIT_SYSTEM
 
+#include <memory>
 #if defined(CESIUM_GD_EXT)
 #include "godot_cpp/classes/node3d.hpp"
 using namespace godot;
@@ -19,6 +20,8 @@ class CesiumGDCreditSystem : Node3D {
     static CesiumGDCreditSystem* get_singleton();
 
     CesiumGDCreditSystem();
+    
+    void set_credit_system(std::shared_ptr<CesiumUtility::CreditSystem> creditSystem);
     
   private:
      std::shared_ptr<CesiumUtility::CreditSystem> m_creditSystem;
