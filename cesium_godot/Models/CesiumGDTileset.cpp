@@ -121,16 +121,6 @@ uint32_t CesiumGDTileset::get_maximum_simultaneous_tile_loads() const
 	return this->m_tilesetConfig->options.maximumSimultaneousTileLoads;
 }
 
-void CesiumGDTileset::set_maximum_simultaneous_subtree_loads(uint32_t count)
-{
-	this->m_tilesetConfig->options.maximumSimultaneousSubtreeLoads = count;
-}
-
-uint32_t CesiumGDTileset::get_maximum_simultaneous_subtree_loads() const
-{
-	return this->m_tilesetConfig->options.maximumSimultaneousSubtreeLoads;
-}
-
 void CesiumGDTileset::set_preload_ancestors(bool preload)
 {
 	this->m_tilesetConfig->options.preloadAncestors = preload;
@@ -386,7 +376,6 @@ void CesiumGDTileset::load_tileset()
 
 Cesium3DTilesSelection::TilesetExternals CesiumGDTileset::create_tileset_externals()
 {
-	//TODO:
 	const String cachePath = "user://cache";
 	Ref<DirAccess> userAccess = DirAccess::open("user://");
 	Error err = userAccess->make_dir_recursive(cachePath);
@@ -562,11 +551,6 @@ void CesiumGDTileset::_bind_methods()
 	ClassDB::bind_method(D_METHOD("get_maximum_simultaneous_tile_loads"), &CesiumGDTileset::get_maximum_simultaneous_tile_loads);
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "maximum_simultaneous_tile_loads"), "set_maximum_simultaneous_tile_loads", "get_maximum_simultaneous_tile_loads");
 
-
-	ClassDB::bind_method(D_METHOD("set_maximum_simultaneous_subtree_loads", "count"), &CesiumGDTileset::set_maximum_simultaneous_subtree_loads);
-	ClassDB::bind_method(D_METHOD("get_maximum_simultaneous_subtree_loads"), &CesiumGDTileset::get_maximum_simultaneous_subtree_loads);
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "maximum_simultaneous_subtree_loads"), "set_maximum_simultaneous_subtree_loads", "get_maximum_simultaneous_subtree_loads");
-
 	ClassDB::bind_method(D_METHOD("set_preload_ancestors", "preload"), &CesiumGDTileset::set_preload_ancestors);
 	ClassDB::bind_method(D_METHOD("get_preload_ancestors"), &CesiumGDTileset::get_preload_ancestors);
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "preload_ancestors"), "set_preload_ancestors", "get_preload_ancestors");
@@ -611,9 +595,9 @@ void CesiumGDTileset::_bind_methods()
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "ion_asset_id"), "set_ion_asset_id", "get_ion_asset_id");
 
 
-	ClassDB::bind_method(D_METHOD("set_show_hierarchy)", "showHierarchy"), &CesiumGDTileset::set_show_hierarchy);
-	ClassDB::bind_method(D_METHOD("get_show_hierarchy)"), &CesiumGDTileset::get_show_hierarchy);
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_hierarchy)"), "set_show_hierarchy)", "get_show_hierarchy)");
+	ClassDB::bind_method(D_METHOD("set_show_hierarchy", "showHierarchy"), &CesiumGDTileset::set_show_hierarchy);
+	ClassDB::bind_method(D_METHOD("get_show_hierarchy"), &CesiumGDTileset::get_show_hierarchy);
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_hierarchy"), "set_show_hierarchy", "get_show_hierarchy");
 	
 #pragma endregion
 

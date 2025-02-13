@@ -51,10 +51,6 @@ public:
 
 	uint32_t get_maximum_simultaneous_tile_loads() const;
 
-	void set_maximum_simultaneous_subtree_loads(uint32_t count);
-
-	uint32_t get_maximum_simultaneous_subtree_loads() const;
-
 	void set_preload_ancestors(bool preload);
 
 	bool get_preload_ancestors() const;
