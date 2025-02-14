@@ -28,7 +28,8 @@ godot3dtiles/**
 # Except the addons subdirectory and its contents
 !godot3dtiles/addons/
 !godot3dtiles/addons/**
-
+!godot3dtiles/bin/
+!godot3dtiles/bin/**
 # Ignore large files
 *.ipch
 *.vcxproj
