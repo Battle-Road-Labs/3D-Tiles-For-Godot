@@ -155,7 +155,7 @@ func update_camera_rotation() -> void:
 	var moddedBasis: Basis = self.surface_basis.rotated(y_axis, -curr_yaw)
 	# Apply pitch around original X axis (now rotated by yaw)
 	# Using the updated X axis from the basis after yaw rotation
-	moddedBasis = moddedBasis.rotated(moddedBasis.x, -curr_pitch)
+	moddedBasis = moddedBasis.rotated(moddedBasis.x, curr_pitch)
 	moddedBasis.x = -moddedBasis.x
 
 	self.basis = moddedBasis

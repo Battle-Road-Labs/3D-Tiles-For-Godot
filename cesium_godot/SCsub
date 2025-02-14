@@ -31,6 +31,7 @@ sources = [
     cesium_build_utils.get_root_dir() + "/Models/CesiumGlobe.cpp",
     cesium_build_utils.get_root_dir() + "/Models/CesiumGDConfig.cpp",
     cesium_build_utils.get_root_dir() + "/Models/CesiumHTTPRequestNode.cpp",
+    cesium_build_utils.get_root_dir() + "/Models/CesiumGDCreditSystem.cpp",
     cesium_build_utils.get_root_dir() + "/Implementations/NetworkAssetAccessor.cpp",
     cesium_build_utils.get_root_dir() + "/Implementations/GodotPrepareRenderResources.cpp",
     cesium_build_utils.get_root_dir() + "/CesiumGDModelLoader.cpp",

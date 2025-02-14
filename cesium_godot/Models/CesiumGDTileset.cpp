@@ -1,3 +1,4 @@
+#include "Models/CesiumGDCreditSystem.h"
 #define SPDLOG_COMPILED_LIB
 #include "Models/CesiumGlobe.h"
 #define SPDLOG_FMT_EXTERNAL
@@ -394,6 +395,8 @@ Cesium3DTilesSelection::TilesetExternals CesiumGDTileset::create_tileset_externa
 	CesiumAsync::AsyncSystem asyncSystem(taskProcessor);
 	auto renderResourcesProvider = std::make_shared<GodotPrepareRenderResources>(this);
 	auto creditSystem = std::make_shared<CesiumUtility::CreditSystem>();
+	CesiumGDCreditSystem::get_singleton()->add_credit_system(creditSystem);
+	
 	Cesium3DTilesSelection::TilesetExternals result {
 		cachedAccessor,
 		renderResourcesProvider,
