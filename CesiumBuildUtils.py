@@ -83,7 +83,7 @@ def configure_native(argumentsDict):
     if result.returncode != 0:
         errorMsg = "cmake return code: %s" % str(result.returncode)
         print('Error configuring Cesium native, please make sure you have CMake installed and up to date: ' + errorMsg)
-        return
+        exit(1)
     print("Configuration completed without any errors!")
 
 
@@ -197,7 +197,7 @@ def find_in_dir_recursive(path: str, pattern: str) -> (bool, str):
 
 def find_ezvcpkg_path() -> str:
     # Search the C drive
-    assumedPath = "C:/.ezvcpkg"
+    assumedPath = "%s.ezvcpkg" % (os.path.abspath(os.sep))
     if (not os.path.exists(assumedPath)):
         print("EZVCPKG not found, run with buildCesium=true to install dependencies")
     # Then find the latest version (use the last created folder)
