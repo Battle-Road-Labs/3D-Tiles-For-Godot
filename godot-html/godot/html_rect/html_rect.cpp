@@ -19,6 +19,8 @@ void HtmlRect::_bind_methods()
   ClassDB::bind_method(D_METHOD("set_html", "p_html"), &HtmlRect::set_html);
 	        
 	ClassDB::add_property(get_class_static(), PropertyInfo(Variant::STRING, "index_path"), "set_index", "get_index");
+	
+	ClassDB::add_property(get_class_static(), PropertyInfo(Variant::STRING, "html"), "set_html", "get_html");
 }
 
 HtmlRect::HtmlRect()

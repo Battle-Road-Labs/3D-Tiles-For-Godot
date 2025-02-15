@@ -84,9 +84,9 @@ public:
 private:
 	EcefVector3 trace_ray_to_ellipsoid(const EcefVector3& origin, const EcefVector3& rayDirection) const;
 
-	Transform3D m_initialOriginTransform;
+	Transform3D m_initialOriginTransform{};
 	
-	glm::dvec3 m_ecefPosition{};
+	glm::dvec3 m_ecefPosition{ -1292940.0, -4740030.0, 4056960.0 };
 
 	real_t m_scaleFactor = 1.0;
 

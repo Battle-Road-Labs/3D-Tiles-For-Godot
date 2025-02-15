@@ -31,6 +31,7 @@ var info_labels_ui : InfoLabelsUI
 
 func _ready() -> void:
 	self.loaded = false
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 func _process(delta: float) -> void:
 	self.surface_basis = self.calculate_surface_basis()
@@ -76,11 +77,11 @@ func calculate_surface_basis() -> Basis:
 	return result
 
 func movement_input(delta: float):
-	if (Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)):
-		var mouse_velocity : Vector2 = Input.get_last_mouse_velocity()
-		var delta_yaw : float = mouse_velocity.x * delta * self.rotation_speed
-		var delta_pitch : float = mouse_velocity.y * delta * self.rotation_speed
-		self.rotate_camera(delta_pitch, delta_yaw)
+	#if (Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)):
+	var mouse_velocity : Vector2 = Input.get_last_mouse_velocity()
+	var delta_yaw : float = mouse_velocity.x * delta * self.rotation_speed
+	var delta_pitch : float = mouse_velocity.y * delta * self.rotation_speed
+	self.rotate_camera(delta_pitch, delta_yaw)
 	
 	var direction := Vector3.ZERO
 	var movingBasis : Basis = self.global_transform.basis
@@ -159,6 +160,7 @@ func update_camera_rotation() -> void:
 	moddedBasis.x = -moddedBasis.x
 
 	self.basis = moddedBasis
+	print("Pitch: " + str(self.curr_pitch))
 	self.curr_yaw = 0
 
 	
@@ -166,4 +168,4 @@ func update_camera_rotation() -> void:
 func rotate_camera(delta_pitch: float, delta_yaw: float) -> void:
     # Apply yaw rotation around local Y axis
 	self.curr_yaw += delta_yaw
-	self.curr_pitch += delta_pitch
+	self.curr_pitch = clampf(self.curr_pitch + delta_pitch, -0.95, 0.95)

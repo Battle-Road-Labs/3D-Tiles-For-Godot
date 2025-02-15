@@ -151,7 +151,7 @@ private:
 
 	CesiumDataSource m_selectedDataSource = CesiumDataSource::FromCesiumIon;
 
-	Ref<CesiumGDConfig> m_configInstance;
+	Ref<CesiumGDConfig> m_configInstance = nullptr;
 
 	CesiumGlobe* m_georeference = nullptr;
 

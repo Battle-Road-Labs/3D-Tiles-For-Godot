@@ -1,6 +1,7 @@
 #include "view_rect.hpp"
 
 #include "godot/ultralight_singleton/ultralight_singleton.hpp"
+#include "godot_cpp/classes/resource_saver.hpp"
 
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
@@ -76,6 +77,7 @@ void ViewRect::_process(double delta)
     ///
     ///
     GodotHTML::UltralightManager::GetSingleton()->UpdateLogic();
+    printf("Update logic!\n");
     for (; !events.empty(); events.pop())
     {
         switch(events.front())
@@ -117,7 +119,9 @@ void ViewRect::_draw()
     if(image_texture.is_valid())
     {
         Vector2 size = get_size();
+        printf("Drew image!\n");
         draw_texture_rect(image_texture, Rect2(0, 0, size.x, size.y), false);
+        //ResourceSaver::get_singleton()->save(this->image_texture, "res://testTex.tres");
     }
 }
 
@@ -223,6 +227,7 @@ void ViewRect::HandleKey(InputEventKey *event)
 void ViewRect::RenderFrame()
 {
     if(!view) return;
+    printf("Rendered frame!\n");
     ///
     /// Get the Surface as a BitmapSurface (the default implementation).
     ///
@@ -258,6 +263,7 @@ void ViewRect::CopyBitmapToTexture(RefPtr<Bitmap> bitmap)
     bitmap->SwapRedBlueChannels();
     auto pixels = bitmap->LockPixelsSafe();
     PackedByteArray arr = PackedByteArray();
+    printf("Expected pixels: %zu, bitmap size: (%d, %d)\n", pixels.size(), bitmap->width(), bitmap->height());
     arr.resize(pixels.size());
     memcpy(arr.ptrw(), pixels.data(), pixels.size());
     if(image.is_null())

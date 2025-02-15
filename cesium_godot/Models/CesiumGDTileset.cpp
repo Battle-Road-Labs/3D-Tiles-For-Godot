@@ -1,4 +1,5 @@
 #include "Models/CesiumGDCreditSystem.h"
+#include "godot_cpp/classes/resource_loader.hpp"
 #define SPDLOG_COMPILED_LIB
 #include "Models/CesiumGlobe.h"
 #define SPDLOG_FMT_EXTERNAL
@@ -671,7 +672,11 @@ void CesiumGDTileset::_enter_tree() {
 	CesiumGlobe* globe = Godot3DTiles::AssetManipulation::find_or_create_globe(this);
 	//Parent to the globe
 	this->reparent(globe, true);
+	this->set_rotation_degrees(Vector3(90.0, 0.0, 0.0));
 	this->set_owner(globe->get_parent_node_3d());
+	if (this->m_configInstance == nullptr) {
+		this->m_configInstance = ResourceLoader::get_singleton()->load("res://addons/cesium_godot/cesium_gd_config.tres");
+	}
 }
 	
 
