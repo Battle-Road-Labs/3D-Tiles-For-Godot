@@ -26,12 +26,20 @@ var curr_yaw: float
 
 var curr_pitch: float
 
+var moving_direction: Vector3
+
+const RADII := 6378137.0
+
 @export
 var info_labels_ui : InfoLabelsUI
 
 func _ready() -> void:
 	self.loaded = false
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
+
+func _physics_process(delta: float) -> void:
+	self.adjust_speed()
 
 func _process(delta: float) -> void:
 	self.surface_basis = self.calculate_surface_basis()
@@ -114,6 +122,8 @@ func movement_input(delta: float):
 	
 	var startPos := self.global_position - (self.global_basis.z * 10)
 	DebugDraw3D.draw_arrow(startPos, startPos + direction, Color.ORANGE, 0.1)
+	if (direction != Vector3.ZERO):
+		self.moving_direction = direction.normalized()
 	var ecefDir : Vector3 = self.globe_node.get_initial_tx_engine_to_ecef() * direction
 	
 	camera_walk_ecef(-ecefDir.normalized())
@@ -132,7 +142,6 @@ func update_camera():
 func camera_walk_ecef(direction: Vector3) -> void:
 	if (direction == Vector3.ZERO):
 		return
-	
 	direction *= -self.move_speed
 	
 	self.globe_node.ecefX += direction.x
@@ -160,7 +169,6 @@ func update_camera_rotation() -> void:
 	moddedBasis.x = -moddedBasis.x
 
 	self.basis = moddedBasis
-	print("Pitch: " + str(self.curr_pitch))
 	self.curr_yaw = 0
 
 	
@@ -169,3 +177,35 @@ func rotate_camera(delta_pitch: float, delta_yaw: float) -> void:
     # Apply yaw rotation around local Y axis
 	self.curr_yaw += delta_yaw
 	self.curr_pitch = clampf(self.curr_pitch + delta_pitch, -0.95, 0.95)
+
+func _get_surface_distance_raycast() -> float:
+	# Raycast towards moving direction too
+	var moving_direction : Vector3 = (self.global_position - self.desired_cam_pos).normalized()
+	var space_state := get_world_3d().direct_space_state
+	var query := PhysicsRayQueryParameters3D.create(self.global_position, -self.surface_basis.y * RADII * 2)
+	query.hit_from_inside = true
+	query.hit_back_faces = true
+	var result : Dictionary = space_state.intersect_ray(query)
+	query.to = self.moving_direction * RADII * 2 
+	var secondResult : Dictionary = space_state.intersect_ray(query)
+	DebugDraw3D.draw_ray(self.global_position - self.global_basis.z * 10, -self.surface_basis.y, RADII * 2, Color.CYAN)
+
+	DebugDraw3D.draw_ray(self.global_position - self.global_basis.z * 10, self.moving_direction, RADII * 2, Color.CYAN)
+	var distanceToFloor : float = RADII
+	if (result):
+		var point : Vector3 = result.position
+		distanceToFloor = self.global_position.distance_to(point)
+		
+	var distanceToChoose := distanceToFloor
+	if (secondResult):
+		var distanceToMove = self.global_position.distance_to(secondResult.position)
+		if (distanceToMove < distanceToFloor):
+			distanceToChoose = distanceToMove
+		
+	return distanceToChoose
+
+func adjust_speed() -> float:
+	# The speed has to go through the curve
+	print("Distance: " + str(_get_surface_distance_raycast()))
+	return 0
+
