@@ -114,3 +114,9 @@ void Godot3DTiles::AssetManipulation::instantiate_dynamic_cam(Node3D* baseNode) 
 	camera->set_script(script);
 }
 
+
+
+CesiumGDTileset* find_first_tileset(Node3D* baseNode) {
+	//Get a globe
+	return nullptr;
+}

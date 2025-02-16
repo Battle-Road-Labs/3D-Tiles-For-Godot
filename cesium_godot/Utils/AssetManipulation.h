@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Models/CesiumGDTileset.h"
 #if defined(CESIUM_GD_EXT)
 #include <godot_cpp/classes/node3d.hpp>
 using namespace godot;
@@ -30,5 +31,6 @@ namespace Godot3DTiles::AssetManipulation {
 
   Node3D* get_root_of_edit_scene(Node3D* baseNode);
   
+  CesiumGDTileset* find_first_tileset(Node3D* baseNode);
   
 }

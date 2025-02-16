@@ -18,9 +18,7 @@ class CesiumHTTPRequestNode;
 class NetworkAssetAccessor final : public CesiumAsync::IAssetAccessor {
 
 public:
-	NetworkAssetAccessor(CesiumGDTileset* nodeRef);
-
-	void set_source_node(CesiumGDTileset* nodeRef);
+	NetworkAssetAccessor();
 
 	CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>>
 		get(const CesiumAsync::AsyncSystem& asyncSystem,
@@ -39,7 +37,6 @@ public:
 private:
 	CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>> process_request(HTTPClient::Method method, const CesiumAsync::AsyncSystem &asyncSystem, const std::string &url, const std::vector<THeader> &headers = {});
 
-	CesiumGDTileset* m_sourceNodeRef;
 	CurlHttpClient<80> m_curlClient{};
 };
 
