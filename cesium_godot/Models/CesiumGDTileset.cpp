@@ -389,7 +389,7 @@ Cesium3DTilesSelection::TilesetExternals CesiumGDTileset::create_tileset_externa
 	constexpr uint64_t maxItems = 4096;
 
 	auto cache = std::make_shared<CesiumAsync::SqliteCache>(spdlog::default_logger(), globalCachePath.utf8().get_data(), maxItems);
-	auto simpleAccessor = std::make_shared<NetworkAssetAccessor>(this);
+	auto simpleAccessor = std::make_shared<NetworkAssetAccessor>();
 	auto cachedAccessor = std::make_shared<CesiumAsync::CachingAssetAccessor>(spdlog::default_logger(), simpleAccessor, cache, requestsPerCachePrune);
 	
 	auto taskProcessor = std::make_shared<SimpleTaskProcessor>();

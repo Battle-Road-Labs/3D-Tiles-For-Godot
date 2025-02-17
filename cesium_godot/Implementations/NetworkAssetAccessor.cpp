@@ -24,7 +24,7 @@ constexpr std::string_view COMPLETED_REQ_EVENT_NAME = "request_completed";
 
 using FutureResult_t = std::shared_ptr<CesiumAsync::IAssetRequest>;
 
-NetworkAssetAccessor::NetworkAssetAccessor(CesiumGDTileset* nodeRef)
+NetworkAssetAccessor::NetworkAssetAccessor()
 {
 	constexpr size_t maxThreadsPerClient = 8;
 	this->m_curlClient.init_client(maxThreadsPerClient);

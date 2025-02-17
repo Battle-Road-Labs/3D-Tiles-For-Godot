@@ -27,6 +27,8 @@ var curr_yaw: float
 var curr_pitch: float
 
 var moving_direction: Vector3
+var last_hit_distance: float
+
 
 const RADII := 6378137.0
 
@@ -193,7 +195,7 @@ func rotate_camera(delta_pitch: float, delta_yaw: float) -> void:
 
 	# Clamp the pitch based on the signed angle
 	var desired_pitch = self.curr_pitch + delta_pitch
-	print("Angle: " + str(signed_angle) + " delta: " + str(delta_pitch))
+
 	# We have a negative delta and the signed angle is already at its min
 	if (signed_angle > -110 && signed_angle < 0  && delta_pitch > 0):
 		return
@@ -231,10 +233,12 @@ func _get_surface_distance_raycast() -> float:
 	var distanceToFloor: float = RADII
 	if result:
 		distanceToFloor = global_position.distance_to(result.position)
+		last_hit_distance = distanceToFloor
 
 	var distanceToMove: float = RADII
 	if secondResult:
 		distanceToMove = global_position.distance_to(secondResult.position)
+		last_hit_distance = distanceToMove
 
 	# Determine the smallest distance from the raycasts
 	var closest_distance: float = distanceToFloor
@@ -249,29 +253,27 @@ func _get_surface_distance_raycast() -> float:
 
 	var shape_query = PhysicsShapeQueryParameters3D.new()
 	shape_query.shape = sphere_shape
-	shape_query.transform = Transform3D(Basis(), global_position)
+	shape_query.transform = Transform3D(Basis(), global_position + moving_direction)
 	shape_query.exclude = [self]
 	shape_query.collision_mask = 1  # Adjust based on your layers
 
+	DebugDraw3D.draw_sphere(global_position + moving_direction - global_basis.z * last_hit_distance, 5, Color.YELLOW)
 	var shape_results = space_state.intersect_shape(shape_query, 32)
-	DebugDraw3D.draw_sphere(global_position, sphere_radius, Color.CYAN)
 
 	# Iterate over the sphere cast results and update the closest distance if needed
 	if shape_results.size() > 0:
 		for res in shape_results:
-			print(res)
 			var collider := instance_from_id(res.collider_id) as Node3D
 			var shape_distance = global_position.distance_to(collider.position)
 			if shape_distance < closest_distance:
 				closest_distance = shape_distance
+				last_hit_distance = shape_distance
 
 	return closest_distance
 
 func adjust_speed() -> float:
 	# The speed has to go through the curve
-	var distance : float = _get_surface_distance_raycast()
-	print("Distance: " + str(distance))
+	_get_surface_distance_raycast()
 	#Always move by x% of the total distance
-	self.move_speed = distance * 0.005
+	self.move_speed = clampf(self.last_hit_distance * 0.005, 1, RADII * 3)
 	return 0
-
