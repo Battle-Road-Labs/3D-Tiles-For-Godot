@@ -131,7 +131,7 @@ glm::dvec3 CesiumGlobe::get_ecef_position() const
 
 void CesiumGlobe::move_origin()
 {
-	if (!this->m_shouldUpdateOrigin) return;
+	if (!this->m_shouldUpdateOrigin || this->m_originType == OriginType::TrueOrigin) return;
 	// Translate the node by the ecef position...
 	// Get the engine pos of the ecef position
 	Vector3 enginePos = CesiumMathUtils::from_glm_vec3(this->m_ecefPosition);

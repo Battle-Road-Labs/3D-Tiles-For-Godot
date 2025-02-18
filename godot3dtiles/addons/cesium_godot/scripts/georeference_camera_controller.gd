@@ -18,7 +18,7 @@ var desired_cam_pos : Vector3 = Vector3.ZERO
 
 var loaded : bool
 
-var is_moving : bool = false
+var is_moving_physical : bool = false
 
 var surface_basis: Basis
 
@@ -38,11 +38,20 @@ var info_labels_ui : InfoLabelsUI
 func _ready() -> void:
 	self.loaded = false
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	if (self.globe_node.origin_type == CesiumGlobe.OriginType.TrueOrigin):
+		var ecefPos : Vector3 = Vector3(self.globe_node.ecefX, self.globe_node.ecefY, self.globe_node.ecefZ)
+		var enginePos: Vector3 = self.globe_node.get_initial_tx_ecef_to_engine() * ecefPos
+		self.global_position = enginePos + self.globe_node.global_position
 
 
 func _physics_process(delta: float) -> void:
 	self.move_speed = self.adjusted_speed()
 	
+	if (self.globe_node.origin_type == CesiumGlobe.OriginType.TrueOrigin):
+		self.camera_walk_physical(self.moving_direction)
+		self.update_camera_pos_physical()
+	
+	# Otherwise
 	var ecefDir : Vector3 = self.globe_node.get_initial_tx_engine_to_ecef() * self.moving_direction
 	camera_walk_ecef(-ecefDir.normalized())
 
@@ -90,8 +99,6 @@ func calculate_surface_basis() -> Basis:
 	# Calculate forward vector using cross product of right and up
 	var forward := right.cross(up).normalized()
 	var result := Basis(right, up, -forward)
-	DebugDraw3D.draw_gizmo(Transform3D(result, debug_position))
-	#DebugDraw3D.draw_gizmo(Transform3D(self.global_basis, debug_position))
 	return result
 
 func movement_input(delta: float):
@@ -108,7 +115,7 @@ func movement_input(delta: float):
 		self.move_speed = lerpf(self.move_speed, self.move_speed * 1.2, delta * 2)
 	if (Input.is_key_pressed(KEY_KP_SUBTRACT) || Input.is_key_pressed(KEY_MINUS)):
 		self.move_speed = lerpf(self.move_speed, self.move_speed * 0.8, delta * 2)
-
+		
 	if (Input.is_key_pressed(KEY_Q)):
 		direction -= movingBasis.y
 	if (Input.is_key_pressed(KEY_E)):
@@ -136,7 +143,7 @@ func adjust_move_direction_to_surface(raw_direction: Vector3) -> Vector3:
 	return result
 
 func update_camera():
-	if (!self.is_moving):
+	if (!self.is_moving_physical):
 		return	
 	self.global_position = self.desired_cam_pos
 
@@ -148,6 +155,19 @@ func camera_walk_ecef(direction: Vector3) -> void:
 	self.globe_node.ecefX += direction.x
 	self.globe_node.ecefY += direction.y
 	self.globe_node.ecefZ += direction.z
+
+
+func camera_walk_physical(direction: Vector3) -> void:
+	if (desired_cam_pos == Vector3.ZERO):
+		# Pretty much delete this I guess
+		self.desired_cam_pos = self.global_position + direction * self.move_speed
+
+	self.desired_cam_pos += direction * self.move_speed
+	self.is_moving_physical = direction != Vector3.ZERO
+
+func update_camera_pos_physical() -> void:
+	if (!self.is_moving_physical): return
+	self.global_position = self.desired_cam_pos
 
 func adjust_far_and_near() -> void:
 	self.far = 35358652
@@ -203,10 +223,8 @@ func rotate_camera(delta_pitch: float, delta_yaw: float) -> void:
 	
 
 func _get_surface_distance_raycast() -> float:
-	# Calculate the moving direction for the second raycast
 	var space_state = get_world_3d().direct_space_state
 
-	# --- First Raycast: Using -surface_basis.y ---
 	var ray_query = PhysicsRayQueryParameters3D.new()
 	ray_query.from = global_position
 	ray_query.to = global_position + (-surface_basis.y * RADII * 2)
@@ -217,15 +235,9 @@ func _get_surface_distance_raycast() -> float:
 
 	var result: Dictionary = space_state.intersect_ray(ray_query)
 
-	# --- Second Raycast: Using the moving direction ---
 	ray_query.to = global_position + (moving_direction * self.move_speed * 10)
 	ray_query.hit_from_inside = false
 	var secondResult: Dictionary = space_state.intersect_ray(ray_query)
-
-	
-	# Debug draw the two rays
-	DebugDraw3D.draw_ray(global_position - global_basis.z * 10, -surface_basis.y, RADII * 2, Color.CYAN)
-	DebugDraw3D.draw_ray(global_position - global_basis.z * 10, moving_direction, RADII * 2, Color.CYAN)
 
 	# Get the collision distances from the raycasts (default to RADII)
 	var distanceToFloor: float = RADII
@@ -251,7 +263,7 @@ func adjusted_speed() -> float:
 	# The speed has to go through the curve
 	_get_surface_distance_raycast()
 	#Always move by x% of the total distance
-	var nextMoveSpeed: float = clampf(self.last_hit_distance * 0.005, 1, RADII * 3)
+	var nextMoveSpeed: float = clampf(self.last_hit_distance * 0.01, 1, RADII * 3)
 	var diff : float = nextMoveSpeed - self.move_speed
 	if (diff > self.move_speed * 2):
 		return self.move_speed * 2

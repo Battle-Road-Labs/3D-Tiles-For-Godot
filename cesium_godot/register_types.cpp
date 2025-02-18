@@ -52,6 +52,8 @@ void initialize_cesium_godot_module(ModuleInitializationLevel p_level) {
   GDREGISTER_CLASS(InspectorRect);
   GDREGISTER_CLASS(AppExample);
 	ClassDB::register_class<CesiumGDCreditSystem>(true);
+	ClassDB::bind_integer_constant("CesiumGlobe", "OriginType", "CartographicOrigin", (int32_t)CesiumGlobe::OriginType::CartographicOrigin);
+	ClassDB::bind_integer_constant("CesiumGlobe", "OriginType", "TrueOrigin", (int32_t)CesiumGlobe::OriginType::TrueOrigin);
 }
 
 void uninitialize_cesium_godot_module(ModuleInitializationLevel p_level) {
