@@ -6,7 +6,7 @@ class_name GeoreferenceCameraController
 var globe_node : CesiumGlobe
 
 @export
-var tileset : CesiumGDTileset
+var tilesets : Array[CesiumGDTileset]
 		
 @export
 var move_speed : float = 100
@@ -41,7 +41,7 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	self.adjust_speed()
+	self.move_speed = self.adjusted_speed()
 
 func _process(delta: float) -> void:
 	self.surface_basis = self.calculate_surface_basis()
@@ -49,11 +49,16 @@ func _process(delta: float) -> void:
 	self.update_camera_rotation()
 	self.adjust_far_and_near()
 	if (self.loaded):
-		self.tileset.update_tileset(self.globe_node.get_tx_engine_to_ecef() * self.global_transform)
+		self.update_tilesets()
 
 	if (self.info_labels_ui != null):
 		self.info_labels_ui.update_move_speed(self.move_speed)
 
+
+func update_tilesets() -> void:
+	var camera_xform := self.globe_node.get_tx_engine_to_ecef() * self.global_transform
+	for tileset in self.tilesets:
+		tileset.update_tileset(camera_xform)
 
 func handle_input(delta: float):
 	control_input()
@@ -124,8 +129,7 @@ func movement_input(delta: float):
 	
 	var startPos := self.global_position - (self.global_basis.z * 10)
 	DebugDraw3D.draw_arrow(startPos, startPos + direction, Color.ORANGE, 0.1)
-	if (direction != Vector3.ZERO):
-		self.moving_direction = direction.normalized()
+	self.moving_direction = direction.normalized()
 	var ecefDir : Vector3 = self.globe_node.get_initial_tx_engine_to_ecef() * direction
 	
 	camera_walk_ecef(-ecefDir.normalized())
@@ -150,10 +154,6 @@ func camera_walk_ecef(direction: Vector3) -> void:
 	self.globe_node.ecefZ += direction.z
 
 func adjust_far_and_near() -> void:
-	#So, here let's calculate the amount of z-far based on the distance
-	#It should be about 1.5 radii
-	if (!self.tileset.is_initial_loading_finished()):
-		return
 	self.far = 35358652
 	self.near = 9
 
@@ -244,6 +244,8 @@ func _get_surface_distance_raycast() -> float:
 	var closest_distance: float = distanceToFloor
 	if distanceToMove < closest_distance:
 		closest_distance = distanceToMove
+		if (closest_distance < 10):
+			self.desired_cam_pos = self.global_position
 
 	# --- Additional Sphere Cast ---
 	# Create a sphere with a radius of 5
@@ -271,9 +273,12 @@ func _get_surface_distance_raycast() -> float:
 
 	return closest_distance
 
-func adjust_speed() -> float:
+func adjusted_speed() -> float:
 	# The speed has to go through the curve
 	_get_surface_distance_raycast()
 	#Always move by x% of the total distance
-	self.move_speed = clampf(self.last_hit_distance * 0.005, 1, RADII * 3)
-	return 0
+	var nextMoveSpeed: float = clampf(self.last_hit_distance * 0.005, 1, RADII * 3)
+	var diff : float = nextMoveSpeed - self.move_speed
+	if (diff > self.move_speed * 2):
+		return self.move_speed * 2
+	return nextMoveSpeed
