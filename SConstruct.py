@@ -24,6 +24,7 @@ cesium_build_utils.clone_native_repo_if_needed()
 cesium_build_utils.compile_native(ARGUMENTS)
 
 env = SConscript("godot-cpp/SConstruct")
+cesium_build_utils.generate_precision_symbols(ARGUMENTS, env)
 env.Append(CXXFLAGS=["/std:c++20", "/Zc:__cplusplus"])
 env.Append(LINKFLAGS=["/IGNORE:4217"])
 

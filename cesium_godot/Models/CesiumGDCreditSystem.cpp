@@ -17,7 +17,6 @@ CesiumGDCreditSystem* CesiumGDCreditSystem::get_singleton(Node3D* baseNode) {
     return s_instance;
   }
   s_instance = Godot3DTiles::AssetManipulation::find_or_create_credit_system(baseNode, false);
-  printf("Found instance of credit system!\n");
   if (s_instance == nullptr) {
     ERR_PRINT("Could not find Credit System Node in the CesiumGlobe, try adding it manually");
     return nullptr;
