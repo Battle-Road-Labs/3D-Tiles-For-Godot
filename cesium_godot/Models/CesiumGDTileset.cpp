@@ -1,3 +1,5 @@
+#include "Models/CesiumGDCreditSystem.h"
+#include "godot_cpp/classes/resource_loader.hpp"
 #define SPDLOG_COMPILED_LIB
 #include "Models/CesiumGlobe.h"
 #define SPDLOG_FMT_EXTERNAL
@@ -234,9 +236,7 @@ void CesiumGDTileset::update_tileset(const Transform3D& cameraTransform)
 
 		if (isGeoreferenced) {
 			this->m_georeference->set_should_update_origin(true);
-			printf("Should update\n");
 			this->m_georeference->move_origin();
-			printf("Moved origin\n");
 		}
 		
 		this->load_tileset();
@@ -338,7 +338,6 @@ void CesiumGDTileset::recreate_tileset()
 
 void CesiumGDTileset::load_tileset()
 {
-	printf("Tileset loading started\n");
 	//Get the options to read the tileset and then load it into memory
 	const Cesium3DTilesSelection::TilesetOptions& options = this->m_tilesetConfig->options;
 	const Cesium3DTilesSelection::TilesetContentOptions& contentOptions = this->m_tilesetConfig->contentOptions;
@@ -370,8 +369,6 @@ void CesiumGDTileset::load_tileset()
 		overlay->add_to_tileset(this);
 	}
 
-	printf("Tileset loading end\n");
-
 }
 
 Cesium3DTilesSelection::TilesetExternals CesiumGDTileset::create_tileset_externals()
@@ -387,13 +384,15 @@ Cesium3DTilesSelection::TilesetExternals CesiumGDTileset::create_tileset_externa
 	constexpr uint64_t maxItems = 4096;
 
 	auto cache = std::make_shared<CesiumAsync::SqliteCache>(spdlog::default_logger(), globalCachePath.utf8().get_data(), maxItems);
-	auto simpleAccessor = std::make_shared<NetworkAssetAccessor>(this);
+	auto simpleAccessor = std::make_shared<NetworkAssetAccessor>();
 	auto cachedAccessor = std::make_shared<CesiumAsync::CachingAssetAccessor>(spdlog::default_logger(), simpleAccessor, cache, requestsPerCachePrune);
 	
 	auto taskProcessor = std::make_shared<SimpleTaskProcessor>();
 	CesiumAsync::AsyncSystem asyncSystem(taskProcessor);
 	auto renderResourcesProvider = std::make_shared<GodotPrepareRenderResources>(this);
 	auto creditSystem = std::make_shared<CesiumUtility::CreditSystem>();
+	CesiumGDCreditSystem::get_singleton(this)->add_credit_system(creditSystem);
+	
 	Cesium3DTilesSelection::TilesetExternals result {
 		cachedAccessor,
 		renderResourcesProvider,
@@ -419,9 +418,9 @@ void CesiumGDTileset::render_tile_as_node(const Cesium3DTilesSelection::Tile& ti
 		foundNode->show();
 
 		if (this->m_createPhysicsMeshes) {
-			Node* collisionNode = foundNode->get_child(0);
+			Node* collisionNode = foundNode->get_child_count() < 1 ? nullptr : foundNode->get_child(0);
 			if (collisionNode == nullptr) return;
-			CollisionShape3D* shape = Object::cast_to<CollisionShape3D>(collisionNode->get_child(0));
+			CollisionShape3D* shape = collisionNode->get_child_count() < 1 ? nullptr : Object::cast_to<CollisionShape3D>(collisionNode->get_child(0));
 			if (shape == nullptr) return;
 			shape->set_disabled(false);
 		}
@@ -474,13 +473,13 @@ void CesiumGDTileset::despawn_tile(const Cesium3DTilesSelection::Tile& tile)
 	}
 	
 	const Cesium3DTilesSelection::TileRenderContent* renderContent = tile.getContent().getRenderContent();
-
+	
 	foundNode->hide();
 	// Deactivate the collisions
 	if (this->m_createPhysicsMeshes) {
-		Node* collisionNode = foundNode->get_child(0);
+		Node* collisionNode = foundNode->get_child_count() < 1 ? nullptr : foundNode->get_child(0);
 		if (collisionNode == nullptr) return;
-			CollisionShape3D* shape = Object::cast_to<CollisionShape3D>(collisionNode->get_child(0));
+			CollisionShape3D* shape = collisionNode->get_child_count() < 1 ? nullptr : Object::cast_to<CollisionShape3D>(collisionNode->get_child(0));
 			if (shape == nullptr) return;
 			shape->set_disabled(true);
 	}
@@ -522,12 +521,10 @@ void CesiumGDTileset::process_tile_chunk(const std::vector<Cesium3DTilesSelectio
 
 
 void CesiumGDTileset::register_tile(MeshInstance3D *instance, size_t hash) {
-	printf("Register tile start!\n");
 	auto internalMode = this->m_showHierarchy ? Node::InternalMode::INTERNAL_MODE_DISABLED : Node::InternalMode::INTERNAL_MODE_FRONT; 
 	this->add_child(instance, false, internalMode);
 	this->m_instancedTilesByHash.insert({ hash, instance });
 	tileCount++;
-	printf("Register tile end, tile count: %d!\n", tileCount);
 }
 
 
@@ -668,7 +665,11 @@ void CesiumGDTileset::_enter_tree() {
 	CesiumGlobe* globe = Godot3DTiles::AssetManipulation::find_or_create_globe(this);
 	//Parent to the globe
 	this->reparent(globe, true);
+	this->set_rotation_degrees(Vector3(90.0, 0.0, 0.0));
 	this->set_owner(globe->get_parent_node_3d());
+	if (this->m_configInstance == nullptr) {
+		this->m_configInstance = ResourceLoader::get_singleton()->load("res://addons/cesium_godot/cesium_gd_config.tres");
+	}
 }
 	
 

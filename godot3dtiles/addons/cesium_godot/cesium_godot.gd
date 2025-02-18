@@ -19,6 +19,7 @@ var sign_out_button : Button
 var connect_button : Button
 var blank_tileset_button : Button
 var dynamic_camera_button : Button
+var osm_buildings_button : Button
 var world_and_bing_button : Button
 
 var auth_controller_node : OAuthController = null
@@ -62,6 +63,7 @@ func init_buttons() -> void:
 	self.blank_tileset_button = self.docked_scene.find_child("BlankTilesetButton") as Button
 	self.dynamic_camera_button = self.docked_scene.find_child("DynamicCameraButton") as Button
 	self.world_and_bing_button = self.docked_scene.find_child("WorldAndBingButton") as Button
+	self.osm_buildings_button = self.docked_scene.find_child("WorldAndOsmButton") as Button
 	self.token_panel_data.initialize_fields(self.token_panel)
 	# Connect to their signals
 	self.upload_button.pressed.connect(on_upload_pressed)
@@ -76,6 +78,9 @@ func init_buttons() -> void:
 
 func on_world_and_bing_button() -> void:
 	self.cesium_builder_node.instantiate_tileset(3)
+
+func on_osm_buildings_pressed() -> void:
+	self.cesium_builder_node.instantiate_tileset(1)
 
 func on_token_panel_pressed() -> void:
 	self.token_panel.popup()

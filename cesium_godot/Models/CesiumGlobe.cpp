@@ -1,5 +1,6 @@
 
 #include "CesiumGlobe.h"
+#include "Utils/AssetManipulation.h"
 #include "godot_cpp/variant/vector3.hpp"
 #include "missing_functions.hpp"
 #include <cstdint>
@@ -134,7 +135,6 @@ void CesiumGlobe::move_origin()
 	// Translate the node by the ecef position...
 	// Get the engine pos of the ecef position
 	Vector3 enginePos = CesiumMathUtils::from_glm_vec3(this->m_ecefPosition);
-	printf("Engine ECEF pos: %s\n", String(enginePos).ascii().get_data());
 	enginePos = this->get_tx_ecef_to_engine().xform(enginePos);
 	// Take the current origin and subtract enginePos from that (dest - source)
 	Vector3 currOrigin = this->get_global_position();

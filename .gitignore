@@ -28,8 +28,10 @@ godot3dtiles/**
 # Except the addons subdirectory and its contents
 !godot3dtiles/addons/
 !godot3dtiles/addons/**
+# Exception: include .dll files in godot3dtiles/bin that don't start with Godot3DTiles
 !godot3dtiles/bin/
-!godot3dtiles/bin/**
+!godot3dtiles/bin/*.dll
+godot3dtiles/bin/*Godot3DTiles*.dll
 # Ignore large files
 *.ipch
 *.vcxproj

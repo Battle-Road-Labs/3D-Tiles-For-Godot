@@ -1,6 +1,7 @@
 #include "register_types.h"
 
 
+#include "Models/CesiumGDCreditSystem.h"
 #include "Models/CesiumGDTileset.h"
 #include "Models/CesiumHTTPRequestNode.h"
 #include "Utils/CesiumDebugUtils.h"
@@ -10,6 +11,10 @@
 #include "Models/CesiumGDConfig.h"
 #include "Models/CesiumGDGeoreference.h"
 #include "Utils/CesiumGDAssetBuilder.h"
+#include "app_example.hpp"
+#include "godot/inspector_rect/inspector_rect.hpp"
+#include "godot/ultralight_singleton/ultralight_singleton.hpp"
+#include "godot_cpp/classes/engine.hpp"
 
 #if defined(CESIUM_GD_EXT)
 #include <gdextension_interface.h>
@@ -19,6 +24,8 @@ using namespace godot;
 #elif defined(CESIUM_GD_MODULE)
 #include <core/object/class_db.h>
 #endif
+
+static UltralightSingleton* ultralight_singleton = nullptr;
 
 void initialize_cesium_godot_module(ModuleInitializationLevel p_level) {
 	//We will probably have to switch the module initialization level to the editor
@@ -35,10 +42,22 @@ void initialize_cesium_godot_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<CesiumGDRasterOverlay>();
 	ClassDB::register_class<CesiumGDConfig>();
 	ClassDB::register_class<CesiumGDAssetBuilder>();
+	
+	GDREGISTER_CLASS(UltralightSingleton);
+  ultralight_singleton = memnew(UltralightSingleton); // memnew is super important.
+  Engine::get_singleton()->register_singleton("UltralightSingleton", ultralight_singleton);
+
+  GDREGISTER_ABSTRACT_CLASS(ViewRect);
+  GDREGISTER_CLASS(HtmlRect);
+  GDREGISTER_CLASS(InspectorRect);
+  GDREGISTER_CLASS(AppExample);
+	ClassDB::register_class<CesiumGDCreditSystem>(true);
 }
 
 void uninitialize_cesium_godot_module(ModuleInitializationLevel p_level) {
 	//Hey there, hello, we don't do anything here actually
+  Engine::get_singleton()->unregister_singleton("UltralightSingleton");
+  delete ultralight_singleton;
 }
 
 extern "C" {

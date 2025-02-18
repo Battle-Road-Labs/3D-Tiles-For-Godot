@@ -1,5 +1,8 @@
 #pragma once
 
+#include "Models/CesiumGDCreditSystem.h"
+#include "Models/CesiumGDTileset.h"
+#include <algorithm>
 #if defined(CESIUM_GD_EXT)
 #include <godot_cpp/classes/node3d.hpp>
 using namespace godot;
@@ -11,7 +14,6 @@ class CesiumGlobe;
 
 
 namespace Godot3DTiles::AssetManipulation {
-  
 
   enum class TilesetType : int32_t {
     Blank,
@@ -30,5 +32,34 @@ namespace Godot3DTiles::AssetManipulation {
 
   Node3D* get_root_of_edit_scene(Node3D* baseNode);
   
+  CesiumGDTileset* find_first_tileset(Node3D* baseNode);
+
+  CesiumGDCreditSystem* find_or_create_credit_system(Node3D* baseNode, bool deferred);
   
+  
+  template<class T>
+  inline T* find_node_in_scene(Node* root) {
+      T* casted_root = Object::cast_to<T>(root);
+      if (casted_root != nullptr) {
+          return casted_root;
+      }
+
+      int32_t count = root->get_child_count();
+      for (int32_t i = 0; i < count; i++) {
+          Node* child = root->get_child(i);
+          printf("Name: %s\n", child->get_name().to_utf8_buffer().ptr());
+
+          T* foundChild = Object::cast_to<T>(child);
+          if (foundChild != nullptr) {
+              printf("Found!\n");
+              return foundChild;
+          }
+          
+          foundChild = find_node_in_scene<T>(child);
+          if (foundChild != nullptr) {
+              return foundChild;
+          }
+      }
+      return nullptr;
+  }
 }

@@ -24,16 +24,10 @@ constexpr std::string_view COMPLETED_REQ_EVENT_NAME = "request_completed";
 
 using FutureResult_t = std::shared_ptr<CesiumAsync::IAssetRequest>;
 
-NetworkAssetAccessor::NetworkAssetAccessor(CesiumGDTileset* nodeRef)
+NetworkAssetAccessor::NetworkAssetAccessor()
 {
-	this->m_sourceNodeRef = nodeRef;
 	constexpr size_t maxThreadsPerClient = 8;
 	this->m_curlClient.init_client(maxThreadsPerClient);
-}
-
-void NetworkAssetAccessor::set_source_node(CesiumGDTileset* nodeReference)
-{
-	this->m_sourceNodeRef = nodeReference;
 }
 
 CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>> NetworkAssetAccessor::get(const CesiumAsync::AsyncSystem& asyncSystem, const std::string& url, const std::vector<THeader>& headers /*= {}*/)

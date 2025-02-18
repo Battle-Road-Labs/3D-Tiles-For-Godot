@@ -34,8 +34,6 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> Go
 		return asyncSystem.createResolvedFuture(TileLoadResultAndRenderResources{ std::move(tileLoadResult), nullptr });
 	}
 
-	//TODO: Check if we should generate the physics meshes
-
 	return asyncSystem.createFuture<TileLoadResultAndRenderResources>([=, this](Promise<TileLoadResultAndRenderResources> p_promise) {
 		Error err;
 		Ref<ArrayMesh> meshData = CesiumGDModelLoader::generate_meshes_from_model(*model, &err);
@@ -69,7 +67,9 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> Go
 
 		Vector3 translation;
 		glm::dvec3 position;
-		if (this->m_tileset->get_data_source() == CesiumDataSource::FromCesiumIon) {
+		// Applies for every tileset EXCEPT I guess Google Photorealistic tiles (which is 2275207)
+		constexpr int32_t googleTilesID = 2275207;
+		if (this->m_tileset->get_data_source() == CesiumDataSource::FromCesiumIon && this->m_tileset->get_ion_asset_id() != googleTilesID) {
 			constexpr int32_t translationColumnIndex = 3;
 			position = transformationMat[translationColumnIndex];
 			translation = CesiumMathUtils::from_glm_vec3(position);
@@ -116,13 +116,10 @@ void* GodotPrepareRenderResources::prepareInMainThread(Tile& tile, void* pLoadTh
 void GodotPrepareRenderResources::free(Tile& tile, void* pLoadThreadResult, void* pMainThreadResult) noexcept
 {
 	auto* instance = static_cast<MeshInstance3D*>(pMainThreadResult);
-	printf("Cast finished\n");
 	if (instance == nullptr){
-		printf("Instance was null\n");		
 		return;
 	} 
 	instance->queue_free();
-	printf("Freed instance\n");
 }
 
 void GodotPrepareRenderResources::attachRasterInMainThread(const Tile& tile, int32_t overlayTextureCoordinateID, const CesiumRasterOverlays::RasterOverlayTile& rasterTile, void* pMainThreadRendererResources, const glm::dvec2& translation, const glm::dvec2& scale)

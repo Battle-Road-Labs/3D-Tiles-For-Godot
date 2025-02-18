@@ -1,14 +1,18 @@
 #include "AssetManipulation.h"
 
 #include "../Models/CesiumGlobe.h"
+#include "Models/CesiumGDCreditSystem.h"
 #include "Models/CesiumGDRasterOverlay.h"
 #include "Models/CesiumGDTileset.h"
 #include "godot_cpp/classes/camera3d.hpp"
+#include "godot_cpp/classes/node.hpp"
 #include "godot_cpp/classes/resource_loader.hpp"
 #include "godot_cpp/classes/scene_tree.hpp"
+#include "godot_cpp/classes/window.hpp"
 #include "godot_cpp/core/error_macros.hpp"
 #include "godot_cpp/core/memory.hpp"
 #include "magic_enum.hpp"
+#include "missing_functions.hpp"
 #include <winnt.h>
 
 const char* CESIUM_GLOBE_NAME = "CesiumGlobe";
@@ -34,6 +38,29 @@ CesiumGlobe* Godot3DTiles::AssetManipulation::find_or_create_globe(Node3D* baseN
 	root->add_child(globe);
 	globe->set_owner(root);
 	return globe;
+}
+
+CesiumGDCreditSystem* Godot3DTiles::AssetManipulation::find_or_create_credit_system(Node3D* baseNode, bool deferred) {
+	// HACK: assume we will always have this root as a node 3d on the child of the window
+	Node* root = baseNode->get_tree()->get_root();
+	root->print_tree_pretty();
+	CesiumGDCreditSystem* result = find_node_in_scene<CesiumGDCreditSystem>(root);
+	if (result != nullptr) {
+		return result;
+	}
+	
+	result = memnew(CesiumGDCreditSystem);
+	CesiumGlobe* globe = find_node_in_scene<CesiumGlobe>(root);
+	ERR_FAIL_COND_V_MSG(globe == nullptr, nullptr, "No CesiumGlobe found in scene, please add one manually or with the Cesium Panel!");
+	if (deferred) {
+		globe->get_parent_node_3d()->call_deferred("add_child", result, false, godot::Node::INTERNAL_MODE_FRONT);
+		result->call_deferred("set_owner", globe->get_parent_node_3d());
+	}
+	else {
+		globe->get_parent_node_3d()->add_child(result, false, godot::Node::INTERNAL_MODE_FRONT);
+		result->set_owner(globe->get_parent_node_3d());
+	}
+	return result;
 }
 
 Node3D* Godot3DTiles::AssetManipulation::get_root_of_edit_scene(Node3D* baseNode) {
@@ -114,3 +141,9 @@ void Godot3DTiles::AssetManipulation::instantiate_dynamic_cam(Node3D* baseNode) 
 	camera->set_script(script);
 }
 
+
+
+CesiumGDTileset* find_first_tileset(Node3D* baseNode) {
+	//Get a globe
+	return nullptr;
+}
