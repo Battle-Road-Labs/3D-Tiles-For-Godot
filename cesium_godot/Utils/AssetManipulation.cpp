@@ -43,7 +43,6 @@ CesiumGlobe* Godot3DTiles::AssetManipulation::find_or_create_globe(Node3D* baseN
 CesiumGDCreditSystem* Godot3DTiles::AssetManipulation::find_or_create_credit_system(Node3D* baseNode, bool deferred) {
 	// HACK: assume we will always have this root as a node 3d on the child of the window
 	Node* root = baseNode->get_tree()->get_root();
-	root->print_tree_pretty();
 	CesiumGDCreditSystem* result = find_node_in_scene<CesiumGDCreditSystem>(root);
 	if (result != nullptr) {
 		return result;

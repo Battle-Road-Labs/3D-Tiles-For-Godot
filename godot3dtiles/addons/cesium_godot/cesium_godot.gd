@@ -75,6 +75,7 @@ func init_buttons() -> void:
 	self.dynamic_camera_button.pressed.connect(create_dynamic_camera)
 	self.token_button.pressed.connect(on_token_panel_pressed)
 	self.world_and_bing_button.pressed.connect(on_world_and_bing_button)
+	self.osm_buildings_button.pressed.connect(on_osm_buildings_pressed)
 
 func on_world_and_bing_button() -> void:
 	self.cesium_builder_node.instantiate_tileset(3)
