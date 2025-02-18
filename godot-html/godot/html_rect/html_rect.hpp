@@ -1,6 +1,7 @@
 #ifndef HTMLRECT_H
 #define HTMLRECT_H
 
+#include "Ultralight/String.h"
 #include "godot/view_rect/view_rect.hpp"
 
 #include <godot_cpp/core/binder_common.hpp>
@@ -22,7 +23,7 @@ namespace godot {
             virtual Dictionary _on_dom_ready(const String &url) { return Dictionary(); };
 
         public:
-            std::string m_html;
+            ultralight::String m_html;
             String index_path = "";
             HtmlRect();
             ~HtmlRect();
@@ -32,7 +33,7 @@ namespace godot {
 
             void LoadIndex(ultralight::RefPtr<ultralight::View> view);
 
-            void LoadHtml(const char* cstr, size_t length);
+            void LoadHtml();
 
             void _enter_tree() override;
             
@@ -40,8 +41,10 @@ namespace godot {
         
             String get_index() const;
 
-            void set_html(const String p_index);
-            String get_html() const;
+            void set_html(const ultralight::String& html);
+            
+            const ultralight::String& get_html() const;
+            
             void OnDOMReady(ultralight::View *caller, uint64_t frame_id, bool is_main_frame, const ultralight::String &url) override;
     };
 }

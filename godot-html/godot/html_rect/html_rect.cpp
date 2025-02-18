@@ -17,12 +17,8 @@ void HtmlRect::_bind_methods()
 {
 	ClassDB::bind_method(D_METHOD("get_index"), &HtmlRect::get_index);
 	ClassDB::bind_method(D_METHOD("set_index", "p_index"), &HtmlRect::set_index);
-	ClassDB::bind_method(D_METHOD("get_html"), &HtmlRect::get_html);
-  ClassDB::bind_method(D_METHOD("set_html", "p_html"), &HtmlRect::set_html);
 	        
 	ClassDB::add_property(get_class_static(), PropertyInfo(Variant::STRING, "index_path"), "set_index", "get_index");
-	
-	ClassDB::add_property(get_class_static(), PropertyInfo(Variant::STRING, "html"), "set_html", "get_html");
 }
 
 HtmlRect::HtmlRect()
@@ -67,7 +63,7 @@ void HtmlRect::StoreGlobalObject(JSContextRef context, Dictionary obj)
 void HtmlRect::LoadIndex(RefPtr<View> view)
 {
     if(index_path.is_empty()) {
-        view->LoadHTML("<h1>Placeholder Text</h1>");
+        view->LoadHTML("<h1>Geospatial data credits...</h1>");
     } else
     {
         auto path_parts = index_path.split("://");
@@ -83,18 +79,18 @@ void HtmlRect::LoadIndex(RefPtr<View> view)
 }
 
 
-void HtmlRect::LoadHtml(const char* cstr, size_t length) {
-    this->GetView()->LoadHTML(ultralight::String(cstr, length));
+void HtmlRect::LoadHtml() {
+    this->GetView()->LoadHTML(this->m_html);
 }
 
 
-void HtmlRect::set_html(const godot::String html) {
-    this->m_html = std::string(html.utf8().get_data(), html.length());
-    this->LoadHtml(this->m_html.c_str(), this->m_html.size());
+void HtmlRect::set_html(const ultralight::String& html) {
+    this->m_html = html;
+    this->LoadHtml();
 }
 
-godot::String HtmlRect::get_html() const {
-    return this->m_html.c_str();
+const ultralight::String& HtmlRect::get_html() const {
+    return this->m_html;
 }
 
 void HtmlRect::set_index(const String p_index)
@@ -114,12 +110,7 @@ Dictionary HtmlRect::call_on_dom_ready(const String &url)
 }
 
 void HtmlRect::_enter_tree() {
-    if (!is_editor_mode()) return;
-    
     this->set_custom_minimum_size(Vector2(1000, 150));
-    
-    this->set_anchors_preset(Control::LayoutPreset::PRESET_BOTTOM_LEFT);
-    this->set_offset(Side::SIDE_TOP, -150.0f);
 }
 
 void HtmlRect::OnDOMReady(ultralight::View *caller, uint64_t frame_id, bool is_main_frame,

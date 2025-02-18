@@ -51,7 +51,7 @@ void initialize_cesium_godot_module(ModuleInitializationLevel p_level) {
   GDREGISTER_CLASS(HtmlRect);
   GDREGISTER_CLASS(InspectorRect);
   GDREGISTER_CLASS(AppExample);
-	ClassDB::register_class<CesiumGDCreditSystem>();
+	ClassDB::register_class<CesiumGDCreditSystem>(true);
 }
 
 void uninitialize_cesium_godot_module(ModuleInitializationLevel p_level) {

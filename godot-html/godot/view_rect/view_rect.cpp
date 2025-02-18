@@ -260,8 +260,7 @@ void ViewRect::SizeChanged()
 
 void ViewRect::CopyBitmapToTexture(RefPtr<Bitmap> bitmap)
 {
-    if (bitmap->IsEmpty()) {
-        printf("Empty bitmap\n");
+    if (bitmap->IsEmpty()) { 
         return;
     }
     bitmap->SwapRedBlueChannels();
@@ -271,7 +270,9 @@ void ViewRect::CopyBitmapToTexture(RefPtr<Bitmap> bitmap)
     memcpy(arr.ptrw(), pixels.data(), pixels.size());
     if(image.is_null())
     {
-        printf("Trying to create the image\n");
+        if (pixels.size() == 16) {
+            return;
+        }
         // Do this once
         image = Image::create_from_data(bitmap->width(), bitmap->height(), false, Image::FORMAT_RGBA8, arr);
         if(!image.is_valid() || image->is_empty()) return;
@@ -279,7 +280,6 @@ void ViewRect::CopyBitmapToTexture(RefPtr<Bitmap> bitmap)
         return;
     }
     
-    printf("Trying to set the image data\n");
     image->set_data(bitmap->width(), bitmap->height(), false, Image::Format::FORMAT_RGBA8, arr);
     if (image_texture.is_null()) {
         image_texture = ImageTexture::create_from_image(image);           

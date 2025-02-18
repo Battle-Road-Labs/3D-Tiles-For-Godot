@@ -236,9 +236,7 @@ void CesiumGDTileset::update_tileset(const Transform3D& cameraTransform)
 
 		if (isGeoreferenced) {
 			this->m_georeference->set_should_update_origin(true);
-			printf("Should update\n");
 			this->m_georeference->move_origin();
-			printf("Moved origin\n");
 		}
 		
 		this->load_tileset();
@@ -340,7 +338,6 @@ void CesiumGDTileset::recreate_tileset()
 
 void CesiumGDTileset::load_tileset()
 {
-	printf("Tileset loading started\n");
 	//Get the options to read the tileset and then load it into memory
 	const Cesium3DTilesSelection::TilesetOptions& options = this->m_tilesetConfig->options;
 	const Cesium3DTilesSelection::TilesetContentOptions& contentOptions = this->m_tilesetConfig->contentOptions;
@@ -371,8 +368,6 @@ void CesiumGDTileset::load_tileset()
 		if (overlay == nullptr) continue;
 		overlay->add_to_tileset(this);
 	}
-
-	printf("Tileset loading end\n");
 
 }
 
@@ -423,9 +418,9 @@ void CesiumGDTileset::render_tile_as_node(const Cesium3DTilesSelection::Tile& ti
 		foundNode->show();
 
 		if (this->m_createPhysicsMeshes) {
-			Node* collisionNode = foundNode->get_child(0);
+			Node* collisionNode = foundNode->get_child_count() < 1 ? nullptr : foundNode->get_child(0);
 			if (collisionNode == nullptr) return;
-			CollisionShape3D* shape = Object::cast_to<CollisionShape3D>(collisionNode->get_child(0));
+			CollisionShape3D* shape = collisionNode->get_child_count() < 1 ? nullptr : Object::cast_to<CollisionShape3D>(collisionNode->get_child(0));
 			if (shape == nullptr) return;
 			shape->set_disabled(false);
 		}
@@ -478,13 +473,13 @@ void CesiumGDTileset::despawn_tile(const Cesium3DTilesSelection::Tile& tile)
 	}
 	
 	const Cesium3DTilesSelection::TileRenderContent* renderContent = tile.getContent().getRenderContent();
-
+	
 	foundNode->hide();
 	// Deactivate the collisions
 	if (this->m_createPhysicsMeshes) {
-		Node* collisionNode = foundNode->get_child(0);
+		Node* collisionNode = foundNode->get_child_count() < 1 ? nullptr : foundNode->get_child(0);
 		if (collisionNode == nullptr) return;
-			CollisionShape3D* shape = Object::cast_to<CollisionShape3D>(collisionNode->get_child(0));
+			CollisionShape3D* shape = collisionNode->get_child_count() < 1 ? nullptr : Object::cast_to<CollisionShape3D>(collisionNode->get_child(0));
 			if (shape == nullptr) return;
 			shape->set_disabled(true);
 	}
@@ -526,12 +521,10 @@ void CesiumGDTileset::process_tile_chunk(const std::vector<Cesium3DTilesSelectio
 
 
 void CesiumGDTileset::register_tile(MeshInstance3D *instance, size_t hash) {
-	printf("Register tile start!\n");
 	auto internalMode = this->m_showHierarchy ? Node::InternalMode::INTERNAL_MODE_DISABLED : Node::InternalMode::INTERNAL_MODE_FRONT; 
 	this->add_child(instance, false, internalMode);
 	this->m_instancedTilesByHash.insert({ hash, instance });
 	tileCount++;
-	printf("Register tile end, tile count: %d!\n", tileCount);
 }
 
 

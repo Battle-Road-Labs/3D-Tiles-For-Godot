@@ -1,5 +1,6 @@
 
 #include "CesiumGlobe.h"
+#include "Utils/AssetManipulation.h"
 #include "godot_cpp/variant/vector3.hpp"
 #include "missing_functions.hpp"
 #include <cstdint>
