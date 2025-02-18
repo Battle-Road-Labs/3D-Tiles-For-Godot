@@ -34,6 +34,8 @@ godot3dtiles/**
 !godot3dtiles/bin/*.gdextension
 godot3dtiles/bin/*Godot3DTiles*.dll
 
+!godot-html/ultralight/lib/*.lib
+
 # Ignore large files
 *.ipch
 *.vcxproj
