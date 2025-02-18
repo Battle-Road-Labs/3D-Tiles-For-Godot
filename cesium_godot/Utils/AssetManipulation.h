@@ -47,11 +47,9 @@ namespace Godot3DTiles::AssetManipulation {
       int32_t count = root->get_child_count();
       for (int32_t i = 0; i < count; i++) {
           Node* child = root->get_child(i);
-          printf("Name: %s\n", child->get_name().to_utf8_buffer().ptr());
 
           T* foundChild = Object::cast_to<T>(child);
           if (foundChild != nullptr) {
-              printf("Found!\n");
               return foundChild;
           }
           

@@ -239,7 +239,6 @@ func _get_surface_distance_raycast() -> float:
 		if (distanceToMove < 10):
 			self.moving_direction = Vector3.ZERO
 		last_hit_distance = distanceToMove
-		print(distanceToMove);
 
 	# Determine the smallest distance from the raycasts
 	var closest_distance: float = distanceToFloor
