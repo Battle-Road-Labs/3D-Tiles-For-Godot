@@ -12,7 +12,7 @@ var tileset : CesiumGDTileset
 var move_speed : float = 100
 
 @export
-var rotation_speed : float = 2
+var rotation_speed : float = 0.01
 
 var desired_cam_pos : Vector3 = Vector3.ZERO
 

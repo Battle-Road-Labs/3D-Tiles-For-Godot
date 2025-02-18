@@ -1,11 +1,14 @@
 #include "view_rect.hpp"
 
 #include "godot/ultralight_singleton/ultralight_singleton.hpp"
+#include "godot_cpp/classes/bit_map.hpp"
 #include "godot_cpp/classes/resource_saver.hpp"
 
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/variant/packed_byte_array.hpp>
+
+#include <Ultralight/Ultralight.h>
 
 #include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
@@ -77,7 +80,6 @@ void ViewRect::_process(double delta)
     ///
     ///
     GodotHTML::UltralightManager::GetSingleton()->UpdateLogic();
-    printf("Update logic!\n");
     for (; !events.empty(); events.pop())
     {
         switch(events.front())
@@ -119,7 +121,6 @@ void ViewRect::_draw()
     if(image_texture.is_valid())
     {
         Vector2 size = get_size();
-        printf("Drew image!\n");
         draw_texture_rect(image_texture, Rect2(0, 0, size.x, size.y), false);
         //ResourceSaver::get_singleton()->save(this->image_texture, "res://testTex.tres");
     }
@@ -227,7 +228,6 @@ void ViewRect::HandleKey(InputEventKey *event)
 void ViewRect::RenderFrame()
 {
     if(!view) return;
-    printf("Rendered frame!\n");
     ///
     /// Get the Surface as a BitmapSurface (the default implementation).
     ///
@@ -239,7 +239,7 @@ void ViewRect::RenderFrame()
         ///
         /// Psuedo-code to upload Surface's bitmap to GPU texture.
         ///
-        auto tmpBitmap = Bitmap::Create(*surface->bitmap());
+        auto tmpBitmap = ultralight::Bitmap::Create(*surface->bitmap());
         CopyBitmapToTexture(tmpBitmap);
         
         ///
@@ -260,21 +260,31 @@ void ViewRect::SizeChanged()
 
 void ViewRect::CopyBitmapToTexture(RefPtr<Bitmap> bitmap)
 {
+    if (bitmap->IsEmpty()) {
+        printf("Empty bitmap\n");
+        return;
+    }
     bitmap->SwapRedBlueChannels();
     auto pixels = bitmap->LockPixelsSafe();
     PackedByteArray arr = PackedByteArray();
-    printf("Expected pixels: %zu, bitmap size: (%d, %d)\n", pixels.size(), bitmap->width(), bitmap->height());
     arr.resize(pixels.size());
     memcpy(arr.ptrw(), pixels.data(), pixels.size());
     if(image.is_null())
     {
+        printf("Trying to create the image\n");
+        // Do this once
         image = Image::create_from_data(bitmap->width(), bitmap->height(), false, Image::FORMAT_RGBA8, arr);
         if(!image.is_valid() || image->is_empty()) return;
         image_texture = ImageTexture::create_from_image(image);
+        return;
     }
-    else
-    {
-        image->set_data(bitmap->width(), bitmap->height(), false, Image::Format::FORMAT_RGBA8, arr); 
+    
+    printf("Trying to set the image data\n");
+    image->set_data(bitmap->width(), bitmap->height(), false, Image::Format::FORMAT_RGBA8, arr);
+    if (image_texture.is_null()) {
+        image_texture = ImageTexture::create_from_image(image);           
+    }
+    else {
         image_texture->update(image);
     }
 }

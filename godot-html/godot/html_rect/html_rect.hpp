@@ -22,7 +22,7 @@ namespace godot {
             virtual Dictionary _on_dom_ready(const String &url) { return Dictionary(); };
 
         public:
-            String m_html;
+            std::string m_html;
             String index_path = "";
             HtmlRect();
             ~HtmlRect();
@@ -32,8 +32,10 @@ namespace godot {
 
             void LoadIndex(ultralight::RefPtr<ultralight::View> view);
 
-            void LoadHtml(const String& html);
+            void LoadHtml(const char* cstr, size_t length);
 
+            void _enter_tree() override;
+            
             void set_index(const String p_index);
         
             String get_index() const;

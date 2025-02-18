@@ -1,5 +1,7 @@
+#include "missing_functions.hpp"
 #include "html_rect.hpp"
 
+#include "Ultralight/String.h"
 #include "godot/ultralight_singleton/ultralight_singleton.hpp"
 
 #include <godot_cpp/core/class_db.hpp>
@@ -81,18 +83,18 @@ void HtmlRect::LoadIndex(RefPtr<View> view)
 }
 
 
-void HtmlRect::LoadHtml(const godot::String& html) {
-    this->GetView()->LoadHTML(html.utf8().get_data());
+void HtmlRect::LoadHtml(const char* cstr, size_t length) {
+    this->GetView()->LoadHTML(ultralight::String(cstr, length));
 }
 
 
 void HtmlRect::set_html(const godot::String html) {
-    this->m_html = html;
-    this->LoadHtml(this->m_html);
+    this->m_html = std::string(html.utf8().get_data(), html.length());
+    this->LoadHtml(this->m_html.c_str(), this->m_html.size());
 }
 
 godot::String HtmlRect::get_html() const {
-    return this->m_html;
+    return this->m_html.c_str();
 }
 
 void HtmlRect::set_index(const String p_index)
@@ -109,6 +111,15 @@ godot::String HtmlRect::get_index() const
 Dictionary HtmlRect::call_on_dom_ready(const String &url)
 {
     return _on_dom_ready(url);
+}
+
+void HtmlRect::_enter_tree() {
+    if (!is_editor_mode()) return;
+    
+    this->set_custom_minimum_size(Vector2(1000, 150));
+    
+    this->set_anchors_preset(Control::LayoutPreset::PRESET_BOTTOM_LEFT);
+    this->set_offset(Side::SIDE_TOP, -150.0f);
 }
 
 void HtmlRect::OnDOMReady(ultralight::View *caller, uint64_t frame_id, bool is_main_frame,

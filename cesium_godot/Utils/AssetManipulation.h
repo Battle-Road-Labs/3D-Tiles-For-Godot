@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Models/CesiumGDTileset.h"
+#include <algorithm>
 #if defined(CESIUM_GD_EXT)
 #include <godot_cpp/classes/node3d.hpp>
 using namespace godot;
@@ -32,5 +33,20 @@ namespace Godot3DTiles::AssetManipulation {
   Node3D* get_root_of_edit_scene(Node3D* baseNode);
   
   CesiumGDTileset* find_first_tileset(Node3D* baseNode);
+
+  template<class T>
+  inline T* find_node_in_scene(Node3D* baseNode) {
+    Node3D* root = get_root_of_edit_scene(baseNode);
+    
+    int32_t count = root->get_child_count();
+    for (int32_t i = 0; i < count; i++) {
+    	Node* child = root->get_child(i);
+    	T* foundChild = Object::cast_to<T>(child);
+    	if (foundChild != nullptr) {
+    		return foundChild;
+    	}
+    }
+    return nullptr;
+  }
   
 }
