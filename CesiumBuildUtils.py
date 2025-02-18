@@ -29,6 +29,10 @@ RELEASE_CONFIG = "RelWithDebInfo"
 def is_extension_target(argsDict) -> bool:
     return get_compile_target_definition(argsDict) == CESIUM_EXT_DEF
 
+def generate_precision_symbols(argsDict, env):
+    desiredPrecision = argsDict.get("precision")
+    if (desiredPrecision == "double"):
+        env.Append(CPPDEFINES=["REAL_T_IS_DOUBLE"])
 
 def get_compile_target_definition(argsDict) -> str:
     # Get the format (default is extension)

@@ -42,6 +42,9 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	self.move_speed = self.adjusted_speed()
+	
+	var ecefDir : Vector3 = self.globe_node.get_initial_tx_engine_to_ecef() * self.moving_direction
+	camera_walk_ecef(-ecefDir.normalized())
 
 func _process(delta: float) -> void:
 	self.surface_basis = self.calculate_surface_basis()
@@ -124,15 +127,8 @@ func movement_input(delta: float):
 		rotate_z(delta * 0.5)
 	if (Input.is_key_pressed(KEY_KP_4)):
 		rotate_z(-delta * 0.5)
-	
-	#direction = self.adjust_move_direction_to_surface(direction)
-	
-	var startPos := self.global_position - (self.global_basis.z * 10)
-	DebugDraw3D.draw_arrow(startPos, startPos + direction, Color.ORANGE, 0.1)
+		
 	self.moving_direction = direction.normalized()
-	var ecefDir : Vector3 = self.globe_node.get_initial_tx_engine_to_ecef() * direction
-	
-	camera_walk_ecef(-ecefDir.normalized())
 
 func adjust_move_direction_to_surface(raw_direction: Vector3) -> Vector3:
 	var upEngine : Vector3 = self.surface_basis.y
@@ -222,9 +218,11 @@ func _get_surface_distance_raycast() -> float:
 	var result: Dictionary = space_state.intersect_ray(ray_query)
 
 	# --- Second Raycast: Using the moving direction ---
-	ray_query.to = global_position + (moving_direction * RADII * 2)
+	ray_query.to = global_position + (moving_direction * self.move_speed * 10)
+	ray_query.hit_from_inside = false
 	var secondResult: Dictionary = space_state.intersect_ray(ray_query)
 
+	
 	# Debug draw the two rays
 	DebugDraw3D.draw_ray(global_position - global_basis.z * 10, -surface_basis.y, RADII * 2, Color.CYAN)
 	DebugDraw3D.draw_ray(global_position - global_basis.z * 10, moving_direction, RADII * 2, Color.CYAN)
@@ -238,38 +236,15 @@ func _get_surface_distance_raycast() -> float:
 	var distanceToMove: float = RADII
 	if secondResult:
 		distanceToMove = global_position.distance_to(secondResult.position)
+		if (distanceToMove < 10):
+			self.moving_direction = Vector3.ZERO
 		last_hit_distance = distanceToMove
+		print(distanceToMove);
 
 	# Determine the smallest distance from the raycasts
 	var closest_distance: float = distanceToFloor
 	if distanceToMove < closest_distance:
 		closest_distance = distanceToMove
-		if (closest_distance < 10):
-			self.desired_cam_pos = self.global_position
-
-	# --- Additional Sphere Cast ---
-	# Create a sphere with a radius of 5
-	var sphere_radius: float = 5.0
-	var sphere_shape = SphereShape3D.new()
-	sphere_shape.radius = sphere_radius
-
-	var shape_query = PhysicsShapeQueryParameters3D.new()
-	shape_query.shape = sphere_shape
-	shape_query.transform = Transform3D(Basis(), global_position + moving_direction)
-	shape_query.exclude = [self]
-	shape_query.collision_mask = 1  # Adjust based on your layers
-
-	DebugDraw3D.draw_sphere(global_position + moving_direction - global_basis.z * last_hit_distance, 5, Color.YELLOW)
-	var shape_results = space_state.intersect_shape(shape_query, 32)
-
-	# Iterate over the sphere cast results and update the closest distance if needed
-	if shape_results.size() > 0:
-		for res in shape_results:
-			var collider := instance_from_id(res.collider_id) as Node3D
-			var shape_distance = global_position.distance_to(collider.position)
-			if shape_distance < closest_distance:
-				closest_distance = shape_distance
-				last_hit_distance = shape_distance
 
 	return closest_distance
 
