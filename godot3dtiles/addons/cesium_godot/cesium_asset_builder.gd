@@ -20,7 +20,6 @@ func instantiate_tileset(tileset_type: TILESET_TYPE) -> void:
 	var tileset := CesiumGDTileset.new()
 	globe.add_child(tileset)
 	tileset.owner = globe.get_parent()
-	#globe.add_child(tileset)
 	
 	tileset.cesiumConfig = self.cesiumConfig
 	tileset.name = CESIUM_TILESET_NAME
@@ -35,13 +34,8 @@ func instantiate_dynamic_cam() -> void:
 	
 	# We have to use set_script here instead of instantiating directly
 	# Otherwise GD will try to run the input input functions in edit mode
-	if (self.use_georeferences):
-		print("Using georeferences")
-		camera.set_script(GeoreferenceCameraController)
-	else:
-		camera.set_script(CesiumCameraController)
-	
-	print("Created cam!")
+	camera.set_script(GeoreferenceCameraController)	
+	print("Created Cesium cam!")
 	camera.globe_node = globe
 	camera.tilesets = []
 	camera.tilesets.append(globe.find_child(CESIUM_TILESET_NAME) as CesiumGDTileset)
@@ -50,7 +44,6 @@ func instantiate_dynamic_cam() -> void:
 	if (camera.tilesets[0] == null):
 		# Blank tileset as default instantiation
 		self.instantiate_tileset(TILESET_TYPE.Blank)
-	print("Root object: " + root.name)
 	root.add_child(camera)
 	camera.owner = root
 

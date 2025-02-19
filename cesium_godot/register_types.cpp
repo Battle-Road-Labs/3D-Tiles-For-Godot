@@ -11,6 +11,7 @@
 #include "Models/CesiumGDConfig.h"
 #include "Models/CesiumGDGeoreference.h"
 #include "Utils/CesiumGDAssetBuilder.h"
+#include "Utils/TokenTroubleShooting.h"
 #include "app_example.hpp"
 #include "godot/inspector_rect/inspector_rect.hpp"
 #include "godot/ultralight_singleton/ultralight_singleton.hpp"
@@ -42,6 +43,7 @@ void initialize_cesium_godot_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<CesiumGDRasterOverlay>();
 	ClassDB::register_class<CesiumGDConfig>();
 	ClassDB::register_class<CesiumGDAssetBuilder>();
+	ClassDB::register_class<TokenTroubleshooting>();
 	
 	GDREGISTER_CLASS(UltralightSingleton);
   ultralight_singleton = memnew(UltralightSingleton); // memnew is super important.

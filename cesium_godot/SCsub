@@ -39,6 +39,7 @@ sources = [
     cesium_build_utils.get_root_dir() + "/Utils/CesiumDebugUtils.cpp",
     cesium_build_utils.get_root_dir() + "/Utils/AssetManipulation.cpp",
     cesium_build_utils.get_root_dir() + "/Utils/CesiumGDAssetBuilder.cpp",
+    cesium_build_utils.get_root_dir() + "/Utils/TokenTroubleShooting.cpp"
 ]
 
 

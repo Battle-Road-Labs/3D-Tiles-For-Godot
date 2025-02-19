@@ -142,6 +142,7 @@ layout_mode = 2
 [node name="CreateOrUseToken" type="Button" parent="VSplitContainer/VBoxContainer/HBoxContainer4"]
 custom_minimum_size = Vector2(1.45519e-11, 50)
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Create / Use token for project"
 
 [node name="MarginContainer" type="MarginContainer" parent="VSplitContainer/VBoxContainer/HBoxContainer4"]

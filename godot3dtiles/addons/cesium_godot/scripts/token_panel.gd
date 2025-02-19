@@ -7,6 +7,7 @@ var specific_token_check: CheckBox
 var config_picker: EditorResourcePicker
 var new_token_check: CheckBox
 var create_or_use_token_button: Button
+var test_token_button: Button
 var specific_token_name: TextEdit
 
 var request_node: HTTPRequest
@@ -20,6 +21,7 @@ func initialize_fields(token_panel: Popup) -> void:
 	self.specific_token_check = token_panel.find_child("SpecificTokenCheck") as CheckBox
 	self.new_token_check = token_panel.find_child("NewTokenCheck") as CheckBox
 	self.create_or_use_token_button = token_panel.find_child("CreateOrUseToken") as Button
+	self.test_token_button = token_panel.find_child("TestToken") as Button
 	# Then add the ResourcePicker
 	var configuration_container = token_panel.find_child("ConfigurationContainer")
 	self.config_picker = EditorResourcePicker.new()
@@ -30,11 +32,13 @@ func initialize_fields(token_panel: Popup) -> void:
 	self.specific_token_name = self.find_sibling(self.specific_token_check, "TokenName") as TextEdit
 	self.specific_token_name.text = (self.config_picker.edited_resource as CesiumGDConfig).accessToken
 	
-	existing_token_check.toggled.connect(on_existing_token_check)
-	specific_token_check.toggled.connect(on_specific_token_check)
-	new_token_check.toggled.connect(on_new_token_check)
-	token_panel.about_to_popup.connect(initialize_panel_buttons_from_state)
-	create_or_use_token_button.pressed.connect(apply_or_create_token)
+	self.existing_token_check.toggled.connect(on_existing_token_check)
+	self.specific_token_check.toggled.connect(on_specific_token_check)
+	self.new_token_check.toggled.connect(on_new_token_check)
+	self.token_panel.about_to_popup.connect(initialize_panel_buttons_from_state)
+	self.create_or_use_token_button.pressed.connect(apply_or_create_token)
+	self.test_token_button.pressed.connect(on_test_button_pressed)
+	
 
 	self.request_node = HTTPRequest.new()
 	token_panel.add_child(self.request_node)
@@ -80,6 +84,10 @@ func on_existing_token_check(checked: bool) -> void:
 	pass
 
 
+func on_test_button_pressed() -> void:
+	pass
+
+
 func test_token() -> void:
 	# Get the config
 	print("Token working")
@@ -92,6 +100,7 @@ func apply_or_create_token() -> void:
 	if (usage == TokenUsageType.Specific):
 		var config := self.config_picker.edited_resource as CesiumGDConfig
 		config.accessToken = self.specific_token_name.text
+
 	OS.alert("Token changed in configuration, you can now close this window...", "Changes applied!")
 
 
