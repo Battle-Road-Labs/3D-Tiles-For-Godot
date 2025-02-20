@@ -3,7 +3,7 @@
 
 #include "Models/CesiumGDConfig.h"
 #include "Utils/CurlHttpClient.h"
-#include "godot_cpp/variant/callable.hpp"
+#include "godot_cpp/variant/variant.hpp"
 #if defined(CESIUM_GD_EXT)
 #include "godot_cpp/classes/node.hpp"
 using namespace godot;
@@ -13,13 +13,15 @@ using namespace godot;
 class TokenTroubleshooting : public Node {
   GDCLASS(TokenTroubleshooting, Node)
   public:
-    static void is_valid_token(const String& token, const Ref<CesiumGDConfig>& config, const Callable& callback);
+    void is_valid_token(const String& token, const Ref<CesiumGDConfig>& config);
 
+    virtual void on_token_validity_check(const String& token, bool isValid, const Variant& data);
+    
   protected:
     static void _bind_methods();
 
   private:
-    static inline CurlHttpClient<1> m_httpClient{};
+    CurlHttpClient<1> m_httpClient{};
     
 };
 
