@@ -156,7 +156,7 @@ layout_mode = 2
 custom_minimum_size = Vector2(150, 50)
 layout_mode = 2
 
-[node name="ConnectButton" type="Button" parent="VSplitContainer/VBoxContainer/HBoxContainer3"]
+[node name="TestToken" type="Button" parent="VSplitContainer/VBoxContainer/HBoxContainer3"]
 custom_minimum_size = Vector2(1.45519e-11, 50)
 layout_mode = 2
 size_flags_horizontal = 3

@@ -10,13 +10,19 @@ var create_or_use_token_button: Button
 var test_token_button: Button
 var specific_token_name: TextEdit
 
+var token_troubleshooting: TokenTroubleshooting
+
 var request_node: HTTPRequest
+
 
 var current_token_usage: TokenUsageType = TokenUsageType.Specific
 
 const default_config: CesiumGDConfig = preload("res://addons/cesium_godot/cesium_gd_config.tres")
 
 func initialize_fields(token_panel: Popup) -> void:
+	self.token_troubleshooting = TokenTroubleshooting.new()
+	token_panel.add_child(self.token_troubleshooting)
+	self.token_troubleshooting.owner = token_panel
 	self.existing_token_check = token_panel.find_child("ExistingTokenCheck") as CheckBox
 	self.specific_token_check = token_panel.find_child("SpecificTokenCheck") as CheckBox
 	self.new_token_check = token_panel.find_child("NewTokenCheck") as CheckBox
@@ -35,7 +41,7 @@ func initialize_fields(token_panel: Popup) -> void:
 	self.existing_token_check.toggled.connect(on_existing_token_check)
 	self.specific_token_check.toggled.connect(on_specific_token_check)
 	self.new_token_check.toggled.connect(on_new_token_check)
-	self.token_panel.about_to_popup.connect(initialize_panel_buttons_from_state)
+	token_panel.about_to_popup.connect(initialize_panel_buttons_from_state)
 	self.create_or_use_token_button.pressed.connect(apply_or_create_token)
 	self.test_token_button.pressed.connect(on_test_button_pressed)
 	
@@ -85,7 +91,10 @@ func on_existing_token_check(checked: bool) -> void:
 
 
 func on_test_button_pressed() -> void:
+	var currentConfig := self.config_picker.edited_resource as CesiumGDConfig
+	self.token_troubleshooting.is_valid_token(currentConfig.accessToken, currentConfig)
 	pass
+	
 
 
 func test_token() -> void:
