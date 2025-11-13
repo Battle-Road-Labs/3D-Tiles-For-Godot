@@ -5,7 +5,7 @@
 #if defined(CESIUM_GD_EXT)
 #include <godot_cpp/classes/image_texture.hpp>
 using namespace godot;
-#elif defined(CESIUM_GD_MODULE)
+#else
 #include "scene/resources/image_texture.h"
 #endif
 

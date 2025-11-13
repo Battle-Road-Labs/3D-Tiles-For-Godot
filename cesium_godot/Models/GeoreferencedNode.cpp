@@ -2,9 +2,12 @@
 #include "Models/CesiumGlobe.h"
 #include "Utils/CesiumMathUtils.h"
 #include "glm/ext/vector_double3.hpp"
+#if defined(CESIUM_GD_EXT)
 #include "godot_cpp/classes/engine.hpp"
 #include "godot_cpp/classes/tile_set.hpp"
 #include "godot_cpp/core/print_string.hpp"
+#else
+#endif
 
 
 void GeoreferencedMesh::_ready() {

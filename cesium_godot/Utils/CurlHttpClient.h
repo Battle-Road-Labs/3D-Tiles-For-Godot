@@ -1,10 +1,7 @@
 #ifndef CURL_HTTP_CLIENT
 #define CURL_HTTP_CLIENT
 
-#include "godot_cpp/classes/os.hpp"
 #include <sstream>
-#if defined(CESIUM_GD_EXT)
-
 #ifdef _WIN32
 //Link to windows libraries
 #pragma comment(lib, "Ws2_32.Lib")
@@ -12,13 +9,17 @@
 #pragma comment(lib, "Crypt32.Lib")
 #endif
 
+#if defined(CESIUM_GD_EXT)
+#include "godot_cpp/classes/os.hpp"
 #include "godot_cpp/variant/string.hpp"
 #include "godot_cpp/core/error_macros.hpp"
 #include <godot_cpp/templates/vector.hpp>
 #include "godot_cpp/classes/http_client.hpp"
 using namespace godot;
-#elif defined(CESIUM_GD_MODULE)
+#else
 #include "core/templates/vector.h"
+#include "core/variant/variant.h"
+#include "core/io/http_client.h"
 #endif
 
 #include "BRThreadPool.h"

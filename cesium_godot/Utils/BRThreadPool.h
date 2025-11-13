@@ -1,13 +1,13 @@
 #ifndef THREAD_POOL_H
 #define THREAD_POOL_H
 
+#include "core/error/error_macros.h"
 #include <condition_variable>
 #include <functional>
 #include <future>
 #include <memory>
 #include <mutex>
 #include <queue>
-#include <stdexcept>
 #include <thread>
 #include <type_traits>
 #include <vector>
@@ -75,8 +75,10 @@ auto BRThreadPool::enqueue(F &&f, Args &&...args)
 		std::unique_lock<std::mutex> lock(queue_mutex);
 
 		// don't allow enqueueing after stopping the pool
-		if (stop)
-			throw std::runtime_error("enqueue on stopped ThreadPool");
+		if (stop) {
+			ERR_PRINT("enqueue on stopped ThreadPool");
+			return{};
+		}
 
 		tasks.emplace([task]() { (*task)(); });
 	}

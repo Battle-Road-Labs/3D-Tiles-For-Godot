@@ -1,5 +1,6 @@
 #include "TokenTroubleShooting.h"
 #include "error_names.hpp"
+#if defined(CESIUM_GD_EXT)
 #include "godot_cpp/classes/http_client.hpp"
 #include "godot_cpp/classes/json.hpp"
 #include "godot_cpp/classes/os.hpp"
@@ -9,6 +10,10 @@
 #include "godot_cpp/variant/packed_byte_array.hpp"
 #include "godot_cpp/variant/packed_string_array.hpp"
 #include "godot_cpp/variant/string.hpp"
+#else
+#include "core/io/json.h"
+#include "core/io/http_client.h"
+#endif
 #include <cstdint>
 #include <string_view>
 #include <unordered_map>
@@ -66,14 +71,14 @@ void TokenTroubleshooting::is_valid_token(const String& token) {
 }
 
 
-void TokenTroubleshooting::set_data(const Variant &data) {
-  this->m_tokenData = data;
+void TokenTroubleshooting::set_data(const Variant &p_data) {
+  this->m_tokenData = p_data;
   Variant asset_list_group = this->m_tokenData.get("asset_list_group");
   asset_list_group.set("visible", false);
 }
 
 
-void TokenTroubleshooting::on_token_validity_check(const String& token, bool isValid, const std::unordered_map<std::string, int32_t>& data) {
+void TokenTroubleshooting::on_token_validity_check(const String& token, bool isValid, const std::unordered_map<std::string, int32_t>& p_data) {
   if (!isValid) {
     OS::get_singleton()->alert("Token is not valid, try signing into Cesium ION");
     return;
@@ -83,11 +88,11 @@ void TokenTroubleshooting::on_token_validity_check(const String& token, bool isV
   asset_list_group.set("visible", true);
   // Add each entry from data to token_data.asset_list_items.
   Variant asset_list_items = m_tokenData.get("asset_list_items");
-  this->m_lastAssetLists = data;
+  this->m_lastAssetLists = p_data;
   Variant asset_id_text = m_tokenData.get("asset_id_text");
   if (asset_list_items.get_type() == Variant::OBJECT) {
       Object *list_items = asset_list_items;
-      for (const auto& kv : data) {
+      for (const auto& kv : p_data) {
         list_items->call("add_item", kv.first.c_str());
       }
   }

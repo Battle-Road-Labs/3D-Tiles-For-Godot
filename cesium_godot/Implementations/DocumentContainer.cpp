@@ -1,4 +1,5 @@
 #include "DocumentContainer.h"
+#if defined(CESIUM_GD_EXT)
 #include "godot_cpp/classes/control.hpp"
 #include "godot_cpp/classes/font.hpp"
 #include "godot_cpp/classes/global_constants.hpp"
@@ -10,6 +11,10 @@
 #include "godot_cpp/variant/color.hpp"
 #include "godot_cpp/variant/packed_byte_array.hpp"
 #include "godot_cpp/variant/rect2.hpp"
+#else
+
+#include "scene/resources/font.h"
+#endif
 #include "litehtml/background.h"
 #include "litehtml/document.h"
 #include "litehtml/types.h"

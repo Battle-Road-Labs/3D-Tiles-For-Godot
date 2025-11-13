@@ -3,6 +3,7 @@
 
 #include "Models/CesiumGDTileset.h"
 #include <vector>
+#include "executable_node.hpp"
 #if defined(CESIUM_GD_EXT)
 #include <godot_cpp/classes/object.hpp>
 #include <godot_cpp/classes/node3d.hpp>
@@ -18,8 +19,8 @@ using namespace godot;
 using EcefVector3 = Vector3;
 
 /// @brief We define this in C++ to provide any utility methods from the Globe instance
-class CesiumGeoreference : public Node3D {
-	GDCLASS(CesiumGeoreference, Node3D)
+class CesiumGeoreference : public ExecutableNode3D {
+	GDCLASS(CesiumGeoreference, ExecutableNode3D)
 public:
 
 	enum class OriginType {

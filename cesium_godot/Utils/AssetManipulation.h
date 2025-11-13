@@ -3,14 +3,14 @@
 #include "Models/CesiumGDConfig.h"
 #include "Models/CesiumGDCreditSystem.h"
 #include "Models/CesiumGDTileset.h"
+#if defined(CESIUM_GD_EXT)
 #include "godot_cpp/classes/camera3d.hpp"
 #include "godot_cpp/variant/array.hpp"
 #include "godot_cpp/variant/string.hpp"
-#if defined(CESIUM_GD_EXT)
 #include <godot_cpp/classes/node3d.hpp>
 using namespace godot;
-#elif defined(CESIUM_GD_MODULE)
-
+#else
+#include "scene/main/node.h"
 #endif
 
 class CesiumGeoreference;

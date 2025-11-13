@@ -2,14 +2,14 @@
 #include "Models/CesiumGDTileset.h"
 #include "Utils/AssetManipulation.h"
 #include "glm/ext/vector_double3.hpp"
-#include "godot_cpp/core/math.hpp"
-#include "godot_cpp/variant/vector3.hpp"
 #include <cstdint>
 
 #if defined(CESIUM_GD_EXT)
 #include <godot_cpp/classes/viewport.hpp>
 #include <godot_cpp/classes/camera3d.hpp>
-#elif defined(CESIUM_GD_MODULE)
+#include "godot_cpp/core/math.hpp"
+#include "godot_cpp/variant/vector3.hpp"
+#else
 #include "scene/main/viewport.h"
 #include "scene/3d/camera_3d.h"
 #endif

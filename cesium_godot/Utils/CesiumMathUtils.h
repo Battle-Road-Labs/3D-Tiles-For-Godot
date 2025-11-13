@@ -5,16 +5,16 @@
 #include "glm/ext/matrix_transform.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/trigonometric.hpp"
+#if defined(CESIUM_GD_EXT)
 #include "godot_cpp/core/error_macros.hpp"
 #include "godot_cpp/variant/string.hpp"
 #include "godot_cpp/variant/transform3d.hpp"
 #include "godot_cpp/variant/vector2.hpp"
-#if defined(CESIUM_GD_EXT)
 #include <godot_cpp/core/math.hpp>
 #include <godot_cpp/variant/vector3.hpp>
 #include <godot_cpp/variant/quaternion.hpp>
 using namespace godot;
-#elif defined(CESIUM_GD_MODULE)
+#else
 #include "core/math/vector3.h"
 #include <core/math/math_funcs.h>
 #include "core/math/quaternion.h"

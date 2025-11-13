@@ -4,6 +4,14 @@
 #include "CesiumGltf/PropertyTableView.h"
 #include "CesiumGltf/PropertyTypeTraits.h"
 #include "glm/detail/qualifier.hpp"
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <type_traits>
+#include <unordered_map>
+#include <vector>
+#if defined (CESIUM_GD_EXT)
+
 #include "godot_cpp/classes/ref_counted.hpp"
 #include "godot_cpp/classes/wrapped.hpp"
 #include "godot_cpp/variant/array.hpp"
@@ -13,14 +21,12 @@
 #include "godot_cpp/variant/vector2.hpp"
 #include "godot_cpp/variant/vector2i.hpp"
 #include "godot_cpp/variant/vector3.hpp"
-#include <cstddef>
-#include <cstdint>
-#include <string>
-#include <type_traits>
-#include <unordered_map>
-#include <vector>
-#if defined (CESIUM_GD_EXT)
 using namespace godot;
+
+#else
+
+#include "core/object/ref_counted.h"
+
 #endif
 
 enum class EPropertyType 

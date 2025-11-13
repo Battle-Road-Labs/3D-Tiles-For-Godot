@@ -2,6 +2,7 @@
 import os
 import sys
 import CesiumBuildUtils as cesium_build_utils
+import shutil
 
 LIB_NAME = "Godot3DTiles"
 
@@ -13,49 +14,66 @@ def add_source_files(self, p_sources):
     sources.extend(p_sources)
 
 
-# Clone all the needed projects
-if (cesium_build_utils.is_extension_target(ARGUMENTS)):
-    cesium_build_utils.clone_bindings_repo_if_needed()
+def clone_repositories():
+    # Clone all the needed projects
+    if (cesium_build_utils.is_extension_target(ARGUMENTS)):
+        cesium_build_utils.clone_bindings_repo_if_needed()
 
-cesium_build_utils.clone_native_repo_if_needed()
-cesium_build_utils.clone_lite_html_if_needed()
+    cesium_build_utils.clone_native_repo_if_needed()
+    cesium_build_utils.clone_lite_html_if_needed()
+    pass
+
+
+def configure_scsub():
+    if (cesium_build_utils.is_extension_target(ARGUMENTS)):
+        SConscript("cesium_godot/SCsub", exports="env")
+        return
+    # Here we need to copy the SCsub that's in ./cesium_godot/SCsub to this directory
+    if not os.path.exists("./SCsub"):
+        shutil.move("./cesium_godot/SCsub", "./SCsub")
+    if not os.path.exists("./config.py"):
+        shutil.move("./cesium_godot/config.py", "./config.py")
+    if not os.path.exists("./register_types.h"):
+        shutil.move("./cesium_godot/register_types.h", "./register_types.h")
+
+
+def configure_library(p_env):
+    if (not cesium_build_utils.is_extension_target(ARGUMENTS)):
+        return
+    # Create shared library
+    if p_env["platform"] == "macos":
+        library = p_env.SharedLibrary(
+            "godot3dtiles/bin/{}.{}.{}.framework/helloWorld.{}.{}".format(
+                LIB_NAME, p_env["platform"], p_env["target"], p_env["platform"], p_env["target"]
+            ),
+            source=sources,
+        )
+    else:
+        library = p_env.SharedLibrary(
+            "godot3dtiles/bin/{}{}{}".format(
+                LIB_NAME, p_env["suffix"], p_env["SHLIBSUFFIX"]),
+            source=sources,
+        )
+
+    # Set the default target
+    Default(library)
+
+
+clone_repositories()
 
 cesium_build_utils.compile_native(ARGUMENTS)
-env = SConscript("godot-cpp/SConstruct")
-cesium_build_utils.generate_precision_symbols(ARGUMENTS, env)
-env.Append(CXXFLAGS=cesium_build_utils.get_compile_flags())
-env.Append(LINKFLAGS=cesium_build_utils.get_linker_flags())
+
+env = None
+if (cesium_build_utils.is_extension_target(ARGUMENTS)):
+    env = SConscript("godot-cpp/SConstruct")
+    cesium_build_utils.add_compile_definitions(env)
+    env.__class__.add_source_files = add_source_files
+    # Append include paths
+    env.Append(CPPPATH=["testSrc/", "cesium_godot/", "cesium_auxiliars/"])
 
 cesium_build_utils.install_additional_libs()
 
-compilationTarget: str = cesium_build_utils.get_compile_target_definition(ARGUMENTS)
-
-env.Append(CPPDEFINES=[compilationTarget])
-if (os.name == cesium_build_utils.OS_LINUX):
-    env.Append(CPPDEFINES=["CURL_STATIC_LIB", "SQLITE_STATIC"])
-env.__class__.add_source_files = add_source_files
-
-# Append include paths
-env.Append(CPPPATH=["testSrc/", "cesium_godot/", "cesium_auxiliars/"])
-
 # Run the SCsub that is under cesium_godot/
-SConscript("cesium_godot/SCsub", exports="env")
+configure_scsub()
 
-
-# Create shared library
-if env["platform"] == "macos":
-    library = env.SharedLibrary(
-        "godot3dtiles/bin/{}.{}.{}.framework/helloWorld.{}.{}".format(
-            LIB_NAME, env["platform"], env["target"], env["platform"], env["target"]
-        ),
-        source=sources,
-    )
-else:
-    library = env.SharedLibrary(
-        "godot3dtiles/bin/{}{}{}".format(
-            LIB_NAME, env["suffix"], env["SHLIBSUFFIX"]),
-        source=sources,
-    )
-
-# Set the default target
-Default(library)
+configure_library(env)

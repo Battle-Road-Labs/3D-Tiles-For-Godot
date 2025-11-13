@@ -11,11 +11,6 @@
 #include "Models/GeoreferencedNode.h"
 #include "glm/ext/matrix_double4x4.hpp"
 #include "glm/ext/vector_double3.hpp"
-#include "godot_cpp/classes/geometry_instance3d.hpp"
-#include "godot_cpp/variant/basis.hpp"
-#include "godot_cpp/variant/dictionary.hpp"
-#include "godot_cpp/variant/quaternion.hpp"
-#include "godot_cpp/variant/transform3d.hpp"
 #include <cstdint>
 #include <type_traits>
 #define SPDLOG_COMPILED_LIB
@@ -40,8 +35,14 @@
 #include <godot_cpp/classes/collision_shape3d.hpp>
 #include <godot_cpp/core/error_macros.hpp>
 #include <godot_cpp/classes/scene_tree.hpp>
+#include "godot_cpp/classes/geometry_instance3d.hpp"
+#include "godot_cpp/variant/basis.hpp"
+#include "godot_cpp/variant/dictionary.hpp"
+#include "godot_cpp/variant/quaternion.hpp"
+#include "godot_cpp/variant/transform3d.hpp"
 using namespace godot;
-#elif defined(CESIUM_GD_MODULE)
+
+#else
 #include "scene/3d/mesh_instance_3d.h"
 #include "scene/3d/physics/collision_object_3d.h"
 #include "scene/3d/camera_3d.h"

@@ -16,7 +16,7 @@
 #include "godot_cpp/variant/packed_vector2_array.hpp"
 #include "godot_cpp/variant/packed_vector3_array.hpp"
 using namespace godot;
-#elif defined(CESIUM_GD_MODULE)
+#else
 #include "scene/resources/image_texture.h"
 #include "scene/resources/surface_tool.h"
 #include "scene/3d/mesh_instance_3d.h"

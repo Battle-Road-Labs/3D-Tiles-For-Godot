@@ -4,6 +4,7 @@
 #include "Models/TileMetadata.h"
 #include "Utils/CesiumMathUtils.h"
 #include "glm/ext/vector_double3.hpp"
+#if defined(CESIUM_GD_EXT)
 #include "godot_cpp/classes/collision_shape3d.hpp"
 #include "godot_cpp/classes/concave_polygon_shape3d.hpp"
 #include "godot_cpp/classes/mesh.hpp"
@@ -12,6 +13,11 @@
 #include "godot_cpp/variant/packed_vector3_array.hpp"
 #include "godot_cpp/variant/vector3.hpp"
 #include "godot_cpp/classes/mesh.hpp"
+#else
+#include "scene/3d/physics/static_body_3d.h"
+#include "scene/resources/3d/concave_polygon_shape_3d.h"
+#include "scene/3d/physics/collision_shape_3d.h"
+#endif
 #include "CesiumGltf/PropertyTableView.h"
 #include "CesiumGltf/Model.h"
 #include <cstdint>
@@ -59,23 +65,23 @@ void Cesium3DTile::add_metadata(const CesiumGltf::Model* model, const CesiumGltf
 }
 
 Ref<ConcavePolygonShape3D> Cesium3DTile::create_trimesh_shape_inverse_winding()  {
-	const auto& faces = this->get_mesh()->get_faces();
-	if (faces.size() == 0) {
-		return Ref<ConcavePolygonShape3D>();
-	}
+	// const auto& faces = this->get_mesh()->get_faces();
+	// if (faces.size() == 0) {
+	// 	return Ref<ConcavePolygonShape3D>();
+	// }
 
-	PackedVector3Array facePoints;
-	facePoints.resize(faces.size());
+	// PackedVector3Array facePoints;
+	// facePoints.resize(faces.size());
 
-	for (int i = 0; i < facePoints.size(); i += 3) {
-		// Let's reverse it
-		facePoints.set(i, faces.get(i + 2));
-		facePoints.set(i + 1, faces.get(i + 1));
-		facePoints.set(i + 2, faces.get(i));
-	}
+	// for (int i = 0; i < facePoints.size(); i += 3) {
+	// 	// Let's reverse it
+	// 	facePoints.set(i, faces.get(i + 2));
+	// 	facePoints.set(i + 1, faces.get(i + 1));
+	// 	facePoints.set(i + 2, faces.get(i));
+	// }
 
 	Ref<ConcavePolygonShape3D> shape = memnew(ConcavePolygonShape3D);
-	shape->set_faces(facePoints);
+	// shape->set_faces(facePoints);
 	return shape;
 }
 

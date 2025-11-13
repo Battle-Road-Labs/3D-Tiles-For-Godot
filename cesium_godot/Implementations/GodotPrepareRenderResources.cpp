@@ -7,11 +7,11 @@
 #include "error_names.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/fwd.hpp"
-#include "godot_cpp/core/error_macros.hpp"
 
 #if defined(CESIUM_GD_EXT)
 #include <godot_cpp/classes/mesh_instance3d.hpp>
-#elif defined(CESIUM_GD_MODULE)
+#include "godot_cpp/core/error_macros.hpp"
+#else
 #include "scene/3d/mesh_instance_3d.h"
 using namespace godot;
 #endif

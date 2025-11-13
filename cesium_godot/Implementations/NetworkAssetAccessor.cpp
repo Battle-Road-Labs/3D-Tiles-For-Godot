@@ -2,16 +2,17 @@
 #include "../Models/LocalAssetResponse.h"
 #include "../Models/LocalAssetRequest.h"
 #include "CesiumAsync/AsyncSystem.h"
-#include "godot_cpp/classes/engine.hpp"
-#include "godot_cpp/variant/packed_byte_array.hpp"
 #include <cstdint>
 #include <memory>
 
 #if defined (CESIUM_GD_EXT)
 #include <godot_cpp/classes/http_client.hpp>
+#include "godot_cpp/classes/engine.hpp"
+#include "godot_cpp/variant/packed_byte_array.hpp"
 using namespace godot;
-#elif defined(CESIUM_GD_MODULE)
+#else
 #include "core/io/http_client.h"
+#include "core/variant/variant.h"
 #endif
 
 using namespace CesiumAsync;

@@ -1,12 +1,17 @@
 #include "CesiumGDConfig.h"
 #include "Utils/AssetManipulation.h"
 #include "error_names.hpp"
+#if defined(CESIUM_GD_EXT)
 #include "godot_cpp/classes/dir_access.hpp"
 #include "godot_cpp/classes/file_access.hpp"
 #include "godot_cpp/classes/global_constants.hpp"
 #include "godot_cpp/classes/project_settings.hpp"
 #include "godot_cpp/core/class_db.hpp"
 #include "godot_cpp/core/error_macros.hpp"
+#else
+#include "core/io/dir_access.h"
+#include "core/io/file_access.h"
+#endif
 #include "missing_functions.hpp"
 
 

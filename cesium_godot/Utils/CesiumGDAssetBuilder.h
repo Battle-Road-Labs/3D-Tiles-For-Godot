@@ -7,7 +7,7 @@
 #if defined(CESIUM_GD_EXT)
 #include <godot_cpp/classes/node3d.hpp>
 using namespace godot;
-#elif defined(CESIUM_GD_MODULE)
+#else
 
 #endif
 

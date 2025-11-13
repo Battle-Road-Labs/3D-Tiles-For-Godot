@@ -6,7 +6,7 @@ import sys
 
 from SCons.Script import Dir
 
-ROOT_DIR_MODULE = "#modules/cesium_godot"
+ROOT_DIR_MODULE = "#modules/cesium_godot/cesium_godot"
 
 ROOT_DIR_EXT = "#cesium_godot"
 
@@ -28,7 +28,8 @@ STATIC_TRIPLET = "x64-windows-static"
 
 RELEASE_CONFIG = "Release"
 
-ezvcpkgFoundPath : str = ""
+ezvcpkgFoundPath: str = ""
+
 
 def get_compile_flags():
     if os.name == OS_WIN:
@@ -36,18 +37,40 @@ def get_compile_flags():
     elif os.name == OS_LINUX:
         return ["-std=c++20", "-fexceptions", "-fpermissive", "-fPIC"]
 
+
+def get_compile_defs(argsDict):
+    compilationTarget: str = get_compile_target_definition(
+        argsDict)
+    if os.name == OS_LINUX:
+        return ["CURL_STATIC_LIB", "SQLITE_STATIC", compilationTarget]
+    return [compilationTarget]
+
+
+def get_include_paths() -> list[str]:
+    return [get_root_dir(), get_root_dir() + "/cesium_auxiliars"]
+
 def get_linker_flags():
     if os.name == OS_WIN:
         return ["/IGNORE:4217"]
     return []
 
+
 def is_extension_target(argsDict) -> bool:
     return get_compile_target_definition(argsDict) == CESIUM_EXT_DEF
+
 
 def get_curl_lib_name() -> str:
     if os.name == OS_WIN:
         return "libcurl"
     return "curl"
+
+
+def add_compile_definitions(p_env, argsDict):
+    generate_precision_symbols(argsDict, p_env)
+    p_env.Append(CXXFLAGS=get_compile_flags())
+    p_env.Append(LINKFLAGS=get_linker_flags())
+    p_env.Append(CPPDEFINES=[get_compile_defs(argsDict)])
+
 
 def generate_precision_symbols(argsDict, env):
     print("Generating double precision compile symbols")
@@ -61,29 +84,32 @@ def get_compile_target_definition(argsDict) -> str:
     global currentRootDir
     compileTarget = argsDict.get("compileTarget", CESIUM_EXT_DEF)
     if (compileTarget == "module"):
-        print("[CESIUM] - Compiling Cesium For Godot as an engine module...")
         currentRootDir = ROOT_DIR_MODULE
         return CESIUM_MODULE_DEF
-    if (compileTarget == "" or compileTarget == "extension"):
-        print("[CESIUM] - Compiling Cesium For Godot as a GDExtension")
+    if (compileTarget == "extension"):
         currentRootDir = ROOT_DIR_EXT
         return CESIUM_EXT_DEF
 
-    print("[CESIUM] - Compile target not recognized, options are: module / extension")
-    exit(1)
+    print("[3D-Tiles-For-Godot] - compileTarget not recognized, options are: module / extension, defaulting to module")
+    currentRootDir = ROOT_DIR_MODULE
+    return CESIUM_MODULE_DEF
+
 
 def link_abseil_libs(env):
-    foundLibs: list[SCons.Node.FS.File] = env.Glob(f"{find_ezvcpkg_path()}/packages/abseil_{determine_triplet()}/lib/*absl*.a")
+    foundLibs: list[SCons.Node.FS.File] = env.Glob(
+        f"{find_ezvcpkg_path()}/packages/abseil_{determine_triplet()}/lib/*absl*.a")
 
     # Dark magic to strip the lib prefix and the file extension
-    foundLibs = [lib.name.replace("lib", "")[:-2] for lib in foundLibs]    
+    foundLibs = [lib.name.replace("lib", "")[:-2] for lib in foundLibs]
 
     env.Append(LINKFLAGS=['-Wl,--start-group'], LIBS=foundLibs)
 
     env.Append(LINKFLAGS=['-Wl,--end-group'])
 
-    env.Append(LINKFLAGS=['-Wl,--start-group'], LIBS=["absl_log_internal_log_sink_set", "absl_log_globals", "absl_leak_check", "absl_log_internal_globals", "absl_log_internal_format", "absl_base", "absl_hash", "absl_city", "absl_low_level_hash", "absl_examine_stack", "absl_stacktrace", "absl_debugging_internal", "absl_synchronization", "absl_base", "absl_malloc_internal", "absl_int128", "absl_symbolize", "absl_kernel_timeout_internal", "absl_debugging_internal", "absl_demangle_internal", "absl_log_sink", "absl_demangle_rust", "absl_decode_rust_punycode", "absl_utf8_for_code_point"])
+    env.Append(LINKFLAGS=['-Wl,--start-group'], LIBS=["absl_log_internal_log_sink_set", "absl_log_globals", "absl_leak_check", "absl_log_internal_globals", "absl_log_internal_format", "absl_base", "absl_hash", "absl_city", "absl_low_level_hash", "absl_examine_stack", "absl_stacktrace",
+               "absl_debugging_internal", "absl_synchronization", "absl_base", "absl_malloc_internal", "absl_int128", "absl_symbolize", "absl_kernel_timeout_internal", "absl_debugging_internal", "absl_demangle_internal", "absl_log_sink", "absl_demangle_rust", "absl_decode_rust_punycode", "absl_utf8_for_code_point"])
     env.Append(LINKFLAGS=['-Wl,--end-group'])
+
 
 def clone_native_repo_if_needed():
     clone_repo_if_needed(ROOT_DIR_EXT + "/native", "Cesium Native",
@@ -123,7 +149,7 @@ def configure_native(argumentsDict):
     repoDirectory = scons_to_abs_path(repoDirectory)
     os.chdir(repoDirectory)
     # Assume you already have the triplet (for now)
-    triplet : str = determine_triplet()
+    triplet: str = determine_triplet()
     os.environ["VCPKG_TRIPLET"] = triplet
     # Run Cmake with the /MT flag on
     result = subprocess.run(
@@ -135,6 +161,7 @@ def configure_native(argumentsDict):
         print('Error configuring Cesium native, please make sure you have CMake installed and up to date: ' + errorMsg)
         exit(1)
     print("Configuration completed without any errors!")
+
 
 def determine_triplet():
     if (os.name == OS_WIN):
@@ -158,7 +185,7 @@ def compile_native(argumentsDict):
     print("Building Cesium Native, this might take a few minutes...")
     configure_native(argumentsDict)
     print("Compiling Cesium Native...")
-        
+
     # TODO: Test if we can just do cmake --build for all platforms
     result = None
     if os.name == OS_WIN:
@@ -167,15 +194,17 @@ def compile_native(argumentsDict):
         result = build_native_linux()
     else:
         print("Compiling for platform %s is not yet supported!" %
-              os.name, file=sys.stderr) 
+              os.name, file=sys.stderr)
     if result.returncode != 0:
         print("Error building Cesium Native: %s" % str(result.stderr))
     print("Cleaning definitions on generated files...")
     clean_cesium_definitions()
     print("Finished building Cesium Native!")
 
+
 def build_native_linux():
     return subprocess.run(["cmake", "--build", "."])
+
 
 def build_native_win():
     # execute MSBuild
@@ -188,6 +217,7 @@ def build_native_win():
         return
     releaseConfig = "/property:Configuration=%s" % buildConfig
     return subprocess.run([msbuildPath, solutionName, releaseConfig])
+
 
 def clean_cesium_definitions():
     """
@@ -221,10 +251,13 @@ def install_additional_libs():
     vcpkgPath = find_ezvcpkg_path()
     execExtension = ".exe" if os.name == OS_WIN else ""
     executable = "%s/%s" % (vcpkgPath, "vcpkg" + execExtension)
-    subprocess.run([executable, "install", "uriparser:%s" % (determine_triplet())])
-    subprocess.run([executable, "install", "ada-url:%s" % (determine_triplet())])
+    subprocess.run([executable, "install", "uriparser:%s" %
+                   (determine_triplet())])
+    subprocess.run([executable, "install", "ada-url:%s" %
+                   (determine_triplet())])
     if os.name == OS_WIN:
-        subprocess.run([executable, "install", "curl:%s" % (determine_triplet())])
+        subprocess.run([executable, "install", "curl:%s" %
+                       (determine_triplet())])
 
 
 def find_ms_build() -> str:
@@ -304,11 +337,14 @@ def clone_engine_repo_if_needed():
 def scons_to_abs_path(path: str) -> str:
     return Dir(path).get_abspath()
 
+
 def find_ezvcpkg_include_path() -> str:
     return f"{find_ezvcpkg_path()}/installed/{determine_triplet()}/include"
 
+
 def find_ezvcpkg_lib_path() -> str:
     return f"{find_ezvcpkg_path()}/installed/{determine_triplet()}/lib"
+
 
 def get_root_dir() -> str:
     return currentRootDir

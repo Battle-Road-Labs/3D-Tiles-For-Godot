@@ -3,6 +3,7 @@
 
 #include "glm/ext/matrix_double4x4.hpp"
 #include <cstdint>
+
 #if defined(CESIUM_GD_EXT)
 #include <godot_cpp/classes/mesh.hpp>
 #include <godot_cpp/classes/array_mesh.hpp>
@@ -13,7 +14,7 @@ using namespace godot;
 namespace godot {
 	class MeshInstance;
 }
-#elif defined(CESIUM_GD_MODULE)
+#else
 #include <scene/resources/mesh.h>
 class MeshInstance3D;
 #endif

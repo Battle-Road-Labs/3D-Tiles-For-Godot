@@ -7,7 +7,7 @@
 #include <godot_cpp/variant/variant.hpp>
 #include <godot_cpp/templates/vector.hpp>
 using namespace godot;
-#elif defined(CESIUM_GD_MODULE)
+#else
 #include "core/variant/variant.h"
 #endif
 

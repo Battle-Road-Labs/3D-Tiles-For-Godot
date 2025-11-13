@@ -1,7 +1,10 @@
 #include "CesiumGDTextureLoader.h"
 #include "CesiumGltf/ImageAsset.h"
-#include "godot_cpp/core/error_macros.hpp"
 #include "error_names.hpp"
+#if defined(CESIUM_GD_EXT)
+#include "godot_cpp/core/error_macros.hpp"
+#else
+#endif
 
 constexpr int32_t RGBA_CHANNEL_COUNT = 4;
 constexpr int32_t RGB_CHANNEL_COUNT = 3;

@@ -3,6 +3,7 @@
 #include "CesiumUtility/CreditSystem.h"
 #include "Implementations/DocumentContainer.h"
 #include "Utils/AssetManipulation.h"
+#if defined(CESIUM_GD_EXT)
 #include "godot_cpp/classes/control.hpp"
 #include "godot_cpp/classes/node.hpp"
 #include "godot_cpp/classes/object.hpp"
@@ -10,6 +11,8 @@
 #include "godot_cpp/core/error_macros.hpp"
 #include "godot_cpp/core/memory.hpp"
 #include "godot_cpp/variant/vector2.hpp"
+#else
+#endif
 #include "missing_functions.hpp"
 
 CesiumGDCreditSystem* CesiumGDCreditSystem::get_singleton(Node3D* baseNode) {
@@ -24,7 +27,7 @@ CesiumGDCreditSystem* CesiumGDCreditSystem::get_singleton(Node3D* baseNode) {
   return s_instance;
 }
 
-void CesiumGDCreditSystem::_process(double p_delta) {
+void CesiumGDCreditSystem::_process(real_t p_delta) {
   this->update_credits();
 }
 

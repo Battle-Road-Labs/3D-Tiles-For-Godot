@@ -2,7 +2,11 @@
 #include "CesiumGDAssetBuilder.h"
 #include "Models/CesiumGlobe.h"
 #include "Utils/AssetManipulation.h"
+#if defined (CESIUM_GD_EXT)
 #include "godot_cpp/core/class_db.hpp"
+#else
+
+#endif
 
 
 void CesiumGDAssetBuilder::instantiate_tileset(int32_t assetId, const String& assetType) {
