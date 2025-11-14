@@ -1,5 +1,5 @@
 
-name: Windows Single Precision Build
+name: Windows Double Precision Build
 
 on:
   push:
@@ -35,7 +35,7 @@ jobs:
         include-optional: true
 
     - name: Build Extension (Single Precision)
-      run: scons platform=windows arch=x64 compileTarget=extension target=template_release buildCesium=true
+      run: scons platform=windows arch=x64 compileTarget=extension target=template_release buildCesium=true precision=double
 
     - name: Verify Build Output
       run: if ((gci godot3dtiles/addons/cesium_godot/lib -Filter "*.dll").Count -lt 1) { exit 1 }
