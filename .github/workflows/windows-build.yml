@@ -34,8 +34,8 @@ jobs:
         vs-version: '17.7'
         include-optional: true
 
-    - name: Build Extension (Single Precision)
-      run: scons platform=windows arch=x64 compileTarget=extension target=template_release buildCesium=true precision=double
+    - name: Build Extension (Double Precision Debug)
+      run: scons platform=windows arch=x64 compileTarget=extension target=template_release buildCesium=true precision=double dev_build=yes
 
     - name: Verify Build Output
       run: if ((gci godot3dtiles/addons/cesium_godot/lib -Filter "*.dll").Count -lt 1) { exit 1 }
@@ -43,5 +43,5 @@ jobs:
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: godot3dtiles-single-precision
+        name: godot3dtiles-double-precision-dev
         path: godot3dtiles/
