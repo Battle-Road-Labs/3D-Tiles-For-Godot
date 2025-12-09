@@ -19,6 +19,7 @@ using namespace godot;
 #include "CesiumAsync/AsyncSystem.h"
 #include "Cesium3DTilesSelection/Tile.h"
 #include "../CesiumGDModelLoader.h"
+#include "../Models/CesiumFeaturesMetadata.h"
 #include "../Utils/CesiumGDTextureLoader.h"
 #include "CesiumRasterOverlays/RasterOverlayTile.h"
 #include "CesiumRasterOverlays/RasterOverlay.h"
@@ -42,6 +43,8 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> Go
 	return asyncSystem.createFuture<TileLoadResultAndRenderResources>([=, this](Promise<TileLoadResultAndRenderResources> p_promise) {
 		Error err;
 		Ref<ArrayMesh> meshData = CesiumGDModelLoader::generate_meshes_from_model(*model, &err);
+		Vector<float> properties_values = CesiumFeaturesMetadata::get_property_values(*model, "year");
+		printf("properties_values %" PRId64 "\n", properties_values.size());
 
 		Cesium3DTile* instance = memnew(Cesium3DTile);
 		instance->set_mesh(meshData);
