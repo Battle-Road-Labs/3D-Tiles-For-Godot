@@ -31,7 +31,7 @@ cesium_build_utils.install_additional_libs()
 compilationTarget: str = cesium_build_utils.get_compile_target_definition(ARGUMENTS)
 
 env.Append(CPPDEFINES=[compilationTarget])
-if (os.name == cesium_build_utils.OS_LINUX):
+if cesium_build_utils.is_linux() or cesium_build_utils.is_macos():
     env.Append(CPPDEFINES=["CURL_STATIC_LIB", "SQLITE_STATIC"])
 env.__class__.add_source_files = add_source_files
 
@@ -43,19 +43,12 @@ SConscript("cesium_godot/SCsub", exports="env")
 
 
 # Create shared library
-if env["platform"] == "macos":
-    library = env.SharedLibrary(
-        "godot3dtiles/addons/cesium_godot/lib/{}.{}.{}.framework/helloWorld.{}.{}".format(
-            LIB_NAME, env["platform"], env["target"], env["platform"], env["target"]
-        ),
-        source=sources,
-    )
-else:
-    library = env.SharedLibrary(
-        "godot3dtiles/addons/cesium_godot/lib/{}{}{}".format(
-            LIB_NAME, env["suffix"], env["SHLIBSUFFIX"]),
-        source=sources,
-    )
+# Output path matches the naming convention in Godot3DTiles.gdextension
+library = env.SharedLibrary(
+    "godot3dtiles/addons/cesium_godot/lib/{}{}{}".format(
+        LIB_NAME, env["suffix"], env["SHLIBSUFFIX"]),
+    source=sources,
+)
 
 # Set the default target
 Default(library)

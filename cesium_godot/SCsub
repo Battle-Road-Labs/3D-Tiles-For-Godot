@@ -17,7 +17,7 @@ def load_cesium_module(p_includePaths: list[str], moduleName: str, loadSources=F
 
 
 env.Append(CPPDEFINES=[("_HAS_EXCEPTIONS", 1)])
-if os.name == cesium_build_utils.OS_WIN:
+if cesium_build_utils.is_windows():
     env.Append(CXXFLAGS=["/EHsc"])
 env.Append(CPPDEFINES=["SPDLOG_NO_EXCEPTIONS",
                        "LIBASYNC_NO_EXCEPTIONS"])
@@ -99,8 +99,9 @@ env.Prepend(LIBPATH=vcpkgLibPath)
 
 root_dir_native = cesium_build_utils.get_root_dir_native()
 current_build_config = ""
-if (os.name  == cesium_build_utils.OS_WIN):
+if cesium_build_utils.is_windows():
     current_build_config = cesium_build_utils.RELEASE_CONFIG
+# On macOS and Linux, libraries are in the root of each module directory (no Release subdirectory)
 # Library paths and linking
 libraries = [
     "Cesium3DTilesSelection",
@@ -142,7 +143,7 @@ libraries = [
     "gumbo"
 ]
 
-if (os.name == cesium_build_utils.OS_WIN):
+if cesium_build_utils.is_windows():
     libraries.extend([
         "absl_bad_any_cast_impl",
         "absl_bad_optional_access",
@@ -235,41 +236,69 @@ if (os.name == cesium_build_utils.OS_WIN):
         "zlibstatic-ng",
         "libmodpbase64"
     ])
-elif (os.name == cesium_build_utils.OS_LINUX):
+elif cesium_build_utils.is_macos():
+    libraries.extend([
+        "crypto",
+        "z-ng",  # zlib-ng provides zng_* functions used by ktx and other libs
+        "liblibmodpbase64"
+    ])
+elif cesium_build_utils.is_linux():
     libraries.extend([
         "crypto",
         "libz-ng",
         "liblibmodpbase64"
     ])
-    env.Append(LIBPATH=["/usr/lib/x86_64-linux-gnu"])
-    env.Append(CPPPATH=["/usr/include/x86_64-linux-gnu"])
+    # Get architecture for proper library paths
+    import platform
+    arch = platform.machine()
+    if arch == "x86_64":
+        env.Append(LIBPATH=["/usr/lib/x86_64-linux-gnu"])
+        env.Append(CPPPATH=["/usr/include/x86_64-linux-gnu"])
+    elif arch == "aarch64":
+        env.Append(LIBPATH=["/usr/lib/aarch64-linux-gnu"])
+        env.Append(CPPPATH=["/usr/include/aarch64-linux-gnu"])
 
-env.Append(
-    LIBS=libraries,
-    LIBPATH=[
-        f"{root_dir_native}/CesiumGltfReader/{current_build_config}",
-        f"{root_dir_native}/CesiumAsync/{current_build_config}",
-        f"{root_dir_native}/CesiumJsonReader/{current_build_config}",
-        f"{root_dir_native}/CesiumJsonWriter/{current_build_config}",
-        f"{root_dir_native}/CesiumGltf/{current_build_config}",
-        f"{root_dir_native}/CesiumUtility/{current_build_config}",
-        f"{root_dir_native}/CesiumGeospatial/{current_build_config}",
-        f"{root_dir_native}/Cesium3DTilesSelection/{current_build_config}",
-        f"{root_dir_native}/CesiumRasterOverlays/{current_build_config}",
-        f"{root_dir_native}/CesiumGeometry/{current_build_config}",
-        f"{root_dir_native}/Cesium3DTilesReader/{current_build_config}",
-        f"{root_dir_native}/CesiumGltfContent/{current_build_config}",
-        f"{root_dir_native}/CesiumQuantizedMeshTerrain/{current_build_config}",
-        f"{root_dir_native}/Cesium3DTilesContent/{current_build_config}",
+# Build library paths list
+lib_paths = [
+    f"{root_dir_native}/CesiumGltfReader/{current_build_config}",
+    f"{root_dir_native}/CesiumAsync/{current_build_config}",
+    f"{root_dir_native}/CesiumJsonReader/{current_build_config}",
+    f"{root_dir_native}/CesiumJsonWriter/{current_build_config}",
+    f"{root_dir_native}/CesiumGltf/{current_build_config}",
+    f"{root_dir_native}/CesiumUtility/{current_build_config}",
+    f"{root_dir_native}/CesiumGeospatial/{current_build_config}",
+    f"{root_dir_native}/Cesium3DTilesSelection/{current_build_config}",
+    f"{root_dir_native}/CesiumRasterOverlays/{current_build_config}",
+    f"{root_dir_native}/CesiumGeometry/{current_build_config}",
+    f"{root_dir_native}/Cesium3DTilesReader/{current_build_config}",
+    f"{root_dir_native}/CesiumGltfContent/{current_build_config}",
+    f"{root_dir_native}/CesiumQuantizedMeshTerrain/{current_build_config}",
+    f"{root_dir_native}/Cesium3DTilesContent/{current_build_config}",
+    cesium_build_utils.find_ezvcpkg_path() + "/installed/%s/lib" % (cesium_build_utils.determine_triplet())
+]
+
+# Platform-specific library paths
+if cesium_build_utils.is_macos():
+    # On macOS, we build litehtml from source and place it in third_party/litehtml/macos
+    # Use Prepend to ensure our litehtml takes precedence over vcpkg's incompatible version
+    env.Prepend(LIBPATH=[cesium_build_utils.get_root_dir() + "/third_party/litehtml/macos"])
+else:
+    # Windows/Linux paths
+    lib_paths.extend([
         cesium_build_utils.get_root_dir_native() + "/libs/gsl",
         cesium_build_utils.get_root_dir_native() + "/libs/absl",
         cesium_build_utils.get_root_dir_native() + "/libs",
         cesium_build_utils.get_root_dir() + "/third_party/litehtml",
-        cesium_build_utils.find_ezvcpkg_path(
-        ) + "/installed/%s/lib" % (cesium_build_utils.determine_triplet())
-    ]
+    ])
+
+env.Append(
+    LIBS=libraries,
+    LIBPATH=lib_paths
 )
 
 # This was a nightmare, so I abstracted it into a function, the function itself is also a nightmare
-if (os.name == cesium_build_utils.OS_LINUX):
+if cesium_build_utils.is_linux():
     cesium_build_utils.link_abseil_libs(env)
+elif cesium_build_utils.is_macos():
+    cesium_build_utils.link_abseil_libs_macos(env)
+    cesium_build_utils.link_macos_frameworks(env)

@@ -36,6 +36,10 @@ godot3dtiles/addons/cesium_godot/lib/*
 !godot-html/ultralight/lib/*.lib
 !cesium_godot/third_party/litehtml/*.lib
 
+# macOS litehtml build (built from source on macOS)
+cesium_godot/third_party/litehtml/macos/
+cesium_godot/third_party/litehtml-src/
+
 # Ignore any project import files 
 godot3dtiles/**/*.uid
 godot3dtiles/**/*.import

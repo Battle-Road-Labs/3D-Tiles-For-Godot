@@ -31,6 +31,10 @@ func find_directional_light(node: Node) -> DirectionalLight3D:
 	return null
 
 func _ready() -> void:
+	# Auto-discover tilesets if not explicitly set
+	if self.tilesets.is_empty() and self.globe_node:
+		self.tilesets = _find_all_tilesets(self.globe_node)
+
 	# This is a workaround for the fact that you can't detect double precision builds in GDScript
 	# but you probably aren't using TrueOrigin in a single precision build
 	if self.globe_node.origin_type == CesiumGeoreference.CartographicOrigin:
@@ -71,3 +75,12 @@ func _update_tilesets() -> void:
 	for tileset in self.tilesets:
 		if (tileset == null): continue
 		tileset.update_tileset(camera_xform)
+
+
+func _find_all_tilesets(node: Node) -> Array[Cesium3DTileset]:
+	var result: Array[Cesium3DTileset] = []
+	if node is Cesium3DTileset:
+		result.append(node)
+	for child in node.get_children():
+		result.append_array(_find_all_tilesets(child))
+	return result

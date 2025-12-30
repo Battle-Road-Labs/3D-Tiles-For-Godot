@@ -108,7 +108,7 @@ public:
 
 	void add_overlay(CesiumIonRasterOverlay* overlay);
 
-	void free_tile(Cesium3DTile* tileInstance, size_t tileHash);
+	void free_tile(Cesium3DTile* tileInstance, uint64_t tileHash);
 	
 	bool is_georeferenced(CesiumGeoreference** outRef) const;
 

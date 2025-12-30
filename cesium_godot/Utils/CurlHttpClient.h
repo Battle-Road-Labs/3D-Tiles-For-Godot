@@ -16,9 +16,11 @@
 #include "godot_cpp/core/error_macros.hpp"
 #include <godot_cpp/templates/vector.hpp>
 #include "godot_cpp/classes/http_client.hpp"
+#include "godot_cpp/classes/marshalls.hpp"
 using namespace godot;
 #elif defined(CESIUM_GD_MODULE)
 #include "core/templates/vector.h"
+#include "core/io/marshalls.h"
 #endif
 
 #include "BRThreadPool.h"
@@ -51,8 +53,16 @@ struct RequestHandle_t {
 	void easy_init() {
 		this->curlHandle = curl_easy_init();
 		this->available = true;
+#ifdef __APPLE__
+		// macOS: Use system SSL (SecureTransport) with normal verification
+		// Don't disable SSL_VERIFYHOST as it also disables SNI which breaks modern servers
+		curl_easy_setopt(this->curlHandle, CURLOPT_SSL_VERIFYPEER, 1L);
+		curl_easy_setopt(this->curlHandle, CURLOPT_SSL_VERIFYHOST, 2L);
+#else
+		// Other platforms: disable SSL verification (original behavior)
 		curl_easy_setopt(this->curlHandle, CURLOPT_SSL_VERIFYPEER, 0L);
 		curl_easy_setopt(this->curlHandle, CURLOPT_SSL_VERIFYHOST, 0L);
+#endif
 		curl_easy_setopt(this->curlHandle, CURLOPT_FOLLOWLOCATION, 1);
 		curl_easy_setopt(this->curlHandle, CURLOPT_VERBOSE, 0);
 	}
@@ -170,6 +180,26 @@ private:
 
 	PackedByteArray pull_url(const char *url, CURL *handle, long*outStatus , const std::vector<CesiumHeader_t> &headers) {
 		PackedByteArray buffer;
+
+		// Handle data: URIs (base64-encoded inline data)
+		std::string urlStr(url);
+		if (urlStr.rfind("data:", 0) == 0) {
+			// Find the base64 marker
+			size_t base64Pos = urlStr.find(";base64,");
+			if (base64Pos != std::string::npos) {
+				std::string base64Data = urlStr.substr(base64Pos + 8);
+				// Use Godot's Marshalls class to decode base64
+				String godotBase64 = String(base64Data.c_str());
+				buffer = Marshalls::get_singleton()->base64_to_raw(godotBase64);
+				*outStatus = 200;
+				return buffer;
+			}
+			// Invalid data URI format
+			ERR_PRINT(String("Invalid data URI format: ") + url);
+			*outStatus = 400;
+			return PackedByteArray();
+		}
+
 		//Options stuff
 		curl_easy_setopt(handle, CURLOPT_URL, url);
 		curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, &CurlHttpClient::write_callback);

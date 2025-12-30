@@ -145,7 +145,7 @@ void GodotPrepareRenderResources::free(Tile& tile, void* pLoadThreadResult, void
 	const auto& tileId = tile.getTileID();
 	size_t hash = std::visit(CesiumVariantHash{}, tileId);
 	auto* instance = static_cast<Cesium3DTile*>(pMainThreadResult);
-	this->m_tileset->call_deferred("free_tile", instance, hash);
+	this->m_tileset->call_deferred("free_tile", instance, static_cast<uint64_t>(hash));
 }
 
 void GodotPrepareRenderResources::attachRasterInMainThread(const Tile& tile, int32_t overlayTextureCoordinateID, const CesiumRasterOverlays::RasterOverlayTile& rasterTile, void* pMainThreadRendererResources, const glm::dvec2& translation, const glm::dvec2& scale)
