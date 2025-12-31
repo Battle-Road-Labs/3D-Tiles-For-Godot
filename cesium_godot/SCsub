@@ -235,6 +235,22 @@ if (os.name == cesium_build_utils.OS_WIN):
         "zlibstatic-ng",
         "libmodpbase64"
     ])
+elif cesium_build_utils.is_macos():
+    libraries.extend([
+        "crypto",
+        "z-ng",
+        "liblibmodpbase64"
+    ])
+    # Add macOS-specific library path for litehtml
+    env.Append(LIBPATH=[
+        cesium_build_utils.get_root_dir() + "/third_party/litehtml/macos"
+    ])
+    # Link against macOS frameworks
+    env.Append(LINKFLAGS=[
+        "-framework", "CoreFoundation",
+        "-framework", "Security",
+        "-framework", "SystemConfiguration"
+    ])
 elif (os.name == cesium_build_utils.OS_LINUX):
     libraries.extend([
         "crypto",

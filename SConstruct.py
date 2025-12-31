@@ -21,6 +21,11 @@ cesium_build_utils.clone_native_repo_if_needed()
 cesium_build_utils.clone_lite_html_if_needed()
 
 cesium_build_utils.compile_native(ARGUMENTS)
+
+# Build litehtml from source on macOS (no pre-built binaries available)
+if cesium_build_utils.is_macos():
+    cesium_build_utils.build_litehtml_macos()
+
 env = SConscript("godot-cpp/SConstruct")
 cesium_build_utils.generate_precision_symbols(ARGUMENTS, env)
 env.Append(CXXFLAGS=cesium_build_utils.get_compile_flags())
@@ -45,8 +50,8 @@ SConscript("cesium_godot/SCsub", exports="env")
 # Create shared library
 if env["platform"] == "macos":
     library = env.SharedLibrary(
-        "godot3dtiles/addons/cesium_godot/lib/{}.{}.{}.framework/helloWorld.{}.{}".format(
-            LIB_NAME, env["platform"], env["target"], env["platform"], env["target"]
+        "godot3dtiles/addons/cesium_godot/lib/lib{}{}".format(
+            LIB_NAME, env["suffix"]
         ),
         source=sources,
     )
