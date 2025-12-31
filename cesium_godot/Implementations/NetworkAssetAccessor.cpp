@@ -25,12 +25,12 @@ using FutureResult_t = std::shared_ptr<CesiumAsync::IAssetRequest>;
 NetworkAssetAccessor::NetworkAssetAccessor()
 {
 	constexpr size_t maxThreadsPerClient = 16;
-	this->m_curlClient.init_client(maxThreadsPerClient);
+	this->m_httpClient.init_client(maxThreadsPerClient);
 	// Set all the default headers
-	this->m_curlClient.add_default_header({"x-cesium-client", "3D Tiles For Godot"});
-	this->m_curlClient.add_default_header({"x-cesium-client-version", "1.0"});
+	this->m_httpClient.add_default_header({"x-cesium-client", "3D Tiles For Godot"});
+	this->m_httpClient.add_default_header({"x-cesium-client-version", "1.0"});
 	String godotBuildInfo = Engine::get_singleton()->get_version_info().get("string", "");
-	this->m_curlClient.add_default_header({"x-cesium-client-engine", godotBuildInfo.utf8().get_data()});
+	this->m_httpClient.add_default_header({"x-cesium-client-engine", godotBuildInfo.utf8().get_data()});
 }
 
 CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>> NetworkAssetAccessor::get(const CesiumAsync::AsyncSystem& asyncSystem, const std::string& url, const std::vector<THeader>& headers /*= {}*/)
@@ -100,7 +100,7 @@ CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>> NetworkAssetAcc
 {
 	CesiumAsync::Promise<FutureResult_t> p_promise = asyncSystem.createPromise<FutureResult_t>();
 	CesiumAsync::Future<FutureResult_t> future = p_promise.getFuture();
-	this->m_curlClient.send_request(
+	this->m_httpClient.send_request(
 			url.c_str(),
 			method,
 			[url, p_promise = std::move(p_promise)](int32_t responseCode, const PackedByteArray &body) {
