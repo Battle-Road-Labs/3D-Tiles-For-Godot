@@ -39,18 +39,21 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> Go
 		return asyncSystem.createResolvedFuture(TileLoadResultAndRenderResources{ std::move(tileLoadResult), nullptr });
 	}
 
-	return asyncSystem.createFuture<TileLoadResultAndRenderResources>([=, this](Promise<TileLoadResultAndRenderResources> p_promise) {
+	return asyncSystem.createFuture<TileLoadResultAndRenderResources>([=, this, tileLoadResult = std::move(tileLoadResult)](Promise<TileLoadResultAndRenderResources> p_promise) mutable {
 		Error err;
 		Ref<ArrayMesh> meshData = CesiumGDModelLoader::generate_meshes_from_model(*model, &err);
 
-		Cesium3DTile* instance = memnew(Cesium3DTile);
-		instance->set_mesh(meshData);
-		
 		if (err != Error::OK) {
 			String errorMsg = String("Error generating meshes for tile ") + REFLECT_ERR_NAME(err);
 			ERR_PRINT(errorMsg);
-			p_promise.reject({});
+			// Always resolve with nullptr - reject() crashes with LIBASYNC_NO_EXCEPTIONS
+			TileLoadResultAndRenderResources errorResult{ std::move(tileLoadResult), nullptr };
+			p_promise.resolve(errorResult);
+			return;
 		}
+
+		Cesium3DTile* instance = memnew(Cesium3DTile);
+		instance->set_mesh(meshData);
 
 		const CesiumGltf::Node &rootNode = model->nodes.at(0);
 

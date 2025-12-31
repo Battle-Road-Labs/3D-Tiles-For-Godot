@@ -80,9 +80,23 @@ CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>> NetworkAssetAcc
 
 	if (idx < 0 || idx >= ENUM_METHODS.size()) {
 		ERR_PRINT(String("Request method with name ") + String(verb.c_str()) + " not found!");
+		// Always resolve with error status - reject() crashes with LIBASYNC_NO_EXCEPTIONS
 		return asyncSystem.createFuture<FutureResult_t>([=](CesiumAsync::Promise<FutureResult_t> p_promise) {
-			p_promise.reject("Request method not found");
-			return p_promise;
+			std::string contentType = "text/plain";
+			CesiumAsync::HttpHeaders errorHeaders = { { "content-type", contentType } };
+			auto errorResponse = std::make_unique<LocalAssetResponse>(
+				400, // Bad Request
+				contentType,
+				errorHeaders,
+				PackedByteArray()
+			);
+			auto errorRequest = std::make_shared<LocalAssetRequest>(
+				verb,
+				url,
+				errorHeaders,
+				std::move(errorResponse)
+			);
+			p_promise.resolve(errorRequest);
 		});
 	}
 
@@ -103,27 +117,20 @@ CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>> NetworkAssetAcc
 	this->m_httpClient.send_request(
 			url.c_str(),
 			method,
-			[url, p_promise = std::move(p_promise)](int32_t responseCode, const PackedByteArray &body) {
-				if (responseCode >= HTTPClient::ResponseCode::RESPONSE_BAD_REQUEST || responseCode == 0 /* Invalid request will yield 0 */) {
-					const String errorMessage = String("The underlying request failed with code: ") + itos(responseCode);
-					const char *strPtr = reinterpret_cast<const char *>(body.ptr());
-					String bodyStr = strPtr;
-					ERR_PRINT(errorMessage + String("\nURL: ") + String(url.c_str()) + String("\nFailed request's body: ") + bodyStr);
+			[url, p_promise = std::move(p_promise)](int32_t responseCode, const PackedByteArray &body) mutable {
+				// Log errors but always resolve - Cesium Native handles error status codes
+				// Using reject() causes crashes with LIBASYNC_NO_EXCEPTIONS
+				if (responseCode >= HTTPClient::ResponseCode::RESPONSE_BAD_REQUEST || responseCode == 0) {
+					const String errorMessage = String("HTTP request failed with code: ") + itos(responseCode);
+					ERR_PRINT(errorMessage + String(" URL: ") + String(url.c_str()));
 					if (responseCode == HTTPClient::ResponseCode::RESPONSE_UNAUTHORIZED) {
-						ERR_PRINT("Access to data denied, make sure you're logged into CesiumION and your token has access to the desired asset!");
+						ERR_PRINT("Access denied - check CesiumION token!");
 					}
-					// It's fine to just use the default initializer, the error will be printed to Godot's stderr
-					p_promise.reject({});
-					return;
 				}
 
 				std::string contentType = "application/octet-stream";
 				CesiumAsync::HttpHeaders headers = { { "content-type", contentType } };
 
-				// const char *strPtr = reinterpret_cast<const char *>(body.ptr());
-				// printf("%s\n", strPtr);
-				
-				//Convert the body to a Cesium readable format
 				auto assetResponse = std::make_unique<LocalAssetResponse>(
 						responseCode,
 						contentType,
