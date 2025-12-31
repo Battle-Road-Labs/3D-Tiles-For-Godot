@@ -40,8 +40,17 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> Go
 	}
 
 	return asyncSystem.createFuture<TileLoadResultAndRenderResources>([=, this, tileLoadResult = std::move(tileLoadResult)](Promise<TileLoadResultAndRenderResources> p_promise) mutable {
+		// Re-extract model pointer since tileLoadResult was moved
+		CesiumGltf::Model* movedModel = std::get_if<CesiumGltf::Model>(&tileLoadResult.contentKind);
+		if (movedModel == nullptr) {
+			ERR_PRINT("Model was invalidated after move!");
+			TileLoadResultAndRenderResources errorResult{ std::move(tileLoadResult), nullptr };
+			p_promise.resolve(errorResult);
+			return;
+		}
+
 		Error err;
-		Ref<ArrayMesh> meshData = CesiumGDModelLoader::generate_meshes_from_model(*model, &err);
+		Ref<ArrayMesh> meshData = CesiumGDModelLoader::generate_meshes_from_model(*movedModel, &err);
 
 		if (err != Error::OK) {
 			String errorMsg = String("Error generating meshes for tile ") + REFLECT_ERR_NAME(err);
@@ -55,7 +64,15 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> Go
 		Cesium3DTile* instance = memnew(Cesium3DTile);
 		instance->set_mesh(meshData);
 
-		const CesiumGltf::Node &rootNode = model->nodes.at(0);
+		// Check if model has nodes before accessing
+		if (movedModel->nodes.empty()) {
+			ERR_PRINT("Tile model has no nodes - cannot render");
+			TileLoadResultAndRenderResources errorResult{ std::move(tileLoadResult), nullptr };
+			p_promise.resolve(errorResult);
+			return;
+		}
+
+		const CesiumGltf::Node &rootNode = movedModel->nodes[0];
 
 		const std::vector<double> &translationArray = rootNode.translation;
 		const std::vector<double> &rotationArray = rootNode.rotation;
@@ -65,10 +82,13 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> Go
 		gdTransform.scale(Vector3(1, 1, 1));
 		instance->set_transform(gdTransform);
 
-		Vector3 scale;
-		scale.x = scaleArray.at(0);
-		scale.y = scaleArray.at(1);
-		scale.z = scaleArray.at(2);
+		// glTF scale is optional - default to 1,1,1 if not present
+		Vector3 scale(1.0f, 1.0f, 1.0f);
+		if (scaleArray.size() >= 3) {
+			scale.x = scaleArray[0];
+			scale.y = scaleArray[1];
+			scale.z = scaleArray[2];
+		}
 
 		const glm::dmat4 transformationMat = CesiumMathUtils::array_to_dmat4(rootNode.matrix);
 
@@ -108,8 +128,8 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> Go
 		}
 
 		// Metadata extraction
-		const CesiumGltf::ExtensionModelExtStructuralMetadata* modelMetadata = model->getExtension<CesiumGltf::ExtensionModelExtStructuralMetadata>();
-		instance->add_metadata(model, modelMetadata);
+		const CesiumGltf::ExtensionModelExtStructuralMetadata* modelMetadata = movedModel->getExtension<CesiumGltf::ExtensionModelExtStructuralMetadata>();
+		instance->add_metadata(movedModel, modelMetadata);
 
 		TileLoadResultAndRenderResources result{
 			std::move(tileLoadResult),
@@ -123,13 +143,18 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> Go
 
 void* GodotPrepareRenderResources::prepareInMainThread(Tile& tile, void* pLoadThreadResult)
 {
+	// If load thread failed, pLoadThreadResult will be nullptr
+	if (pLoadThreadResult == nullptr) {
+		return nullptr;
+	}
+
 	const Cesium3DTilesSelection::TileContent& content = tile.getContent();
 	const Cesium3DTilesSelection::TileRenderContent* pRenderContent = content.getRenderContent();
-	
+
 	if (pRenderContent == nullptr) {
 		return pLoadThreadResult;
 	}
-	
+
 	const CesiumGltf::Model& model = pRenderContent->getModel();
 	// Apply the transform if any
 	Cesium3DTile* instance = reinterpret_cast<Cesium3DTile*>(pLoadThreadResult);
