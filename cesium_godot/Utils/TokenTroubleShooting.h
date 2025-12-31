@@ -1,7 +1,11 @@
 #ifndef TOKEN_TROBLESHOOTING_H
 #define TOKEN_TROBLESHOOTING_H
 
+#ifdef __APPLE__
+#include "Utils/GodotHttpClient.h"
+#else
 #include "Utils/CurlHttpClient.h"
+#endif
 #include "godot_cpp/variant/variant.hpp"
 #include <cstdint>
 #include <unordered_map>
@@ -30,7 +34,11 @@ class TokenTroubleshooting : public Node {
     static void _bind_methods();
 
   private:
+#ifdef __APPLE__
+    GodotHttpClient<1> m_httpClient{};
+#else
     CurlHttpClient<1> m_httpClient{};
+#endif
     Variant m_tokenData;
     std::unordered_map<std::string, int32_t> m_lastAssetLists;   
 };

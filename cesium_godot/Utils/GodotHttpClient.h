@@ -51,6 +51,10 @@ public:
 		send_request(url, HTTPClient::METHOD_GET, callback, headers);
 	}
 
+	void send_get_same_thread(const char* url, const GodotResponseCallback_t& callback, const std::vector<GodotHeader_t>& headers) {
+		send_request_same_thread(url, HTTPClient::METHOD_GET, callback, headers);
+	}
+
 	void send_request(const char* url, HTTPClient::Method method, const GodotResponseCallback_t& callback, const std::vector<GodotHeader_t>& headers) {
 		std::string urlCopy = url;
 		std::vector<GodotHeader_t> allHeaders = m_defaultHeaders;
