@@ -144,9 +144,9 @@ void* GodotPrepareRenderResources::prepareInMainThread(Tile& tile, void* pLoadTh
 }
 
 void GodotPrepareRenderResources::free(Tile& tile, void* pLoadThreadResult, void* pMainThreadResult) noexcept
-{	
+{
 	const auto& tileId = tile.getTileID();
-	size_t hash = std::visit(CesiumVariantHash{}, tileId);
+	uint64_t hash = static_cast<uint64_t>(std::visit(CesiumVariantHash{}, tileId));
 	auto* instance = static_cast<Cesium3DTile*>(pMainThreadResult);
 	this->m_tileset->call_deferred("free_tile", instance, hash);
 }

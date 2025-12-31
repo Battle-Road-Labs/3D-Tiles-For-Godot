@@ -421,7 +421,7 @@ void Cesium3DTileset::add_overlay(CesiumIonRasterOverlay* overlay)
 	this->m_activeTileset->getOverlays().add(overlay->get_overlay_instance());
 }
 
-void Cesium3DTileset::free_tile(Cesium3DTile* tileInstance, size_t tileHash) {
+void Cesium3DTileset::free_tile(Cesium3DTile* tileInstance, uint64_t tileHash) {
 	if (tileInstance == nullptr) {
 		return;
 	}
