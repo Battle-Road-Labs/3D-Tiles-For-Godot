@@ -50,8 +50,8 @@ SConscript("cesium_godot/SCsub", exports="env")
 # Create shared library
 if env["platform"] == "macos":
     library = env.SharedLibrary(
-        "godot3dtiles/addons/cesium_godot/lib/lib{}{}".format(
-            LIB_NAME, env["suffix"]
+        "godot3dtiles/addons/cesium_godot/lib/lib{}{}{}".format(
+            LIB_NAME, env["suffix"], env["SHLIBSUFFIX"]
         ),
         source=sources,
     )

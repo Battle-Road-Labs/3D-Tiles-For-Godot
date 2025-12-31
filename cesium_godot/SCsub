@@ -251,7 +251,7 @@ elif cesium_build_utils.is_macos():
         "-framework", "Security",
         "-framework", "SystemConfiguration"
     ])
-elif (os.name == cesium_build_utils.OS_LINUX):
+elif (os.name == cesium_build_utils.OS_LINUX and not cesium_build_utils.is_macos()):
     libraries.extend([
         "crypto",
         "libz-ng",
@@ -287,5 +287,6 @@ env.Append(
 )
 
 # This was a nightmare, so I abstracted it into a function, the function itself is also a nightmare
-if (os.name == cesium_build_utils.OS_LINUX):
+# Note: os.name == 'posix' on both Linux and macOS, so we must check is_macos() first
+if (os.name == cesium_build_utils.OS_LINUX and not cesium_build_utils.is_macos()):
     cesium_build_utils.link_abseil_libs(env)
