@@ -1,5 +1,4 @@
-#include "CesiumGDModelLoader.h"
-#include "Models/CesiumFeaturesMetadata.h"
+﻿#include "CesiumGDModelLoader.h"
 #include "CesiumGltf/BufferView.h"
 #include "error_names.hpp"
 #include "missing_functions.hpp"
@@ -84,8 +83,6 @@ Ref<ArrayMesh> CesiumGDModelLoader::generate_meshes_from_model(const CesiumGltf:
 				textureCoords1 = get_attribute_from_primitive<Vector2>(primitive, model, "_CESIUMOVERLAY_1", [](Vector2& uv) {
     		});
 			}
-
-			Vector<float> featureIds = CesiumFeaturesMetadata::get_feature_ids_from_primitive(primitive, model);
 
 			Vector<int32_t> indexBuffer = get_index_buffer_from_primitive(primitive, model, error);
 

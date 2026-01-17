@@ -455,6 +455,10 @@ void Cesium3DTileset::move_origin(const glm::dvec3& enginePos) {
 	}
 }
 
+void Cesium3DTileset::set_for_each_tile_func(const Callable& onTileFunc) {
+	this->m_forEachTileFunction = onTileFunc;
+}
+
 void Cesium3DTileset::recreate_tileset()
 {
 	// NYI: Implementation of editor level rendering is pending
@@ -569,6 +573,13 @@ void Cesium3DTileset::render_tile_as_node(const Cesium3DTilesSelection::Tile& ti
 		// Basis + Zero pos * ecef_engine_xform()
 		draw_debug_volume_from_variant(tile.getBoundingVolume(), this->m_debugVolumesFunction, this->m_georeference);
 	}
+
+	if (!this->m_forEachTileFunction.is_null()) {
+		godot::Array callback_args;
+		callback_args.push_back(foundNode);
+		this->m_forEachTileFunction.callv(callback_args);
+	}
+	
 	foundNode->show();
 }
 
@@ -696,6 +707,7 @@ void Cesium3DTileset::_bind_methods()
 	ClassDB::bind_method(D_METHOD("update_tileset", "camera_transform"), &Cesium3DTileset::update_tileset);
 	ClassDB::bind_method(D_METHOD("set_debug_bounding_volumes_func", "onTileDrawn"), &Cesium3DTileset::set_debug_boundig_volumes_func);
 	ClassDB::bind_method(D_METHOD("free_tile"), &Cesium3DTileset::free_tile);
+	ClassDB::bind_method(D_METHOD("set_for_each_tile_func", "onTileFunc"), &Cesium3DTileset::set_for_each_tile_func);
 #pragma endregion
 
 	ClassDB::bind_integer_constant(get_class_static(), "BoundingType", "Box", static_cast<int32_t>(EBoundingType::Box));

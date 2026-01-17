@@ -1,4 +1,4 @@
-#include "Cesium3DTile.h"
+﻿#include "Cesium3DTile.h"
 #include "CesiumGltf/Model.h"
 #include "CesiumGltf/PropertyTable.h"
 #include "Models/TileMetadata.h"
@@ -101,8 +101,13 @@ int32_t Cesium3DTile::get_table_count() const {
 	return this->m_metadata.get_table_count();
 }
 
+const Dictionary& Cesium3DTile::get_structural_metadata() const {
+	return this->m_metadata.get_table(0);
+}
+
 void Cesium3DTile::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_metadata_table", "index"), &Cesium3DTile::get_metadata_table);
     ClassDB::bind_method(D_METHOD("get_table_count"), &Cesium3DTile::get_table_count);
     ClassDB::bind_method(D_METHOD("generate_tile_collision"), &Cesium3DTile::generate_tile_collision);
+	ClassDB::bind_method(D_METHOD("get_structural_metadata"), &Cesium3DTile::get_structural_metadata);
 }

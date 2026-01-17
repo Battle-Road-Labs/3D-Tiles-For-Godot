@@ -1,9 +1,8 @@
-#include "register_types.h"
+﻿#include "register_types.h"
 
 
 #include "Implementations/DocumentContainer.h"
 #include "Models/Cesium3DTile.h"
-#include "Models/CesiumFeaturesMetadata.h"
 #include "Models/CesiumGDCreditSystem.h"
 #include "Models/CesiumGDTileset.h"
 #include "Models/CesiumHTTPRequestNode.h"
@@ -13,6 +12,7 @@
 #include "Models/CesiumGDRasterOverlay.h"
 #include "Models/CesiumGDPanel.h"
 #include "Models/CesiumGDConfig.h"
+#include "Models/CesiumPropertyInfo.h"
 #include "Utils/CesiumGDAssetBuilder.h"
 #include "Utils/TokenTroubleShooting.h"		
 #include "godot_cpp/classes/engine.hpp"
@@ -46,7 +46,7 @@ void initialize_cesium_godot_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<TokenTroubleshooting>();
 	ClassDB::register_class<GeoreferencedMesh>();
 	ClassDB::register_class<Cesium3DTile>();
-	ClassDB::register_class<CesiumFeaturesMetadata>();	
+	ClassDB::register_class<CesiumPropertyInfo>();	
 	
 	ClassDB::register_class<CesiumGDCreditSystem>(true);
 }

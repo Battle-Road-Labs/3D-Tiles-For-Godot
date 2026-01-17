@@ -1,4 +1,4 @@
-#ifndef CESIUM_3D_TILE
+﻿#ifndef CESIUM_3D_TILE
 #define CESIUM_3D_TILE
 
 #include "CesiumGltf/Model.h"
@@ -34,6 +34,8 @@ public:
 	const Dictionary& get_metadata_table(int32_t idx) const;
 
 	int32_t get_table_count() const;
+
+	const Dictionary& get_structural_metadata() const;
 	
 private:
 
