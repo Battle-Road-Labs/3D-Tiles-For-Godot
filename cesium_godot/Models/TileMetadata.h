@@ -160,11 +160,14 @@ private:
 	Ref<CesiumPropertyInfo> make_metadata_value(const T& nativeValue) {
 		CesiumPropertyInfo* result = memnew(CesiumPropertyInfo);
 		//CesiumGltf::PropertyType nativeType = nativeValue.propertyType();
+		int64_t rowCount = nativeValue.size();
+		if (rowCount == 0) {
+			return result;
+		}
 
 		using OptionalType = std::decay_t<decltype(nativeValue.get(0))>;
 		using ValueType = typename OptionalType::value_type;
 
-		int64_t rowCount = nativeValue.size();
 		if constexpr (CesiumGltf::IsMetadataString<ValueType>::value) {
 			
 			std::string result_str;
@@ -192,29 +195,29 @@ private:
 			result->data = godot::String(result_str.c_str());
 		}
 		else if constexpr (CesiumGltf::IsMetadataScalar<ValueType>::value) {
-			if (rowCount > 0) {
-				auto data_value = nativeValue.get(0);
-				if (data_value && data_value.has_value()) {
-					if constexpr (std::is_same_v<ValueType, float>) {
-						float num_data = static_cast<float>(*data_value);
-						result->data = godot::Variant(num_data);
-						result->componentType = EComponentType::Float32;
-					}
-					else if constexpr (std::is_same_v<ValueType, double>) {
-						double num_data = static_cast<double>(*data_value);
-						result->data = godot::Variant(num_data);
-						result->componentType = EComponentType::Float64;
-					}
-					else if constexpr (std::is_same_v<ValueType, int>) {
-						int num_data = static_cast<int>(*data_value);
-						result->data = godot::Variant(num_data);
-						result->componentType = EComponentType::Int32;
-					}
 
-					result->propertyType = EPropertyType::Scalar;
-					//printf(" scalar_value: %s\n", std::string(godot::String(result->data).utf8().get_data()).c_str());
+			auto data_value = nativeValue.get(0);
+			if (data_value && data_value.has_value()) {
+				if constexpr (std::is_same_v<ValueType, float>) {
+					float num_data = static_cast<float>(*data_value);
+					result->data = godot::Variant(num_data);
+					result->componentType = EComponentType::Float32;
 				}
+				else if constexpr (std::is_same_v<ValueType, double>) {
+					double num_data = static_cast<double>(*data_value);
+					result->data = godot::Variant(num_data);
+					result->componentType = EComponentType::Float64;
+				}
+				else if constexpr (std::is_same_v<ValueType, int>) {
+					int num_data = static_cast<int>(*data_value);
+					result->data = godot::Variant(num_data);
+					result->componentType = EComponentType::Int32;
+				}
+
+				result->propertyType = EPropertyType::Scalar;
+				//printf(" scalar_value: %s\n", std::string(godot::String(result->data).utf8().get_data()).c_str());
 			}
+
 		}
 		else if constexpr (CesiumGltf::IsMetadataArray<ValueType>::value) {
 			// TODO: Make an array here
@@ -225,8 +228,12 @@ private:
 			//*result = this->make_vector_type(nativeValue);
 		}
 		else if constexpr (CesiumGltf::IsMetadataBoolean<ValueType>::value) {
-			result->propertyType = EPropertyType::Boolean;
-			//result->data = nativeValue;
+			auto data_value = nativeValue.get(0);
+			if (data_value && data_value.has_value()) {
+				bool bool_data = static_cast<bool>(*data_value);
+				result->propertyType = EPropertyType::Boolean;
+				result->data = godot::Variant(bool_data);
+			}
 		}
 
 		return result;
