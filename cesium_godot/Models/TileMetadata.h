@@ -192,7 +192,7 @@ private:
 			
 			result->componentType = EComponentType::None;
 			result->propertyType = EPropertyType::String;
-			result->data = godot::String(result_str.c_str());
+			result->data = godot::Variant(godot::String(result_str.c_str()));
 		}
 		else if constexpr (CesiumGltf::IsMetadataScalar<ValueType>::value) {
 
@@ -221,11 +221,13 @@ private:
 		}
 		else if constexpr (CesiumGltf::IsMetadataArray<ValueType>::value) {
 			// TODO: Make an array here
-			//*result = *this->make_array_type(nativeValue);
+			// result = this->make_array_type(nativeValue);
+			WARN_PRINT("The metadata array type is not yet implemented.");
 		}
 		else if constexpr (CesiumGltf::IsMetadataVecN<ValueType>::value) {
 			//constexpr glm::length_t length = T::length();
 			//*result = this->make_vector_type(nativeValue);
+			WARN_PRINT("The metadata vector type is not yet implemented.");
 		}
 		else if constexpr (CesiumGltf::IsMetadataBoolean<ValueType>::value) {
 			auto data_value = nativeValue.get(0);
