@@ -1,4 +1,4 @@
-#include "register_types.h"
+﻿#include "register_types.h"
 
 
 #include "Implementations/DocumentContainer.h"
@@ -13,7 +13,9 @@
 #include "Models/CesiumGDPanel.h"
 #include "Models/CesiumGDConfig.h"
 #include "Utils/CesiumGDAssetBuilder.h"
-#include "Utils/TokenTroubleShooting.h"		
+#include "Utils/TokenTroubleShooting.h"
+#include "Models/CesiumGDGeoJsonLoader.h"
+#include "Models/CesiumTestClass.h"
 #include "godot_cpp/classes/engine.hpp"
 #include <cstdio>
 
@@ -45,6 +47,8 @@ void initialize_cesium_godot_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<TokenTroubleshooting>();
 	ClassDB::register_class<GeoreferencedMesh>();
 	ClassDB::register_class<Cesium3DTile>();
+	ClassDB::register_class<CesiumGDGeoJsonLoader>();
+	ClassDB::register_class<CesiumTestClass>();
 	
 	ClassDB::register_class<CesiumGDCreditSystem>(true);
 }
