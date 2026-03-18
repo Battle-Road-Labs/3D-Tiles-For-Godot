@@ -29,6 +29,9 @@ public:
     void set_ion_asset_id(int64_t id) { m_ionAssetId = id; }
     int64_t get_ion_asset_id() const { return m_ionAssetId; }
 
+    void set_use_manual_token(bool v) { m_useManualToken = v; }
+    bool get_use_manual_token() const { return m_useManualToken; }
+
     void set_ion_access_token(const String& t) { m_ionAccessToken = t; }
     String get_ion_access_token() const { return m_ionAccessToken; }
 
@@ -50,6 +53,7 @@ protected:
 
 private:
     int64_t m_ionAssetId = 0;
+    bool m_useManualToken = false;
     String m_ionAccessToken;
     bool m_autoLoad = false;
 

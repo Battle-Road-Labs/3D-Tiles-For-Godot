@@ -1,4 +1,5 @@
 ﻿#include "CesiumGDGeoJsonLoader.h"
+#include "CesiumGDConfig.h"
 
 #if defined(CESIUM_GD_EXT)
 #   include <godot_cpp/core/class_db.hpp>
@@ -15,13 +16,16 @@ CesiumGDGeoJsonLoader::CesiumGDGeoJsonLoader() {}
 void CesiumGDGeoJsonLoader::_bind_methods() {
     ClassDB::bind_method(D_METHOD("set_ion_asset_id", "id"), &CesiumGDGeoJsonLoader::set_ion_asset_id);
     ClassDB::bind_method(D_METHOD("get_ion_asset_id"), &CesiumGDGeoJsonLoader::get_ion_asset_id);
+    ClassDB::bind_method(D_METHOD("set_use_manual_token", "enabled"), &CesiumGDGeoJsonLoader::set_use_manual_token);
+    ClassDB::bind_method(D_METHOD("get_use_manual_token"), &CesiumGDGeoJsonLoader::get_use_manual_token);
     ClassDB::bind_method(D_METHOD("set_ion_access_token", "token"), &CesiumGDGeoJsonLoader::set_ion_access_token);
     ClassDB::bind_method(D_METHOD("get_ion_access_token"), &CesiumGDGeoJsonLoader::get_ion_access_token);
     ClassDB::bind_method(D_METHOD("set_auto_load", "enabled"), &CesiumGDGeoJsonLoader::set_auto_load);
     ClassDB::bind_method(D_METHOD("get_auto_load"), &CesiumGDGeoJsonLoader::get_auto_load);
 
     ADD_PROPERTY(PropertyInfo(Variant::INT, "ion_asset_id"), "set_ion_asset_id", "get_ion_asset_id");
-    ADD_PROPERTY(PropertyInfo(Variant::STRING, "ion_access_token", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_SECRET), "set_ion_access_token", "get_ion_access_token");
+    ADD_PROPERTY(PropertyInfo(Variant::BOOL, "use_manual_token"), "set_use_manual_token", "get_use_manual_token");
+    ADD_PROPERTY(PropertyInfo(Variant::STRING, "ion_access_token", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_NO_EDITOR), "set_ion_access_token", "get_ion_access_token");
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "auto_load"), "set_auto_load", "get_auto_load");
 
     ClassDB::bind_method(D_METHOD("load"), &CesiumGDGeoJsonLoader::load);
@@ -47,7 +51,12 @@ void CesiumGDGeoJsonLoader::_ready() {
     m_endpointRequest->connect("request_completed", Callable(this, "_on_endpoint_completed"));
     m_geojsonRequest->connect("request_completed", Callable(this, "_on_geojson_completed"));
 
-    if (m_autoLoad && m_ionAssetId > 0 && !m_ionAccessToken.is_empty()) {
+    String ionAccessToken = CesiumGDConfig::get_singleton(this)->get_access_token();
+    if (m_useManualToken && !m_ionAccessToken.is_empty()) {
+        ionAccessToken = m_ionAccessToken;
+    }
+
+    if (m_autoLoad && m_ionAssetId > 0 && !ionAccessToken.is_empty()) {
         load();
     }
 }
@@ -72,11 +81,6 @@ void CesiumGDGeoJsonLoader::load() {
         return;
     }
 
-    if (m_ionAccessToken.is_empty()) {
-        _emit_failure("ion_access_token is empty");
-        return;
-    }
-
     m_state = LOADING;
     m_features.clear();
     _request_endpoint();
@@ -85,9 +89,13 @@ void CesiumGDGeoJsonLoader::load() {
 // GET /v1/assets/{id}/endpoint
 void CesiumGDGeoJsonLoader::_request_endpoint() {
     String url = "https://api.cesium.com/v1/assets/" + String::num_int64(m_ionAssetId) + "/endpoint";
-
+    String ionAccessToken = CesiumGDConfig::get_singleton(this)->get_access_token();
+    if (m_useManualToken && !m_ionAccessToken.is_empty()) {
+        ionAccessToken = m_ionAccessToken;
+    }
+    
     PackedStringArray headers;
-    headers.push_back("Authorization: Bearer " + m_ionAccessToken);
+    headers.push_back("Authorization: Bearer " + ionAccessToken);
 
     Error err = m_endpointRequest->request(url, headers);
     if (err != Error::OK) {
@@ -95,8 +103,7 @@ void CesiumGDGeoJsonLoader::_request_endpoint() {
     }
 }
 
-void CesiumGDGeoJsonLoader::_on_endpoint_completed(int result, int response_code, const PackedStringArray& headers, const PackedByteArray& body)
-{
+void CesiumGDGeoJsonLoader::_on_endpoint_completed(int result, int response_code, const PackedStringArray& headers, const PackedByteArray& body) {
     if (result != HTTPRequest::RESULT_SUCCESS || response_code != 200) {
         _emit_failure("Endpoint HTTP " + itos(response_code) + " (result=" + itos(result) + ")");
         return;
