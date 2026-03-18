@@ -49,39 +49,7 @@ Ref<ArrayMesh> CesiumGDModelLoader::generate_meshes_from_model(const CesiumGltf:
 
 	Ref<ArrayMesh> meshInstance = memnew(ArrayMesh);
 
-	Ref<Shader> texture_transform_shader = godot::ResourceLoader::get_singleton()->load("res://Shaders/spatial_texture_rotation.gdshader");
-	texture_transform_shader.instantiate();
-	if (!texture_transform_shader.is_valid()) {
-		texture_transform_shader.instantiate();
-
-		String code = R"(
-		shader_type spatial;
-
-		uniform sampler2D albedo_texture : source_color;
-		uniform vec2 uv_offset = vec2(0.0);
-		uniform vec2 uv_scale = vec2(1.0);
-		uniform float uv_rotation = 0.0;
-
-		vec2 rotate_uv(vec2 uv, float angle) {
-			float s = sin(angle);
-			float c = cos(angle);
-			mat2 rot = mat2(c, -s, s, c);
-			return rot * uv;
-		}
-
-		void fragment() {
-			vec2 uv = UV;
-			uv *= uv_scale;
-			uv = rotate_uv(uv, uv_rotation);
-			uv += uv_offset;
-			vec4 albedo = texture(albedo_texture, uv);
-			ALBEDO = albedo.rgb;
-			ALPHA = albedo.a;
-		}
-		)";
-
-		texture_transform_shader->set_code(code);
-	}
+	Ref<Shader> texture_transform_shader = get_texture_transform_shader();
 
 	*error = Error::OK;
 	for (const CesiumGltf::Mesh& mesh : gltfMeshes) {
@@ -226,6 +194,41 @@ Ref<ArrayMesh> CesiumGDModelLoader::generate_meshes_from_model(const CesiumGltf:
 		}
 	}
 	return meshInstance;
+}
+
+Ref<Shader> CesiumGDModelLoader::get_texture_transform_shader() {
+	Ref<Shader> txt_shader;
+	txt_shader.instantiate();
+
+	String code = R"(
+	shader_type spatial;
+
+	uniform sampler2D albedo_texture : source_color;
+	uniform vec2 uv_offset = vec2(0.0);
+	uniform vec2 uv_scale = vec2(1.0);
+	uniform float uv_rotation = 0.0;
+
+	vec2 rotate_uv(vec2 uv, float angle) {
+		float s = sin(angle);
+		float c = cos(angle);
+		mat2 rot = mat2(c, -s, s, c);
+		return rot * uv;
+	}
+
+	void fragment() {
+		vec2 uv = UV;
+		uv *= uv_scale;
+		uv = rotate_uv(uv, uv_rotation);
+		uv += uv_offset;
+		vec4 albedo = texture(albedo_texture, uv);
+		ALBEDO = albedo.rgb;
+		ALPHA = albedo.a;
+	}
+	)";
+
+	txt_shader->set_code(code);
+
+	return txt_shader;
 }
 
 Vector<Vector3> CesiumGDModelLoader::generate_normals(const Vector<Vector3>& vertices, const Vector<int32_t>& indices) {

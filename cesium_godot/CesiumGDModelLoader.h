@@ -1,4 +1,4 @@
-#ifndef CESIUM_GD_MODEL_LOADER_H
+﻿#ifndef CESIUM_GD_MODEL_LOADER_H
 #define CESIUM_GD_MODEL_LOADER_H
 
 #include "glm/ext/matrix_double4x4.hpp"
@@ -27,6 +27,8 @@ class MeshInstance3D;
 class CesiumGDModelLoader {
 public:
 	static Ref<ArrayMesh> generate_meshes_from_model(const CesiumGltf::Model& readerResult, Error* error);
+
+	static Ref<Shader> get_texture_transform_shader();
 
 	static glm::dmat4 apply_rtc_center(const CesiumGltf::Model& gltf, const glm::dmat4x4& rootTransform);
 
