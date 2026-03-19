@@ -29,7 +29,7 @@ public:
     void set_ion_asset_id(int64_t id) { m_ionAssetId = id; }
     int64_t get_ion_asset_id() const { return m_ionAssetId; }
 
-    void set_use_manual_token(bool v) { m_useManualToken = v; }
+    void set_use_manual_token(bool v) { m_useManualToken = v; notify_property_list_changed(); }
     bool get_use_manual_token() const { return m_useManualToken; }
 
     void set_ion_access_token(const String& t) { m_ionAccessToken = t; }
@@ -50,6 +50,10 @@ public:
 
 protected:
     static void _bind_methods();
+
+    void _get_property_list(List<PropertyInfo>* p_list) const;
+    bool _get(const StringName& p_name, Variant& r_property) const;
+    bool _set(const StringName& p_name, const Variant& p_property);
 
 private:
     int64_t m_ionAssetId = 0;

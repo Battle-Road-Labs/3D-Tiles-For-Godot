@@ -24,9 +24,9 @@ void CesiumGDGeoJsonLoader::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_auto_load"), &CesiumGDGeoJsonLoader::get_auto_load);
 
     ADD_PROPERTY(PropertyInfo(Variant::INT, "ion_asset_id"), "set_ion_asset_id", "get_ion_asset_id");
-    ADD_PROPERTY(PropertyInfo(Variant::BOOL, "use_manual_token"), "set_use_manual_token", "get_use_manual_token");
-    ADD_PROPERTY(PropertyInfo(Variant::STRING, "ion_access_token", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_NO_EDITOR), "set_ion_access_token", "get_ion_access_token");
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "auto_load"), "set_auto_load", "get_auto_load");
+    ADD_PROPERTY(PropertyInfo(Variant::BOOL, "use_manual_token"), "set_use_manual_token", "get_use_manual_token");
+    ADD_PROPERTY(PropertyInfo(Variant::STRING, "ion_access_token", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_ion_access_token", "get_ion_access_token");
 
     ClassDB::bind_method(D_METHOD("load"), &CesiumGDGeoJsonLoader::load);
     ClassDB::bind_method(D_METHOD("get_features"), &CesiumGDGeoJsonLoader::get_features);
@@ -235,4 +235,32 @@ void CesiumGDGeoJsonLoader::_emit_success() {
 void CesiumGDGeoJsonLoader::_emit_failure(const String& msg) {
     m_state = FAILED;
     emit_signal("load_failed", msg);
+}
+
+void CesiumGDGeoJsonLoader::_get_property_list(List<PropertyInfo>* p_list) const {
+    uint32_t usage = m_useManualToken ? PROPERTY_USAGE_DEFAULT : PROPERTY_USAGE_NO_EDITOR;
+
+    p_list->push_back(PropertyInfo(
+        Variant::STRING,
+        "ion_access_token",
+        PROPERTY_HINT_NONE,
+        "",
+        usage
+    ));
+}
+
+bool CesiumGDGeoJsonLoader::_get(const StringName& p_name, Variant& r_property)  const {
+    if (p_name == StringName("ion_access_token")) {
+        r_property = m_ionAccessToken;
+        return true;
+    }
+    return false;
+}
+
+bool CesiumGDGeoJsonLoader::_set(const StringName& p_name, const Variant& p_property) {
+    if (p_name == StringName("ion_access_token")) {
+        m_ionAccessToken = p_property;
+        return true;
+    }
+    return false;
 }
