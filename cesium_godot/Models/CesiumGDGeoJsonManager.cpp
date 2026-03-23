@@ -66,7 +66,6 @@ void CesiumGDGeoJsonManager::_ready() {
 void CesiumGDGeoJsonManager::fetch_assets() {
     String token = CesiumGDConfig::get_singleton(this)->get_access_token();
     if (token.is_empty()) {
-        printf(token.utf8().ptr());
         _emit_failure("There is no token in CesiumGDConfig");
         return;
     }
@@ -80,8 +79,7 @@ void CesiumGDGeoJsonManager::fetch_assets() {
     if (!querty_str.is_empty()) {
         url += "?" + querty_str;
     }
-
-    printf("[CesiumGDGeoJsonManager.fetch_assets] URL: %s\n", url.utf8().ptr());
+  
     PackedStringArray headers;
     headers.push_back("Authorization: Bearer " + token);
 
