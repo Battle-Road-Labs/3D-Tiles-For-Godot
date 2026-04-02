@@ -104,7 +104,14 @@ CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>> NetworkAssetAcc
 			url.c_str(),
 			method,
 			[url, p_promise = std::move(p_promise)](int32_t responseCode, const PackedByteArray &body) {
-				if (responseCode >= HTTPClient::ResponseCode::RESPONSE_BAD_REQUEST || responseCode == 0 /* Invalid request will yield 0 */) {
+			// For file:// URLs, libcurl returns response code 0 on success (no HTTP layer).
+			// Treat code 0 with a non-empty body as a successful response.
+			const bool isFileUrl = url.rfind("file://", 0) == 0;
+			if (isFileUrl && responseCode == 0 && body.size() > 0) {
+				responseCode = HTTPClient::ResponseCode::RESPONSE_OK;
+			}
+
+			if (responseCode >= HTTPClient::ResponseCode::RESPONSE_BAD_REQUEST || (responseCode == 0 && !isFileUrl) /* Invalid request will yield 0 */) {
 					const String errorMessage = String("The underlying request failed with code: ") + itos(responseCode);
 					const char *strPtr = reinterpret_cast<const char *>(body.ptr());
 					String bodyStr = strPtr;
