@@ -23,8 +23,8 @@ cesium_build_utils.clone_lite_html_if_needed()
 cesium_build_utils.compile_native(ARGUMENTS)
 
 # Build litehtml from source on macOS (no pre-built binaries available)
-if cesium_build_utils.is_macos():
-    cesium_build_utils.build_litehtml_macos()
+if sys.platform == cesium_build_utils.PLATFORM_MACOS:
+    cesium_build_utils.build_litehtml()
 
 env = SConscript("godot-cpp/SConstruct")
 cesium_build_utils.generate_precision_symbols(ARGUMENTS, env)

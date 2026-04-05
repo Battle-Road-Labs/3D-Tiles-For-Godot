@@ -1,6 +1,7 @@
 # SCub for building the Godot Cesium submodule
 import CesiumBuildUtils as cesium_build_utils
 import os
+import sys
 
 Import("env")
 
@@ -235,7 +236,7 @@ if (os.name == cesium_build_utils.OS_WIN):
         "zlibstatic-ng",
         "libmodpbase64"
     ])
-elif cesium_build_utils.is_macos():
+elif sys.platform == cesium_build_utils.PLATFORM_MACOS:
     # Remove litehtml and gumbo from the libraries list - we'll use -force_load instead
     libraries.remove("litehtml")
     libraries.remove("gumbo")
@@ -350,7 +351,7 @@ elif cesium_build_utils.is_macos():
         "-force_load", litehtml_macos_abs + "/liblitehtml.a",
         "-force_load", litehtml_macos_abs + "/libgumbo.a"
     ])
-elif (os.name == cesium_build_utils.OS_LINUX and not cesium_build_utils.is_macos()):
+elif (os.name == cesium_build_utils.OS_LINUX and sys.platform != cesium_build_utils.PLATFORM_MACOS):
     libraries.extend([
         "crypto",
         "libz-ng",
@@ -383,7 +384,7 @@ common_libpaths = [
 ]
 
 # Add litehtml path (macOS uses its own path added earlier, others use base path)
-if not cesium_build_utils.is_macos():
+if sys.platform != cesium_build_utils.PLATFORM_MACOS:
     common_libpaths.append(cesium_build_utils.get_root_dir() + "/third_party/litehtml")
 
 env.Append(
@@ -392,6 +393,6 @@ env.Append(
 )
 
 # This was a nightmare, so I abstracted it into a function, the function itself is also a nightmare
-# Note: os.name == 'posix' on both Linux and macOS, so we must check is_macos() first
-if (os.name == cesium_build_utils.OS_LINUX and not cesium_build_utils.is_macos()):
+# Note: os.name == 'posix' on both Linux and macOS, so we must check PLATFORM_MACOS first
+if (os.name == cesium_build_utils.OS_LINUX and sys.platform != cesium_build_utils.PLATFORM_MACOS):
     cesium_build_utils.link_abseil_libs(env)

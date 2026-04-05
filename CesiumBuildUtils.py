@@ -2,6 +2,7 @@
 import subprocess
 import os
 import fnmatch
+import shutil
 import sys
 
 from SCons.Script import Dir
@@ -34,14 +35,10 @@ RELEASE_CONFIG = "Release"
 ezvcpkgFoundPath: str = ""
 
 
-def is_macos():
-    return sys.platform == PLATFORM_MACOS
-
-
 def get_compile_flags():
     if os.name == OS_WIN:
         return ["/std:c++20", "/Zc:__cplusplus", "/utf-8", "/bigobj"]
-    elif is_macos():
+    elif sys.platform == PLATFORM_MACOS:
         return ["-std=c++20", "-fexceptions", "-fPIC"]
     elif os.name == OS_LINUX:
         return ["-std=c++20", "-fexceptions", "-fpermissive", "-fPIC"]
@@ -157,8 +154,8 @@ def clone_lite_html_if_needed():
     pass
 
 
-def build_litehtml_macos():
-    """Build litehtml from source on macOS since no pre-built binaries exist."""
+def build_litehtml(arch="arm64"):
+    """Build litehtml from source for the given architecture."""
     third_party_dir = scons_to_abs_path(ROOT_DIR_EXT + "/third_party")
     source_dir = os.path.join(third_party_dir, "litehtml-src")
     output_dir = os.path.join(third_party_dir, "litehtml", "macos")
@@ -185,7 +182,7 @@ def build_litehtml_macos():
     result = subprocess.run([
         "cmake",
         "-DCMAKE_BUILD_TYPE=Release",
-        "-DCMAKE_OSX_ARCHITECTURES=arm64",
+        f"-DCMAKE_OSX_ARCHITECTURES={arch}",
         "-DLITEHTML_BUILD_TESTING=OFF",
         ".."
     ])
@@ -204,7 +201,6 @@ def build_litehtml_macos():
         return
 
     # Copy output libraries
-    import shutil
     for lib in ["liblitehtml.a", "libgumbo.a"]:
         src = os.path.join(build_dir, lib)
         if not os.path.exists(src):
@@ -276,7 +272,7 @@ def configure_native(argumentsDict):
 def determine_triplet():
     if os.name == OS_WIN:
         return "x64-windows-static"
-    if is_macos():
+    if sys.platform == PLATFORM_MACOS:
         return "arm64-osx"
     if os.name == OS_LINUX:
         return "x64-linux"
@@ -305,7 +301,7 @@ def compile_native(argumentsDict):
     result = None
     if os.name == OS_WIN:
         result = build_native_win()
-    elif is_macos():
+    elif sys.platform == PLATFORM_MACOS:
         result = build_native_macos()
     elif os.name == OS_LINUX:
         result = build_native_linux()

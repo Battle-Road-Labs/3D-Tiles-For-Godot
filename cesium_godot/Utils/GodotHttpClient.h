@@ -20,6 +20,7 @@ using namespace godot;
 #include <functional>
 #include <vector>
 #include <string>
+#include <charconv>
 #include <sstream>
 #include <thread>
 #include <chrono>
@@ -84,11 +85,15 @@ private:
 	struct UrlParts {
 		std::string scheme;
 		std::string host;
-		int port;
+		int32_t port;
 		std::string path;
 		bool use_tls;
 		bool valid;
 	};
+
+	static constexpr size_t SCHEME_SEPARATOR_LEN = 3; // length of "://"
+	static constexpr int32_t DEFAULT_HTTPS_PORT = 443;
+	static constexpr int32_t DEFAULT_HTTP_PORT = 80;
 
 	UrlParts parse_url(const std::string& url) {
 		UrlParts parts{};
@@ -103,7 +108,7 @@ private:
 		parts.scheme = url.substr(0, schemeEnd);
 		parts.use_tls = (parts.scheme == "https");
 
-		size_t hostStart = schemeEnd + 3;
+		size_t hostStart = schemeEnd + SCHEME_SEPARATOR_LEN;
 		size_t pathStart = url.find('/', hostStart);
 
 		std::string hostPart;
@@ -118,14 +123,14 @@ private:
 		size_t portPos = hostPart.find(':');
 		if (portPos != std::string::npos) {
 			parts.host = hostPart.substr(0, portPos);
-			try {
-				parts.port = std::stoi(hostPart.substr(portPos + 1));
-			} catch (...) {
+			std::string portStr = hostPart.substr(portPos + 1);
+			auto [ptr, ec] = std::from_chars(portStr.data(), portStr.data() + portStr.size(), parts.port);
+			if (ec != std::errc()) {
 				return parts;
 			}
 		} else {
 			parts.host = hostPart;
-			parts.port = parts.use_tls ? 443 : 80;
+			parts.port = parts.use_tls ? DEFAULT_HTTPS_PORT : DEFAULT_HTTP_PORT;
 		}
 
 		parts.valid = !parts.host.empty();
@@ -145,18 +150,18 @@ private:
 				std::string base64Data = urlStr.substr(base64Pos + 8);
 				String godotBase64 = String(base64Data.c_str());
 				buffer = Marshalls::get_singleton()->base64_to_raw(godotBase64);
-				*outStatus = 200;
+				*outStatus = HTTPClient::RESPONSE_OK;
 				return buffer;
 			}
 			ERR_PRINT(String("Invalid data URI format: ") + url);
-			*outStatus = 400;
+			*outStatus = HTTPClient::RESPONSE_BAD_REQUEST;
 			return PackedByteArray();
 		}
 
 		UrlParts parts = parse_url(urlStr);
 		if (!parts.valid) {
 			ERR_PRINT(String("Invalid URL format: ") + url);
-			*outStatus = 400;
+			*outStatus = HTTPClient::RESPONSE_BAD_REQUEST;
 			return PackedByteArray();
 		}
 
@@ -179,9 +184,9 @@ private:
 		}
 
 		// Poll until connected (max ~10 seconds)
-		constexpr int MAX_CONNECT_POLLS = 1000;
-		constexpr int POLL_DELAY_MS = 10;
-		int polls = 0;
+		constexpr int32_t MAX_CONNECT_POLLS = 1000;
+		constexpr int32_t POLL_DELAY_MS = 10;
+		int32_t polls = 0;
 
 		while (http->get_status() == HTTPClient::STATUS_CONNECTING ||
 		       http->get_status() == HTTPClient::STATUS_RESOLVING) {
@@ -217,7 +222,7 @@ private:
 		}
 
 		// Poll until request completes (max ~60 seconds for large files)
-		constexpr int MAX_REQUEST_POLLS = 6000;
+		constexpr int32_t MAX_REQUEST_POLLS = 6000;
 		polls = 0;
 
 		while (http->get_status() == HTTPClient::STATUS_REQUESTING) {
