@@ -48,12 +48,12 @@ scons arch=x64 compileTarget=extension target=template_release production=yes
 
 Otherwise, to get a `compile_commands.json` file to use with an IDE or Text Editor, run
 ```
-scons compiledb=true arch=x64 compileTarget=extension debug_symbols=true
+scons compiledb=yes arch=x64 compileTarget=extension debug_symbols=yes
 ```
 
 #### Build Flags Explained:
 
-* `compiledb=true`: Generate IDE-friendly compilation database (optional)
+* `compiledb=yes`: Generate IDE-friendly compilation database (optional)
 
 * `arch=x64`: 64-bit architecture, will be used as build architecture for all subsequent libraries 
 

@@ -14,6 +14,8 @@ using namespace godot;
 
 #include <CesiumUtility/IntrusivePointer.h>
 #include <CesiumRasterOverlays/IonRasterOverlay.h>
+#include <CesiumRasterOverlays/TileMapServiceRasterOverlay.h>
+#include "CesiumDataSource.h"
 
 class Cesium3DTileset;
 
@@ -31,13 +33,21 @@ public:
 
 	const String& get_material_key() const;
 
+	void set_url(const String& url);
+
+	const String& get_url() const;
+
+	int get_data_source() const;
+
+	void set_data_source(int data_source);
+
 #pragma endregion
 
 	Error add_to_tileset(Cesium3DTileset* tilesetInstance);
 
 	void remove_from_tileset(Cesium3DTileset* tilesetInstance);
 
-	CesiumUtility::IntrusivePointer<CesiumRasterOverlays::IonRasterOverlay> get_overlay_instance();
+	CesiumUtility::IntrusivePointer<CesiumRasterOverlays::RasterOverlay> get_overlay_instance();
 
 private:
 
@@ -46,12 +56,22 @@ private:
 
 	int64_t m_assetId = 0;
 
-	String m_materialKey = "0";
+	String m_materialKey = "overlay";
 
-	CesiumUtility::IntrusivePointer<CesiumRasterOverlays::IonRasterOverlay> m_overlayInstance;
+	String m_url = "";
+
+	CesiumDataSource m_selectedDataSource = CesiumDataSource::FromCesiumIon;
+
+	CesiumUtility::IntrusivePointer<CesiumRasterOverlays::RasterOverlay> m_overlayInstance;
+
 
 protected:
 	static void _bind_methods();
+
+	void _get_property_list(List<PropertyInfo>* properties) const;
+
+	bool _set(const StringName& p_name, const Variant& p_property);
+	bool _get(const StringName& p_name, Variant& r_property) const;
 };
 
 #endif // !CESIUM_GD_RASTER_OVERLAY_H
