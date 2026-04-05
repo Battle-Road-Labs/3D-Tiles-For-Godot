@@ -421,7 +421,7 @@ void Cesium3DTileset::add_overlay(CesiumIonRasterOverlay* overlay)
 	this->m_activeTileset->getOverlays().add(overlay->get_overlay_instance());
 }
 
-void Cesium3DTileset::free_tile(Cesium3DTile* tileInstance, size_t tileHash) {
+void Cesium3DTileset::free_tile(Cesium3DTile* tileInstance, uint64_t tileHash) {
 	if (tileInstance == nullptr) {
 		return;
 	}
@@ -584,6 +584,7 @@ void Cesium3DTileset::despawn_tile(const Cesium3DTilesSelection::Tile& tile)
 	const Cesium3DTilesSelection::TileRenderContent* renderContent = tile.getContent().getRenderContent();
 	if (renderContent == nullptr) return;
 	Cesium3DTile* foundNode = static_cast<Cesium3DTile*>(renderContent->getRenderResources());
+	if (foundNode == nullptr) return;
 	if (!foundNode->is_inside_tree()) return;
 	foundNode->hide();
 	// Deactivate the collisions

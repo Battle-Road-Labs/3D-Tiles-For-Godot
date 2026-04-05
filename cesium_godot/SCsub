@@ -1,6 +1,7 @@
 # SCub for building the Godot Cesium submodule
 import CesiumBuildUtils as cesium_build_utils
 import os
+import sys
 
 Import("env")
 
@@ -235,7 +236,122 @@ if (os.name == cesium_build_utils.OS_WIN):
         "zlibstatic-ng",
         "libmodpbase64"
     ])
-elif (os.name == cesium_build_utils.OS_LINUX):
+elif sys.platform == cesium_build_utils.PLATFORM_MACOS:
+    # Remove litehtml and gumbo from the libraries list - we'll use -force_load instead
+    libraries.remove("litehtml")
+    libraries.remove("gumbo")
+    libraries.extend([
+        "crypto",
+        "z-ng",
+        "liblibmodpbase64",
+        # Abseil libraries (required by s2 geometry)
+        "absl_bad_any_cast_impl",
+        "absl_bad_optional_access",
+        "absl_bad_variant_access",
+        "absl_base",
+        "absl_city",
+        "absl_civil_time",
+        "absl_cord",
+        "absl_cord_internal",
+        "absl_cordz_functions",
+        "absl_cordz_handle",
+        "absl_cordz_info",
+        "absl_cordz_sample_token",
+        "absl_crc32c",
+        "absl_crc_cord_state",
+        "absl_crc_cpu_detect",
+        "absl_crc_internal",
+        "absl_debugging_internal",
+        "absl_decode_rust_punycode",
+        "absl_demangle_internal",
+        "absl_demangle_rust",
+        "absl_die_if_null",
+        "absl_examine_stack",
+        "absl_exponential_biased",
+        "absl_failure_signal_handler",
+        "absl_flags_commandlineflag",
+        "absl_flags_commandlineflag_internal",
+        "absl_flags_config",
+        "absl_flags_internal",
+        "absl_flags_marshalling",
+        "absl_flags_parse",
+        "absl_flags_private_handle_accessor",
+        "absl_flags_program_name",
+        "absl_flags_reflection",
+        "absl_flags_usage",
+        "absl_flags_usage_internal",
+        "absl_graphcycles_internal",
+        "absl_hash",
+        "absl_hashtablez_sampler",
+        "absl_int128",
+        "absl_kernel_timeout_internal",
+        "absl_leak_check",
+        "absl_log_entry",
+        "absl_log_flags",
+        "absl_log_globals",
+        "absl_log_initialize",
+        "absl_log_internal_check_op",
+        "absl_log_internal_conditions",
+        "absl_log_internal_fnmatch",
+        "absl_log_internal_format",
+        "absl_log_internal_globals",
+        "absl_log_internal_log_sink_set",
+        "absl_log_internal_message",
+        "absl_log_internal_nullguard",
+        "absl_log_internal_proto",
+        "absl_log_internal_structured_proto",
+        "absl_log_severity",
+        "absl_log_sink",
+        "absl_low_level_hash",
+        "absl_malloc_internal",
+        "absl_periodic_sampler",
+        "absl_poison",
+        "absl_random_distributions",
+        "absl_random_internal_distribution_test_util",
+        "absl_random_internal_platform",
+        "absl_random_internal_pool_urbg",
+        "absl_random_internal_randen",
+        "absl_random_internal_randen_hwaes",
+        "absl_random_internal_randen_hwaes_impl",
+        "absl_random_internal_randen_slow",
+        "absl_random_internal_seed_material",
+        "absl_random_seed_gen_exception",
+        "absl_random_seed_sequences",
+        "absl_raw_hash_set",
+        "absl_raw_logging_internal",
+        "absl_scoped_set_env",
+        "absl_spinlock_wait",
+        "absl_stacktrace",
+        "absl_status",
+        "absl_statusor",
+        "absl_str_format_internal",
+        "absl_strerror",
+        "absl_string_view",
+        "absl_strings",
+        "absl_strings_internal",
+        "absl_symbolize",
+        "absl_synchronization",
+        "absl_throw_delegate",
+        "absl_time",
+        "absl_time_zone",
+        "absl_tracing_internal",
+        "absl_utf8_for_code_point",
+        "absl_vlog_config_internal"
+    ])
+    # Add macOS-specific library path for litehtml
+    litehtml_macos_path = cesium_build_utils.get_root_dir() + "/third_party/litehtml/macos"
+    litehtml_macos_abs = cesium_build_utils.scons_to_abs_path(litehtml_macos_path)
+    env.Append(LIBPATH=[litehtml_macos_path])
+    # Link against macOS frameworks and force-load litehtml to resolve internal dependencies
+    env.Append(LINKFLAGS=[
+        "-framework", "CoreFoundation",
+        "-framework", "Security",
+        "-framework", "SystemConfiguration",
+        # Force load all symbols from litehtml - needed for internal archive dependencies
+        "-force_load", litehtml_macos_abs + "/liblitehtml.a",
+        "-force_load", litehtml_macos_abs + "/libgumbo.a"
+    ])
+elif (os.name == cesium_build_utils.OS_LINUX and sys.platform != cesium_build_utils.PLATFORM_MACOS):
     libraries.extend([
         "crypto",
         "libz-ng",
@@ -244,32 +360,39 @@ elif (os.name == cesium_build_utils.OS_LINUX):
     env.Append(LIBPATH=["/usr/lib/x86_64-linux-gnu"])
     env.Append(CPPPATH=["/usr/include/x86_64-linux-gnu"])
 
+# Build common library paths
+common_libpaths = [
+    f"{root_dir_native}/CesiumGltfReader/{current_build_config}",
+    f"{root_dir_native}/CesiumAsync/{current_build_config}",
+    f"{root_dir_native}/CesiumJsonReader/{current_build_config}",
+    f"{root_dir_native}/CesiumJsonWriter/{current_build_config}",
+    f"{root_dir_native}/CesiumGltf/{current_build_config}",
+    f"{root_dir_native}/CesiumUtility/{current_build_config}",
+    f"{root_dir_native}/CesiumGeospatial/{current_build_config}",
+    f"{root_dir_native}/Cesium3DTilesSelection/{current_build_config}",
+    f"{root_dir_native}/CesiumRasterOverlays/{current_build_config}",
+    f"{root_dir_native}/CesiumGeometry/{current_build_config}",
+    f"{root_dir_native}/Cesium3DTilesReader/{current_build_config}",
+    f"{root_dir_native}/CesiumGltfContent/{current_build_config}",
+    f"{root_dir_native}/CesiumQuantizedMeshTerrain/{current_build_config}",
+    f"{root_dir_native}/Cesium3DTilesContent/{current_build_config}",
+    cesium_build_utils.get_root_dir_native() + "/libs/gsl",
+    cesium_build_utils.get_root_dir_native() + "/libs/absl",
+    cesium_build_utils.get_root_dir_native() + "/libs",
+    cesium_build_utils.find_ezvcpkg_path(
+    ) + "/installed/%s/lib" % (cesium_build_utils.determine_triplet())
+]
+
+# Add litehtml path (macOS uses its own path added earlier, others use base path)
+if sys.platform != cesium_build_utils.PLATFORM_MACOS:
+    common_libpaths.append(cesium_build_utils.get_root_dir() + "/third_party/litehtml")
+
 env.Append(
     LIBS=libraries,
-    LIBPATH=[
-        f"{root_dir_native}/CesiumGltfReader/{current_build_config}",
-        f"{root_dir_native}/CesiumAsync/{current_build_config}",
-        f"{root_dir_native}/CesiumJsonReader/{current_build_config}",
-        f"{root_dir_native}/CesiumJsonWriter/{current_build_config}",
-        f"{root_dir_native}/CesiumGltf/{current_build_config}",
-        f"{root_dir_native}/CesiumUtility/{current_build_config}",
-        f"{root_dir_native}/CesiumGeospatial/{current_build_config}",
-        f"{root_dir_native}/Cesium3DTilesSelection/{current_build_config}",
-        f"{root_dir_native}/CesiumRasterOverlays/{current_build_config}",
-        f"{root_dir_native}/CesiumGeometry/{current_build_config}",
-        f"{root_dir_native}/Cesium3DTilesReader/{current_build_config}",
-        f"{root_dir_native}/CesiumGltfContent/{current_build_config}",
-        f"{root_dir_native}/CesiumQuantizedMeshTerrain/{current_build_config}",
-        f"{root_dir_native}/Cesium3DTilesContent/{current_build_config}",
-        cesium_build_utils.get_root_dir_native() + "/libs/gsl",
-        cesium_build_utils.get_root_dir_native() + "/libs/absl",
-        cesium_build_utils.get_root_dir_native() + "/libs",
-        cesium_build_utils.get_root_dir() + "/third_party/litehtml",
-        cesium_build_utils.find_ezvcpkg_path(
-        ) + "/installed/%s/lib" % (cesium_build_utils.determine_triplet())
-    ]
+    LIBPATH=common_libpaths
 )
 
 # This was a nightmare, so I abstracted it into a function, the function itself is also a nightmare
-if (os.name == cesium_build_utils.OS_LINUX):
+# Note: os.name == 'posix' on both Linux and macOS, so we must check PLATFORM_MACOS first
+if (os.name == cesium_build_utils.OS_LINUX and sys.platform != cesium_build_utils.PLATFORM_MACOS):
     cesium_build_utils.link_abseil_libs(env)

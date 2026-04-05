@@ -181,9 +181,8 @@ private:
 
 	template<class T>
 	CesiumPropertyInfo make_array_type(const T& nativeValue) {
-		CesiumPropertyInfo result{
-			.isArray = true
-		};
+		CesiumPropertyInfo result;
+		result.isArray = true;
 		Array data = Array();
 		data.resize(nativeValue.size());
 

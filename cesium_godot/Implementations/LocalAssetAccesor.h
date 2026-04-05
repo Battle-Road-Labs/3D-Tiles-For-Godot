@@ -55,8 +55,22 @@ public:
 			Ref<FileAccess> assetRef = open_file_access_with_err(godotFriendlyPath, FileAccess::READ, &err);
 
 			if (err != Error::OK) {
-				std::exception exc(FILE_ACCESS_ERR.data());
-				return p_promise.reject(&exc);
+				// Always resolve with error status - reject() crashes with LIBASYNC_NO_EXCEPTIONS
+				CesiumAsync::HttpHeaders errorHeaders;
+				errorHeaders.insert({ "content-type", "text/plain" });
+				auto errorResponse = std::make_unique<LocalAssetResponse>(
+					404, // File not found
+					"text/plain",
+					errorHeaders,
+					Vector<uint8_t>()
+				);
+				auto errorRequest = std::make_shared<LocalAssetRequest>(
+					"GET",
+					url,
+					errorHeaders,
+					std::move(errorResponse)
+				);
+				return p_promise.resolve(errorRequest);
 			}
 
 
@@ -101,9 +115,23 @@ Vector<uint8_t> data;
 		const std::vector<THeader>& headers = std::vector<THeader>(),
 		const std::span<const std::byte>& contentPayload = {}) override {
 
+		// Always resolve with error status - reject() crashes with LIBASYNC_NO_EXCEPTIONS
 		return asyncSystem.createFuture<std::shared_ptr<CesiumAsync::IAssetRequest>>([=](CesiumAsync::Promise<std::shared_ptr<CesiumAsync::IAssetRequest>> p_promise) {
-			std::exception notImplemented("Method not implemented yet!");
-			return p_promise.reject(&notImplemented);
+			CesiumAsync::HttpHeaders errorHeaders;
+			errorHeaders.insert({ "content-type", "text/plain" });
+			auto errorResponse = std::make_unique<LocalAssetResponse>(
+				501, // Not Implemented
+				"text/plain",
+				errorHeaders,
+				Vector<uint8_t>()
+			);
+			auto errorRequest = std::make_shared<LocalAssetRequest>(
+				verb,
+				url,
+				errorHeaders,
+				std::move(errorResponse)
+			);
+			return p_promise.resolve(errorRequest);
 		});
 	}
 

@@ -1,8 +1,11 @@
 #ifndef DOCUMENT_CONTAINER_H
 #define DOCUMENT_CONTAINER_H
 
-
+#ifdef __APPLE__
+#include "Utils/GodotHttpClient.h"
+#else
 #include "Utils/CurlHttpClient.h"
+#endif
 #include "godot_cpp/classes/control.hpp"
 #include "godot_cpp/classes/image_texture.hpp"
 #include "godot_cpp/classes/wrapped.hpp"
@@ -69,7 +72,11 @@ public:
 private:
 	// We use a hash here bc we do not want to keep a copy of the string
 	std::unordered_map<uint32_t, Ref<ImageTexture>> m_imageCache;
+#ifdef __APPLE__
+	GodotHttpClient<2> m_httpClient;
+#else
 	CurlHttpClient<2> m_httpClient;
+#endif
 	// I know this is "backwards" if you think abt this in OOP terms, but I beg you to think of this class as just functional implementations
 	litehtml::document::ptr m_document = nullptr;
 

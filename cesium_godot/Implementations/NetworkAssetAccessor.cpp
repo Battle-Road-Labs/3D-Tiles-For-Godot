@@ -25,12 +25,12 @@ using FutureResult_t = std::shared_ptr<CesiumAsync::IAssetRequest>;
 NetworkAssetAccessor::NetworkAssetAccessor()
 {
 	constexpr size_t maxThreadsPerClient = 16;
-	this->m_curlClient.init_client(maxThreadsPerClient);
+	this->m_httpClient.init_client(maxThreadsPerClient);
 	// Set all the default headers
-	this->m_curlClient.add_default_header({"x-cesium-client", "3D Tiles For Godot"});
-	this->m_curlClient.add_default_header({"x-cesium-client-version", "1.0"});
+	this->m_httpClient.add_default_header({"x-cesium-client", "3D Tiles For Godot"});
+	this->m_httpClient.add_default_header({"x-cesium-client-version", "1.0"});
 	String godotBuildInfo = Engine::get_singleton()->get_version_info().get("string", "");
-	this->m_curlClient.add_default_header({"x-cesium-client-engine", godotBuildInfo.utf8().get_data()});
+	this->m_httpClient.add_default_header({"x-cesium-client-engine", godotBuildInfo.utf8().get_data()});
 }
 
 CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>> NetworkAssetAccessor::get(const CesiumAsync::AsyncSystem& asyncSystem, const std::string& url, const std::vector<THeader>& headers /*= {}*/)
@@ -80,9 +80,23 @@ CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>> NetworkAssetAcc
 
 	if (idx < 0 || idx >= ENUM_METHODS.size()) {
 		ERR_PRINT(String("Request method with name ") + String(verb.c_str()) + " not found!");
+		// Always resolve with error status - reject() crashes with LIBASYNC_NO_EXCEPTIONS
 		return asyncSystem.createFuture<FutureResult_t>([=](CesiumAsync::Promise<FutureResult_t> p_promise) {
-			p_promise.reject("Request method not found");
-			return p_promise;
+			std::string contentType = "text/plain";
+			CesiumAsync::HttpHeaders errorHeaders = { { "content-type", contentType } };
+			auto errorResponse = std::make_unique<LocalAssetResponse>(
+				400, // Bad Request
+				contentType,
+				errorHeaders,
+				PackedByteArray()
+			);
+			auto errorRequest = std::make_shared<LocalAssetRequest>(
+				verb,
+				url,
+				errorHeaders,
+				std::move(errorResponse)
+			);
+			p_promise.resolve(errorRequest);
 		});
 	}
 
@@ -100,37 +114,32 @@ CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>> NetworkAssetAcc
 {
 	CesiumAsync::Promise<FutureResult_t> p_promise = asyncSystem.createPromise<FutureResult_t>();
 	CesiumAsync::Future<FutureResult_t> future = p_promise.getFuture();
-	this->m_curlClient.send_request(
+	this->m_httpClient.send_request(
 			url.c_str(),
 			method,
-			[url, p_promise = std::move(p_promise)](int32_t responseCode, const PackedByteArray &body) {
-			// For file:// URLs, libcurl returns response code 0 on success (no HTTP layer).
-			// Treat code 0 with a non-empty body as a successful response.
-			const bool isFileUrl = url.rfind("file://", 0) == 0;
-			if (isFileUrl && responseCode == 0 && body.size() > 0) {
-				responseCode = HTTPClient::ResponseCode::RESPONSE_OK;
-			}
+			[url, p_promise = std::move(p_promise)](int32_t responseCode, const PackedByteArray &body) mutable {
+				// For file:// URLs, libcurl returns response code 0 on success (no HTTP layer).
+				// Treat code 0 with a non-empty body as a successful response.
+				const bool isFileUrl = url.rfind("file://", 0) == 0;
+				if (isFileUrl && responseCode == 0 && body.size() > 0) {
+					responseCode = HTTPClient::ResponseCode::RESPONSE_OK;
+				}
 
-			if (responseCode >= HTTPClient::ResponseCode::RESPONSE_BAD_REQUEST || (responseCode == 0 && !isFileUrl) /* Invalid request will yield 0 */) {
+				// Log errors but always resolve - Cesium Native handles error status codes
+				// Using reject() causes crashes with LIBASYNC_NO_EXCEPTIONS
+				if (responseCode >= HTTPClient::ResponseCode::RESPONSE_BAD_REQUEST || (responseCode == 0 && !isFileUrl) /* Invalid request will yield 0 */) {
 					const String errorMessage = String("The underlying request failed with code: ") + itos(responseCode);
 					const char *strPtr = reinterpret_cast<const char *>(body.ptr());
 					String bodyStr = strPtr;
 					ERR_PRINT(errorMessage + String("\nURL: ") + String(url.c_str()) + String("\nFailed request's body: ") + bodyStr);
 					if (responseCode == HTTPClient::ResponseCode::RESPONSE_UNAUTHORIZED) {
-						ERR_PRINT("Access to data denied, make sure you're logged into CesiumION and your token has access to the desired asset!");
+						ERR_PRINT("Access denied - check CesiumION token!");
 					}
-					// It's fine to just use the default initializer, the error will be printed to Godot's stderr
-					p_promise.reject({});
-					return;
 				}
 
 				std::string contentType = "application/octet-stream";
 				CesiumAsync::HttpHeaders headers = { { "content-type", contentType } };
 
-				// const char *strPtr = reinterpret_cast<const char *>(body.ptr());
-				// printf("%s\n", strPtr);
-				
-				//Convert the body to a Cesium readable format
 				auto assetResponse = std::make_unique<LocalAssetResponse>(
 						responseCode,
 						contentType,

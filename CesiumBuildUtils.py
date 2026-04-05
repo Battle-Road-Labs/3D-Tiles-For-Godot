@@ -2,6 +2,7 @@
 import subprocess
 import os
 import fnmatch
+import shutil
 import sys
 
 from SCons.Script import Dir
@@ -24,6 +25,9 @@ OS_WIN = "nt"
 
 OS_LINUX = "posix"
 
+# sys.platform value for macOS (os.name returns 'posix' for both Linux and macOS)
+PLATFORM_MACOS = "darwin"
+
 STATIC_TRIPLET = "x64-windows-static"
 
 RELEASE_CONFIG = "Release"
@@ -34,6 +38,8 @@ ezvcpkgFoundPath: str = ""
 def get_compile_flags():
     if os.name == OS_WIN:
         return ["/std:c++20", "/Zc:__cplusplus", "/utf-8", "/bigobj"]
+    elif sys.platform == PLATFORM_MACOS:
+        return ["-std=c++20", "-fexceptions", "-fPIC"]
     elif os.name == OS_LINUX:
         return ["-std=c++20", "-fexceptions", "-fpermissive", "-fPIC"]
 
@@ -148,6 +154,69 @@ def clone_lite_html_if_needed():
     pass
 
 
+def build_litehtml(arch="arm64"):
+    """Build litehtml from source for the given architecture."""
+    third_party_dir = scons_to_abs_path(ROOT_DIR_EXT + "/third_party")
+    source_dir = os.path.join(third_party_dir, "litehtml-src")
+    output_dir = os.path.join(third_party_dir, "litehtml", "macos")
+
+    # Check if already built
+    if os.path.exists(os.path.join(output_dir, "liblitehtml.a")):
+        print("litehtml already built for macOS, skipping...")
+        return
+
+    if not os.path.exists(source_dir):
+        print("litehtml source not found at %s" % source_dir, file=sys.stderr)
+        return
+
+    print("Building litehtml from source for macOS...")
+
+    build_dir = os.path.join(source_dir, "build-macos")
+    os.makedirs(build_dir, exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
+
+    prev_dir = os.getcwd()
+    os.chdir(build_dir)
+
+    # Configure with CMake
+    result = subprocess.run([
+        "cmake",
+        "-DCMAKE_BUILD_TYPE=Release",
+        f"-DCMAKE_OSX_ARCHITECTURES={arch}",
+        "-DLITEHTML_BUILD_TESTING=OFF",
+        ".."
+    ])
+
+    if result.returncode != 0:
+        print("Failed to configure litehtml", file=sys.stderr)
+        os.chdir(prev_dir)
+        return
+
+    # Build
+    result = subprocess.run(["cmake", "--build", ".", "--config", "Release"])
+
+    if result.returncode != 0:
+        print("Failed to build litehtml", file=sys.stderr)
+        os.chdir(prev_dir)
+        return
+
+    # Copy output libraries
+    for lib in ["liblitehtml.a", "libgumbo.a"]:
+        src = os.path.join(build_dir, lib)
+        if not os.path.exists(src):
+            # Try in subdirectories
+            for root, dirs, files in os.walk(build_dir):
+                if lib in files:
+                    src = os.path.join(root, lib)
+                    break
+        if os.path.exists(src):
+            shutil.copy2(src, output_dir)
+            print(f"Copied {lib} to {output_dir}")
+
+    os.chdir(prev_dir)
+    print("litehtml build complete!")
+
+
 def clone_repo_if_needed(
     targetDir: str, name: str, repoUrl: str, branch: str, acceptedCommitSHA: str
 ):
@@ -203,6 +272,8 @@ def configure_native(argumentsDict):
 def determine_triplet():
     if os.name == OS_WIN:
         return "x64-windows-static"
+    if sys.platform == PLATFORM_MACOS:
+        return "arm64-osx"
     if os.name == OS_LINUX:
         return "x64-linux"
 
@@ -230,6 +301,8 @@ def compile_native(argumentsDict):
     result = None
     if os.name == OS_WIN:
         result = build_native_win()
+    elif sys.platform == PLATFORM_MACOS:
+        result = build_native_macos()
     elif os.name == OS_LINUX:
         result = build_native_linux()
     else:
@@ -244,6 +317,10 @@ def compile_native(argumentsDict):
 
 
 def build_native_linux():
+    return subprocess.run(["cmake", "--build", "."])
+
+
+def build_native_macos():
     return subprocess.run(["cmake", "--build", "."])
 
 
