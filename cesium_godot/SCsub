@@ -1,4 +1,4 @@
-# SCub for building the Godot Cesium submodule
+﻿# SCub for building the Godot Cesium submodule
 import CesiumBuildUtils as cesium_build_utils
 import os
 
@@ -34,6 +34,7 @@ sources = [
     cesium_build_utils.get_root_dir() + "/Models/CesiumGlobe.cpp",
     cesium_build_utils.get_root_dir() + "/Models/CesiumGDConfig.cpp",
     cesium_build_utils.get_root_dir() + "/Models/CesiumHTTPRequestNode.cpp",
+    cesium_build_utils.get_root_dir() + "/Models/CesiumIonGDGeoJSON.cpp",
     cesium_build_utils.get_root_dir() + "/Models/CesiumGDCreditSystem.cpp",
     cesium_build_utils.get_root_dir() + "/Implementations/NetworkAssetAccessor.cpp",
     cesium_build_utils.get_root_dir() + "/Implementations/DocumentContainer.cpp",

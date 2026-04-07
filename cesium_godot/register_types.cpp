@@ -1,4 +1,4 @@
-#include "register_types.h"
+﻿#include "register_types.h"
 
 
 #include "Implementations/DocumentContainer.h"
@@ -6,6 +6,7 @@
 #include "Models/CesiumGDCreditSystem.h"
 #include "Models/CesiumGDTileset.h"
 #include "Models/CesiumHTTPRequestNode.h"
+#include "Models/CesiumIonGDGeoJSON.h"
 #include "Models/GeoreferencedNode.h"
 #include "Utils/CesiumDebugUtils.h"
 #include "Models/CesiumGlobe.h"
@@ -36,6 +37,7 @@ void initialize_cesium_godot_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<CesiumGeoreference>();
 	ClassDB::register_class<Cesium3DTileset>();
 	ClassDB::register_class<CesiumHTTPRequestNode>();
+	ClassDB::register_class<CesiumIonGDGeoJSON>();
 	ClassDB::register_class<CesiumDebugUtils>();
 	ClassDB::register_class<CesiumGDPanel>();
 	ClassDB::register_class<CesiumIonRasterOverlay>();
