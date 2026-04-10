@@ -16,9 +16,9 @@ goto :done
 
 :build_web
 echo Building GDExtension for Web/WASM...
-rem Force emscripten-style longjmp to avoid conflict with godot-cpp's exception handling
-set CFLAGS=-sSUPPORT_LONGJMP=emscripten
-set CXXFLAGS=-sSUPPORT_LONGJMP=emscripten
+rem Force emscripten-style longjmp to avoid conflict with godot-cpp's exception handling.
+rem EMCC_CFLAGS is read by emcc/em++ directly, bypassing SCons env construction.
+set EMCC_CFLAGS=-sSUPPORT_LONGJMP=emscripten
 scons platform=web compileTarget=extension target=template_release precision=double production=yes
 goto :done
 
