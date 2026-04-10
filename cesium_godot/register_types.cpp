@@ -13,11 +13,11 @@
 #include "Models/CesiumGDPanel.h"
 #include "Models/CesiumGDConfig.h"
 #include "Utils/CesiumGDAssetBuilder.h"
-#include "Utils/TokenTroubleShooting.h"		
-#include "godot_cpp/classes/engine.hpp"
+#include "Utils/TokenTroubleShooting.h"
 #include <cstdio>
 
 #if defined(CESIUM_GD_EXT)
+#include "godot_cpp/classes/engine.hpp"
 #include <gdextension_interface.h>
 #include <godot_cpp/core/defs.hpp>
 #include <godot_cpp/core/class_db.hpp>
@@ -45,7 +45,7 @@ void initialize_cesium_godot_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<TokenTroubleshooting>();
 	ClassDB::register_class<GeoreferencedMesh>();
 	ClassDB::register_class<Cesium3DTile>();
-	
+
 	ClassDB::register_class<CesiumGDCreditSystem>(true);
 }
 
@@ -53,6 +53,7 @@ void uninitialize_cesium_godot_module(ModuleInitializationLevel p_level) {
 	//Hey there, hello, we don't do anything here actually
 }
 
+#if defined(CESIUM_GD_EXT)
 extern "C" {
 	GDExtensionBool GDE_EXPORT test_cesium_init(GDExtensionInterfaceGetProcAddress p_get_proc_address, const GDExtensionClassLibraryPtr p_library, GDExtensionInitialization* r_initialization){
 		printf("%s", "Initialization of GDExtension");
@@ -63,4 +64,4 @@ extern "C" {
 		return init_obj.init();
   }
 }
-
+#endif

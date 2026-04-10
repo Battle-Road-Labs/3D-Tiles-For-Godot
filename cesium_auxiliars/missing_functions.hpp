@@ -6,7 +6,8 @@
 #include "godot_cpp/classes/file_access.hpp"
 using namespace godot;
 #elif defined(CESIUM_GD_MODULE)
-//TODO:
+#include "core/io/file_access.h"
+#include "core/config/engine.h"
 #endif
 
 Ref<FileAccess> open_file_access_with_err(const String &p_path, FileAccess::ModeFlags p_flags, Error* err);

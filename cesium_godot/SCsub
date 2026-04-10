@@ -1,11 +1,54 @@
-# SCub for building the Godot Cesium submodule
-import CesiumBuildUtils as cesium_build_utils
+# SCsub for building the Godot Cesium submodule
 import os
 import sys
 
 Import("env")
 
-cesium_env = env.Clone()
+# --- Detect build context: module (inside Godot source) vs extension (via our SConstruct.py) ---
+# When running as a Godot module, the SCsub lives under modules/cesium_godot/
+# and env will have been set up by Godot's SConstruct, not ours.
+# When running as a GDExtension, our SConstruct.py calls us and has already
+# imported CesiumBuildUtils and set up the env.
+
+# Try importing CesiumBuildUtils. When running as a module inside the Godot
+# source tree, it won't be on the default path — add our directory to sys.path.
+_this_dir = os.path.dirname(File("SCsub").srcnode().abspath)
+if _this_dir not in sys.path:
+    sys.path.insert(0, _this_dir)
+
+import CesiumBuildUtils as cesium_build_utils
+
+# Detect if we're running as a module by checking whether compileTarget was
+# explicitly passed. If not, and we can see env_modules exported by the
+# Godot engine master SCsub, we're being invoked as a module.
+_compile_target_arg = ARGUMENTS.get("compileTarget", "")
+if _compile_target_arg == "module":
+    _is_module = True
+elif _compile_target_arg == "" or _compile_target_arg == "extension":
+    # No explicit compileTarget — check if the Godot engine's module build
+    # system is driving us. It resets env.modules_sources before each module.
+    _is_module = hasattr(env, "modules_sources")
+    if not _is_module:
+        _is_module = os.sep + "modules" + os.sep in _this_dir
+else:
+    _is_module = False
+
+if _is_module:
+    cesium_build_utils.set_module_context()
+    # In Godot 4.4, the master modules/SCsub exports env_modules (a clone of
+    # env with the GODOT_MODULE define). Module SCsubs should clone that.
+    Import("env_modules")
+    cesium_env = env_modules.Clone()
+else:
+    cesium_env = env.Clone()
+
+# Detect web platform from the SCons environment
+is_web = env.get("platform", "") == cesium_build_utils.PLATFORM_WEB
+
+# --- Add the correct preprocessor define for module vs extension ---
+if _is_module:
+    cesium_env.Append(CPPDEFINES=[cesium_build_utils.CESIUM_MODULE_DEF])
+# (For extension builds, SConstruct.py already added CESIUM_GD_EXT)
 
 
 def load_cesium_module(p_includePaths: list[str], moduleName: str, loadSources=False, rootDir=""):
@@ -24,27 +67,33 @@ env.Append(CPPDEFINES=["SPDLOG_NO_EXCEPTIONS",
                        "LIBASYNC_NO_EXCEPTIONS"])
 
 includePaths = []
+
+# --- Source files ---
+root = cesium_build_utils.get_root_dir()
 sources = [
-    cesium_build_utils.get_root_dir() + "/register_types.cpp",
-    cesium_build_utils.get_root_dir() + "/Models/CesiumGDTileset.cpp",
-    cesium_build_utils.get_root_dir() + "/Models/GeoreferencedNode.cpp",
-    cesium_build_utils.get_root_dir() + "/Models/Cesium3DTile.cpp",
-    cesium_build_utils.get_root_dir() + "/Models/TileMetadata.cpp",
-    cesium_build_utils.get_root_dir() + "/Models/CesiumGDPanel.cpp",
-    cesium_build_utils.get_root_dir() + "/Models/CesiumGDRasterOverlay.cpp",
-    cesium_build_utils.get_root_dir() + "/Models/CesiumGlobe.cpp",
-    cesium_build_utils.get_root_dir() + "/Models/CesiumGDConfig.cpp",
-    cesium_build_utils.get_root_dir() + "/Models/CesiumHTTPRequestNode.cpp",
-    cesium_build_utils.get_root_dir() + "/Models/CesiumGDCreditSystem.cpp",
-    cesium_build_utils.get_root_dir() + "/Implementations/NetworkAssetAccessor.cpp",
-    cesium_build_utils.get_root_dir() + "/Implementations/DocumentContainer.cpp",
-    cesium_build_utils.get_root_dir() + "/Implementations/GodotPrepareRenderResources.cpp",
-    cesium_build_utils.get_root_dir() + "/CesiumGDModelLoader.cpp",
-    cesium_build_utils.get_root_dir() + "/Utils/CesiumGDTextureLoader.cpp",
-    cesium_build_utils.get_root_dir() + "/Utils/CesiumDebugUtils.cpp",
-    cesium_build_utils.get_root_dir() + "/Utils/AssetManipulation.cpp",
-    cesium_build_utils.get_root_dir() + "/Utils/CesiumGDAssetBuilder.cpp",
-    cesium_build_utils.get_root_dir() + "/Utils/TokenTroubleShooting.cpp"
+    root + "/register_types.cpp",
+    root + "/Models/CesiumGDTileset.cpp",
+    root + "/Models/GeoreferencedNode.cpp",
+    root + "/Models/Cesium3DTile.cpp",
+    root + "/Models/TileMetadata.cpp",
+    root + "/Models/CesiumGDPanel.cpp",
+    root + "/Models/CesiumGDRasterOverlay.cpp",
+    root + "/Models/CesiumGlobe.cpp",
+    root + "/Models/CesiumGDConfig.cpp",
+    root + "/Models/CesiumHTTPRequestNode.cpp",
+    root + "/Models/CesiumGDCreditSystem.cpp",
+    root + "/Implementations/NetworkAssetAccessor.cpp",
+    root + "/Implementations/DocumentContainer.cpp",
+    root + "/Implementations/GodotPrepareRenderResources.cpp",
+    root + "/CesiumGDModelLoader.cpp",
+    root + "/Utils/CesiumGDTextureLoader.cpp",
+    root + "/Utils/CesiumDebugUtils.cpp",
+    root + "/Utils/AssetManipulation.cpp",
+    root + "/Utils/CesiumGDAssetBuilder.cpp",
+    root + "/Utils/TokenTroubleShooting.cpp",
+    # cesium_auxiliars — in extension builds SConstruct.py globs these,
+    # but for module builds the SCsub must include them explicitly.
+    root + "/cesium_auxiliars/missing_functions.cpp",
 ]
 
 
@@ -81,17 +130,27 @@ load_cesium_module(includePaths, "extern/misc")
 load_cesium_module(includePaths, "extern/nonstd")
 load_cesium_module(includePaths, "extern/s2")
 load_cesium_module(includePaths, "curl",
-                   rootDir=cesium_build_utils.get_root_dir() + "/third_party")
+                   rootDir=root + "/third_party")
 load_cesium_module(includePaths, "litehtml",
-                   rootDir=cesium_build_utils.get_root_dir() + "/third_party")
+                   rootDir=root + "/third_party")
 
-if (cesium_build_utils.is_extension_target(ARGUMENTS)):
-    cesium_env.add_source_files(sources)
+# --- Compile source files ---
+if _is_module:
+    # Godot 4.4 module pattern: accumulate object files, then append to
+    # env.modules_sources. The master modules/SCsub wraps these into
+    # libmodule_cesium_godot.a and links it into the engine.
+    module_obj = []
+    cesium_env.add_source_files(module_obj, sources)
+    env.modules_sources += module_obj
 else:
-    cesium_env.add_source_files(cesium_env.modules_sources, sources)
+    # GDExtension pattern: SConstruct.py collects sources into a shared lib.
+    cesium_env.add_source_files(sources)
 
 vcpkgIncludePath = cesium_build_utils.find_ezvcpkg_include_path()
 includePaths.append(vcpkgIncludePath)
+
+# Include cesium_auxiliars headers (for both module and extension)
+includePaths.append(cesium_build_utils.scons_to_abs_path(root + "/cesium_auxiliars"))
 
 env.Append(CPPPATH=includePaths)
 
@@ -102,7 +161,9 @@ root_dir_native = cesium_build_utils.get_root_dir_native()
 current_build_config = ""
 if (os.name  == cesium_build_utils.OS_WIN):
     current_build_config = cesium_build_utils.RELEASE_CONFIG
+
 # Library paths and linking
+curl_lib = cesium_build_utils.get_curl_lib_name(env)
 libraries = [
     "Cesium3DTilesSelection",
     "CesiumRasterOverlays",
@@ -130,20 +191,31 @@ libraries = [
     "fmt",
     "spdlog",
     "tinyxml2",
-    cesium_build_utils.get_curl_lib_name(),
     "sqlite3",
     # Needed only for GDExtension as it appears godot already links this
     "libwebp",
     "libwebpdecoder",
     "zstd",
-    "libssl",
     "meshoptimizer",
     "ada",
     "litehtml", # 35ecd69d05e72b0148204a576db62c2148084193
     "gumbo"
 ]
 
-if (os.name == cesium_build_utils.OS_WIN):
+# curl and ssl are not available on web (networking uses browser fetch)
+if not is_web:
+    if curl_lib:
+        libraries.append(curl_lib)
+    libraries.append("libssl")
+
+if is_web:
+    # Web builds use Emscripten — fewer system libs needed, abseil still required by s2
+    libraries.extend([
+        "crypto",
+        "z",
+        "liblibmodpbase64",
+    ])
+elif (os.name == cesium_build_utils.OS_WIN):
     libraries.extend([
         "absl_bad_any_cast_impl",
         "absl_bad_optional_access",
@@ -339,7 +411,7 @@ elif sys.platform == cesium_build_utils.PLATFORM_MACOS:
         "absl_vlog_config_internal"
     ])
     # Add macOS-specific library path for litehtml
-    litehtml_macos_path = cesium_build_utils.get_root_dir() + "/third_party/litehtml/macos"
+    litehtml_macos_path = root + "/third_party/litehtml/macos"
     litehtml_macos_abs = cesium_build_utils.scons_to_abs_path(litehtml_macos_path)
     env.Append(LIBPATH=[litehtml_macos_path])
     # Link against macOS frameworks and force-load litehtml to resolve internal dependencies
@@ -351,7 +423,7 @@ elif sys.platform == cesium_build_utils.PLATFORM_MACOS:
         "-force_load", litehtml_macos_abs + "/liblitehtml.a",
         "-force_load", litehtml_macos_abs + "/libgumbo.a"
     ])
-elif (os.name == cesium_build_utils.OS_LINUX and sys.platform != cesium_build_utils.PLATFORM_MACOS):
+elif (not is_web and os.name == cesium_build_utils.OS_LINUX and sys.platform != cesium_build_utils.PLATFORM_MACOS):
     libraries.extend([
         "crypto",
         "libz-ng",
@@ -380,12 +452,12 @@ common_libpaths = [
     cesium_build_utils.get_root_dir_native() + "/libs/absl",
     cesium_build_utils.get_root_dir_native() + "/libs",
     cesium_build_utils.find_ezvcpkg_path(
-    ) + "/installed/%s/lib" % (cesium_build_utils.determine_triplet())
+    ) + "/installed/%s/lib" % (cesium_build_utils.determine_triplet(env))
 ]
 
 # Add litehtml path (macOS uses its own path added earlier, others use base path)
 if sys.platform != cesium_build_utils.PLATFORM_MACOS:
-    common_libpaths.append(cesium_build_utils.get_root_dir() + "/third_party/litehtml")
+    common_libpaths.append(root + "/third_party/litehtml")
 
 env.Append(
     LIBS=libraries,
@@ -394,5 +466,5 @@ env.Append(
 
 # This was a nightmare, so I abstracted it into a function, the function itself is also a nightmare
 # Note: os.name == 'posix' on both Linux and macOS, so we must check PLATFORM_MACOS first
-if (os.name == cesium_build_utils.OS_LINUX and sys.platform != cesium_build_utils.PLATFORM_MACOS):
+if (not is_web and os.name == cesium_build_utils.OS_LINUX and sys.platform != cesium_build_utils.PLATFORM_MACOS):
     cesium_build_utils.link_abseil_libs(env)

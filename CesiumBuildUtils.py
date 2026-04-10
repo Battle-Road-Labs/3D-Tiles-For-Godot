@@ -28,14 +28,29 @@ OS_LINUX = "posix"
 # sys.platform value for macOS (os.name returns 'posix' for both Linux and macOS)
 PLATFORM_MACOS = "darwin"
 
+PLATFORM_WEB = "web"
+
 STATIC_TRIPLET = "x64-windows-static"
 
 RELEASE_CONFIG = "Release"
 
 ezvcpkgFoundPath: str = ""
 
+# Default to extension root dir; overwritten by get_compile_target_definition() or
+# set_root_dir_for_module() when building as a module.
+currentRootDir: str = ROOT_DIR_EXT
 
-def get_compile_flags():
+
+def is_web_platform(env=None):
+    """Check if we are targeting the web/Emscripten platform."""
+    if env is not None:
+        return env.get("platform", "") == PLATFORM_WEB
+    return False
+
+
+def get_compile_flags(env=None):
+    if is_web_platform(env):
+        return ["-std=c++20", "-fexceptions", "-fPIC", "-pthread"]
     if os.name == OS_WIN:
         return ["/std:c++20", "/Zc:__cplusplus", "/utf-8", "/bigobj"]
     elif sys.platform == PLATFORM_MACOS:
@@ -44,7 +59,14 @@ def get_compile_flags():
         return ["-std=c++20", "-fexceptions", "-fpermissive", "-fPIC"]
 
 
-def get_linker_flags():
+def get_linker_flags(env=None):
+    if is_web_platform(env):
+        return [
+            "-sSIDE_MODULE=1",
+            "-pthread",
+            "-sPTHREAD_POOL_SIZE=4",
+            "-sALLOW_MEMORY_GROWTH=1",
+        ]
     if os.name == OS_WIN:
         return ["/IGNORE:4217"]
     return []
@@ -54,7 +76,11 @@ def is_extension_target(argsDict) -> bool:
     return get_compile_target_definition(argsDict) == CESIUM_EXT_DEF
 
 
-def get_curl_lib_name() -> str:
+def get_curl_lib_name(env=None) -> str:
+    if is_web_platform(env):
+        # On web, curl is not available; networking goes through browser fetch.
+        # Return empty string so callers can filter it out.
+        return ""
     if os.name == OS_WIN:
         return "libcurl"
     return "curl"
@@ -65,6 +91,15 @@ def generate_precision_symbols(argsDict, env):
     desiredPrecision = argsDict.get("precision")
     if desiredPrecision == "double":
         env.Append(CPPDEFINES=["REAL_T_IS_DOUBLE"])
+
+
+def set_module_context():
+    """Explicitly configure CesiumBuildUtils for module builds.
+    Called by the SCsub when it detects it's running inside the Godot engine
+    source tree (i.e., not through our SConstruct.py)."""
+    global currentRootDir
+    currentRootDir = ROOT_DIR_MODULE
+    print("[CESIUM] - Configured for engine module build (root: %s)" % currentRootDir)
 
 
 def get_compile_target_definition(argsDict) -> str:
@@ -242,23 +277,46 @@ def configure_native(argumentsDict):
     repoDirectory = CESIUM_NATIVE_DIR_EXT if isExt else CESIUM_NATIVE_DIR_MODULE
     repoDirectory = scons_to_abs_path(repoDirectory)
     os.chdir(repoDirectory)
-    # Assume you already have the triplet (for now)
-    triplet: str = determine_triplet()
-    os.environ["VCPKG_TRIPLET"] = triplet
-    # Run Cmake with the /MT flag on
-    result = subprocess.run(
-        [
-            "cmake",
-            f"-DCMAKE_BUILD_TYPE={RELEASE_CONFIG}",
-            "-DCESIUM_MSVC_STATIC_RUNTIME_ENABLED=ON",
-            "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
-            "-DGIT_LFS_SKIP_SMUDGE=1",
-            "-DVCPKG_TRIPLET=%s" % triplet,
-            ".",
-        ]
-    )
 
-    # We pray this works haha
+    platform = argumentsDict.get("platform", "")
+    is_web = platform == PLATFORM_WEB
+    triplet: str = determine_triplet_for_args(argumentsDict)
+    os.environ["VCPKG_TRIPLET"] = triplet
+
+    cmake_args = [
+        "cmake",
+        f"-DCMAKE_BUILD_TYPE={RELEASE_CONFIG}",
+        "-DCESIUM_MSVC_STATIC_RUNTIME_ENABLED=ON",
+        "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
+        "-DGIT_LFS_SKIP_SMUDGE=1",
+        "-DVCPKG_TRIPLET=%s" % triplet,
+    ]
+
+    if is_web:
+        # Use Emscripten toolchain for web builds
+        emsdk = os.environ.get("EMSDK", "")
+        if not emsdk:
+            print(
+                "Error: EMSDK environment variable not set. "
+                "Please install and activate the Emscripten SDK first.",
+                file=sys.stderr,
+            )
+            exit(1)
+        toolchain = os.path.join(
+            emsdk, "upstream", "emscripten", "cmake", "Modules", "Platform", "Emscripten.cmake"
+        )
+        if not os.path.exists(toolchain):
+            # Try the standard toolchain file location
+            toolchain = os.path.join(emsdk, "upstream", "emscripten", "cmake", "Modules", "Platform", "Emscripten.cmake")
+        cmake_args.extend([
+            f"-DCMAKE_TOOLCHAIN_FILE={toolchain}",
+            "-DCMAKE_CROSSCOMPILING_EMULATOR=node",
+        ])
+
+    cmake_args.append(".")
+
+    result = subprocess.run(cmake_args)
+
     if result.returncode != 0:
         errorMsg = "cmake return code: %s" % str(result.returncode)
         print(
@@ -269,13 +327,23 @@ def configure_native(argumentsDict):
     print("Configuration completed without any errors!")
 
 
-def determine_triplet():
+def determine_triplet(env=None):
+    if is_web_platform(env):
+        return "wasm32-emscripten"
     if os.name == OS_WIN:
         return "x64-windows-static"
     if sys.platform == PLATFORM_MACOS:
         return "arm64-osx"
     if os.name == OS_LINUX:
         return "x64-linux"
+
+
+def determine_triplet_for_args(argumentsDict):
+    """Determine the vcpkg triplet based on SCons arguments."""
+    platform = argumentsDict.get("platform", "")
+    if platform == PLATFORM_WEB:
+        return "wasm32-emscripten"
+    return determine_triplet()
 
 
 def compile_native(argumentsDict):
@@ -297,9 +365,11 @@ def compile_native(argumentsDict):
     configure_native(argumentsDict)
     print("Compiling Cesium Native...")
 
-    # TODO: Test if we can just do cmake --build for all platforms
+    platform = argumentsDict.get("platform", "")
     result = None
-    if os.name == OS_WIN:
+    if platform == PLATFORM_WEB:
+        result = build_native_web()
+    elif os.name == OS_WIN:
         result = build_native_win()
     elif sys.platform == PLATFORM_MACOS:
         result = build_native_macos()
@@ -317,6 +387,10 @@ def compile_native(argumentsDict):
 
 
 def build_native_linux():
+    return subprocess.run(["cmake", "--build", "."])
+
+
+def build_native_web():
     return subprocess.run(["cmake", "--build", "."])
 
 
