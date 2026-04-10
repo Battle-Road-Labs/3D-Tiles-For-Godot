@@ -181,6 +181,33 @@ def clone_bindings_repo_if_needed():
         "godot-4.1.4-stable",
         "4b0ee133274d67687b6003b8d5fdaf7b79cf4921",
     )
+    # Always run the patch — clone_repo_if_needed skips if dir exists,
+    # but the patch is idempotent and needs to be applied regardless.
+    patch_godot_cpp_web_flags()
+
+
+def patch_godot_cpp_web_flags():
+    """Patch godot-cpp's web.py to use emscripten-style longjmp instead of wasm-style.
+
+    Newer Emscripten (3.1.56+) defaults to emscripten-style C++ exception handling,
+    which conflicts with wasm-style setjmp/longjmp. Force both to use the emscripten
+    backend so they don't clash."""
+    web_py_path = scons_to_abs_path(BINDINGS_DIR + "/tools/web.py")
+    if not os.path.exists(web_py_path):
+        return
+
+    with open(web_py_path, "r") as f:
+        content = f.read()
+
+    patched = content.replace(
+        "-sSUPPORT_LONGJMP='wasm'",
+        "-sSUPPORT_LONGJMP='emscripten'"
+    )
+
+    if patched != content:
+        with open(web_py_path, "w") as f:
+            f.write(patched)
+        print("[CESIUM] Patched godot-cpp web.py for Emscripten compatibility")
 
 
 def clone_lite_html_if_needed():
