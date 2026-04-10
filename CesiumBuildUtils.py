@@ -192,7 +192,7 @@ def patch_godot_cpp_web_flags():
     Newer Emscripten (3.1.56+) defaults to emscripten-style C++ exception handling,
     which conflicts with wasm-style setjmp/longjmp. Force both to use the emscripten
     backend so they don't clash."""
-    web_py_path = scons_to_abs_path(BINDINGS_DIR + "/tools/web.py")
+    web_py_path = os.path.join(scons_to_abs_path(BINDINGS_DIR), "tools", "web.py")
     if not os.path.exists(web_py_path):
         return
 
