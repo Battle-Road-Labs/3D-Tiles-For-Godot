@@ -6,7 +6,7 @@ TARGET="${1:-extension}"
 case "$TARGET" in
     extension)
         echo "Building GDExtension for $(uname -s) x64..."
-        scons arch=x86_64 compileTarget=extension target=template_release production=yes compiledb=yes
+        scons arch=x86_64 compileTarget=extension target=template_release precision=double production=yes compiledb=yes
         ;;
     web)
         echo "Building GDExtension for Web (WASM)..."
@@ -16,7 +16,7 @@ case "$TARGET" in
             echo "  source <emsdk-path>/emsdk_env.sh"
             exit 1
         fi
-        scons platform=web compileTarget=extension target=template_release production=yes
+        scons platform=web compileTarget=extension target=template_release precision=double production=yes
         ;;
     module)
         echo "Preparing module dependencies..."
