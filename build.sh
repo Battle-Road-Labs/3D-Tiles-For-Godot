@@ -16,6 +16,9 @@ case "$TARGET" in
             echo "  source <emsdk-path>/emsdk_env.sh"
             exit 1
         fi
+        # Force emscripten-style longjmp to avoid conflict with godot-cpp's exception handling
+        export CFLAGS="-sSUPPORT_LONGJMP=emscripten"
+        export CXXFLAGS="-sSUPPORT_LONGJMP=emscripten"
         scons platform=web compileTarget=extension target=template_release precision=double production=yes
         ;;
     module)
