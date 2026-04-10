@@ -2,6 +2,10 @@
 #define NETWORK_UTILS_H
 #include <string_view>
 #include <array>
+#include <cstdio>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 class NetworkUtils {
 
@@ -19,6 +23,15 @@ public:
 	{
 		const char* cmd = CompileTimeConcat("open ", url).data();
 		return system(cmd);
+	}
+#elif defined(__EMSCRIPTEN__)
+	static auto SystemOpenURL(const char(&url)[N])
+	{
+		// On web, open URLs via the browser's JavaScript API
+		std::array<char, 64 + N> js{};
+		snprintf(js.data(), js.size(), "window.open('%s', '_blank');", url);
+		emscripten_run_script(js.data());
+		return 0;
 	}
 #elif defined(__linux__) && !defined(__ANDROID__)
 	static constexpr auto SystemOpenURL(const char(&url)[N])
