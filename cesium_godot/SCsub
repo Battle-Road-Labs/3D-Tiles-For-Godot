@@ -91,10 +91,15 @@ sources = [
     root + "/Utils/AssetManipulation.cpp",
     root + "/Utils/CesiumGDAssetBuilder.cpp",
     root + "/Utils/TokenTroubleShooting.cpp",
-    # cesium_auxiliars — in extension builds SConstruct.py globs these,
-    # but for module builds the SCsub must include them explicitly.
-    root + "/cesium_auxiliars/missing_functions.cpp",
 ]
+
+# cesium_auxiliars — in extension builds SConstruct.py globs these from the
+# repo root, but for module builds the SCsub must include them explicitly.
+# The path differs: extension root is #cesium_godot, repo root is one level up.
+if _is_module:
+    sources.append(root + "/cesium_auxiliars/missing_functions.cpp")
+else:
+    sources.append("#cesium_auxiliars/missing_functions.cpp")
 
 
 load_cesium_module(includePaths, "Cesium3DTiles")
