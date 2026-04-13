@@ -94,12 +94,9 @@ sources = [
 ]
 
 # cesium_auxiliars — in extension builds SConstruct.py globs these from the
-# repo root, but for module builds the SCsub must include them explicitly.
-# The path differs: extension root is #cesium_godot, repo root is one level up.
+# repo root, so we only need to add them explicitly for module builds.
 if _is_module:
     sources.append(root + "/cesium_auxiliars/missing_functions.cpp")
-else:
-    sources.append("#cesium_auxiliars/missing_functions.cpp")
 
 
 load_cesium_module(includePaths, "Cesium3DTiles")

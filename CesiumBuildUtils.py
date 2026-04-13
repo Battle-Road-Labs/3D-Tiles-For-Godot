@@ -323,6 +323,7 @@ def configure_native(argumentsDict):
         "-B", buildDir,
         f"-DCMAKE_BUILD_TYPE={RELEASE_CONFIG}",
         "-DCESIUM_MSVC_STATIC_RUNTIME_ENABLED=ON",
+        "-DCESIUM_TESTS_ENABLED=OFF",
         "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
         "-DGIT_LFS_SKIP_SMUDGE=1",
     ]
