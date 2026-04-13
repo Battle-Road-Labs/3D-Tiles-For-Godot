@@ -330,24 +330,13 @@ def configure_native(argumentsDict):
         "-DVCPKG_TARGET_TRIPLET=%s" % triplet,
     ]
 
-    # If ezvcpkg has already set up the vcpkg installation from a previous
-    # configure, pre-supply the toolchain file so cmake loads it at init time
-    # (before find_package runs). Without this, the first configure discovers
-    # packages from the wrong triplet and caches those paths permanently.
-    # We also force CESIUM_USE_EZVCPKG=ON so that cesium-native still uses
-    # ezvcpkg to install any missing packages (it defaults to OFF when it
-    # detects CMAKE_TOOLCHAIN_FILE pointing to vcpkg.cmake).
-    try:
-        vcpkg_base = find_ezvcpkg_path()
-        vcpkg_toolchain = os.path.join(vcpkg_base, "scripts", "buildsystems", "vcpkg.cmake")
-        if os.path.exists(vcpkg_toolchain):
-            cmake_args.extend([
-                f"-DCMAKE_TOOLCHAIN_FILE={vcpkg_toolchain}",
-                "-DCESIUM_USE_EZVCPKG=ON",
-            ])
-            print(f"[CESIUM] Using vcpkg toolchain: {vcpkg_toolchain}")
-    except Exception:
-        pass  # Fresh build — ezvcpkg will set up the toolchain during configure
+    # Workaround: cmake's find_package picks up configs from the x64-windows
+    # (shared/DLL) triplet even when VCPKG_TARGET_TRIPLET is x64-windows-static.
+    # Temporarily hide conflicting triplet directories during configure so cmake
+    # can only discover the correct one.
+    _hidden_triplet_dirs = []
+    if not is_web:
+        _hidden_triplet_dirs = _hide_conflicting_vcpkg_triplets(triplet)
 
     if is_web:
         # Use Emscripten toolchain chainloaded through vcpkg
@@ -367,10 +356,16 @@ def configure_native(argumentsDict):
             "-G", "Ninja",
             f"-DVCPKG_CHAINLOAD_TOOLCHAIN_FILE={toolchain}",
             f"-DCMAKE_CROSSCOMPILING_EMULATOR={node_path}",
+            # wasm32 has 32-bit size_t; cesium-native's Hash.cpp uses 64-bit
+            # constants and shifts that trigger -Werror. Downgrade to warnings.
+            "-DCMAKE_CXX_FLAGS=-Wno-error=constant-conversion -Wno-error=shift-count-overflow",
         ])
 
     print(f"[CESIUM] Build directory: {buildDir}")
     result = subprocess.run(cmake_args)
+
+    # Restore any hidden triplet directories
+    _restore_hidden_vcpkg_triplets(_hidden_triplet_dirs)
 
     if result.returncode != 0:
         errorMsg = "cmake return code: %s" % str(result.returncode)
@@ -381,6 +376,50 @@ def configure_native(argumentsDict):
         exit(1)
 
     print("Configuration completed without any errors!")
+
+
+def _hide_conflicting_vcpkg_triplets(target_triplet):
+    """Temporarily rename vcpkg triplet directories that conflict with the target.
+
+    cmake's find_package discovers packages from the wrong triplet directory
+    (e.g. x64-windows instead of x64-windows-static) despite VCPKG_TARGET_TRIPLET
+    being set correctly. Work around this by temporarily hiding the conflicting dirs."""
+    hidden = []
+    try:
+        vcpkg_base = find_ezvcpkg_path()
+        installed_dir = os.path.join(vcpkg_base, "installed")
+        if not os.path.exists(installed_dir):
+            return hidden
+        for entry in os.listdir(installed_dir):
+            entry_path = os.path.join(installed_dir, entry)
+            if not os.path.isdir(entry_path):
+                continue
+            # Skip the target triplet, debug dirs, and vcpkg metadata
+            if entry == target_triplet or entry == "vcpkg" or entry.endswith(".bak"):
+                continue
+            # Only hide triplets that could conflict (same arch prefix)
+            # e.g. x64-windows conflicts with x64-windows-static
+            if target_triplet.startswith(entry.split("-")[0] + "-"):
+                bak_path = entry_path + ".bak"
+                try:
+                    os.rename(entry_path, bak_path)
+                    hidden.append((bak_path, entry_path))
+                    print(f"[CESIUM] Temporarily hiding conflicting triplet: {entry}")
+                except OSError:
+                    pass  # Directory may be in use
+    except Exception:
+        pass
+    return hidden
+
+
+def _restore_hidden_vcpkg_triplets(hidden_dirs):
+    """Restore triplet directories that were temporarily hidden."""
+    for bak_path, orig_path in hidden_dirs:
+        try:
+            if os.path.exists(bak_path) and not os.path.exists(orig_path):
+                os.rename(bak_path, orig_path)
+        except OSError:
+            print(f"[CESIUM] Warning: could not restore {orig_path}, rename manually from {bak_path}")
 
 
 def determine_triplet(env=None):
