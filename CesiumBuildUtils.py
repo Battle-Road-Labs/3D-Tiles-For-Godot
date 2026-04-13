@@ -316,6 +316,7 @@ def configure_native(argumentsDict):
 
     if is_web:
         patch_ezvcpkg_allow_unsupported(sourceDir)
+        patch_vcpkg_wasm_triplet_pthread()
 
     cmake_args = [
         "cmake",
@@ -464,6 +465,33 @@ def get_native_build_path(env=None):
     platform_str = env.get("platform", "") if env is not None else ""
     build_dir_name = get_native_build_dir_name(platform_str)
     return os.path.join(scons_to_abs_path(currentRootDir + "/native"), build_dir_name)
+
+
+def patch_vcpkg_wasm_triplet_pthread():
+    """Patch the wasm32-emscripten vcpkg triplet to include -pthread flags.
+
+    Without this, vcpkg packages (like async++) are compiled without atomics/bulk-memory,
+    causing link errors when combined with code that uses --shared-memory."""
+    try:
+        vcpkg_base = find_ezvcpkg_path()
+        triplet_path = os.path.join(vcpkg_base, "triplets", "community", "wasm32-emscripten.cmake")
+        if not os.path.exists(triplet_path):
+            return
+        with open(triplet_path, "r") as f:
+            content = f.read()
+        if "VCPKG_CXX_FLAGS" in content:
+            return  # Already patched
+        patched = content + '\nset(VCPKG_CXX_FLAGS "-pthread")\nset(VCPKG_C_FLAGS "-pthread")\n'
+        with open(triplet_path, "w") as f:
+            f.write(patched)
+        print("[CESIUM] Patched wasm32-emscripten triplet with -pthread flags")
+        # Force vcpkg to rebuild packages by removing the installed triplet dir
+        installed_dir = os.path.join(vcpkg_base, "installed", "wasm32-emscripten")
+        if os.path.exists(installed_dir):
+            shutil.rmtree(installed_dir)
+            print("[CESIUM] Cleared wasm32-emscripten installed packages (will rebuild with -pthread)")
+    except Exception as e:
+        print(f"[CESIUM] Warning: could not patch wasm triplet: {e}")
 
 
 def patch_ezvcpkg_allow_unsupported(native_source_dir):
