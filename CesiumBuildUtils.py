@@ -297,30 +297,38 @@ def clone_repo_if_needed(
     # os.chdir(prevDir)
 
 
-# Configure with CMake
+# Configure with CMake (out-of-tree build per platform)
 def configure_native(argumentsDict):
     print("Configuring Cesium Native")
     isExt = is_extension_target(argumentsDict)
-    repoDirectory = CESIUM_NATIVE_DIR_EXT if isExt else CESIUM_NATIVE_DIR_MODULE
-    repoDirectory = scons_to_abs_path(repoDirectory)
-    os.chdir(repoDirectory)
+    nativeDir = CESIUM_NATIVE_DIR_EXT if isExt else CESIUM_NATIVE_DIR_MODULE
+    sourceDir = scons_to_abs_path(nativeDir)
 
     platform = argumentsDict.get("platform", "")
     is_web = platform == PLATFORM_WEB
     triplet: str = determine_triplet_for_args(argumentsDict)
     os.environ["VCPKG_TRIPLET"] = triplet
 
+    # Create platform-specific build directory
+    build_dir_name = get_native_build_dir_name(platform)
+    buildDir = os.path.join(sourceDir, build_dir_name)
+    os.makedirs(buildDir, exist_ok=True)
+
+    if is_web:
+        patch_ezvcpkg_allow_unsupported(sourceDir)
+
     cmake_args = [
         "cmake",
+        "-S", sourceDir,
+        "-B", buildDir,
         f"-DCMAKE_BUILD_TYPE={RELEASE_CONFIG}",
         "-DCESIUM_MSVC_STATIC_RUNTIME_ENABLED=ON",
         "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
         "-DGIT_LFS_SKIP_SMUDGE=1",
-        "-DVCPKG_TRIPLET=%s" % triplet,
     ]
 
     if is_web:
-        # Use Emscripten toolchain for web builds
+        # Use Emscripten toolchain chainloaded through vcpkg
         emsdk = os.environ.get("EMSDK", "")
         if not emsdk:
             print(
@@ -332,16 +340,17 @@ def configure_native(argumentsDict):
         toolchain = os.path.join(
             emsdk, "upstream", "emscripten", "cmake", "Modules", "Platform", "Emscripten.cmake"
         )
-        if not os.path.exists(toolchain):
-            # Try the standard toolchain file location
-            toolchain = os.path.join(emsdk, "upstream", "emscripten", "cmake", "Modules", "Platform", "Emscripten.cmake")
+        node_path = find_emsdk_node(emsdk)
         cmake_args.extend([
-            f"-DCMAKE_TOOLCHAIN_FILE={toolchain}",
-            "-DCMAKE_CROSSCOMPILING_EMULATOR=node",
+            "-G", "Ninja",
+            f"-DVCPKG_CHAINLOAD_TOOLCHAIN_FILE={toolchain}",
+            f"-DVCPKG_TARGET_TRIPLET={triplet}",
+            f"-DCMAKE_CROSSCOMPILING_EMULATOR={node_path}",
         ])
+    else:
+        cmake_args.append("-DVCPKG_TRIPLET=%s" % triplet)
 
-    cmake_args.append(".")
-
+    print(f"[CESIUM] Build directory: {buildDir}")
     result = subprocess.run(cmake_args)
 
     if result.returncode != 0:
@@ -373,6 +382,57 @@ def determine_triplet_for_args(argumentsDict):
     return determine_triplet()
 
 
+def get_native_build_dir_name(platform_str=""):
+    """Return the build subdirectory name for the given target platform.
+
+    Each platform gets its own out-of-tree CMake build directory so that
+    multiple platform builds can coexist under cesium_godot/native/."""
+    if platform_str == PLATFORM_WEB:
+        return "build-web"
+    if os.name == OS_WIN:
+        return "build-windows"
+    if sys.platform == PLATFORM_MACOS:
+        return "build-macos"
+    if os.name == OS_LINUX:
+        return "build-linux"
+    return "build"
+
+
+def get_native_build_path(env=None):
+    """Return the absolute path to the platform-specific cesium-native build directory."""
+    platform_str = env.get("platform", "") if env is not None else ""
+    build_dir_name = get_native_build_dir_name(platform_str)
+    return os.path.join(scons_to_abs_path(currentRootDir + "/native"), build_dir_name)
+
+
+def patch_ezvcpkg_allow_unsupported(native_source_dir):
+    """Patch ezvcpkg.cmake to allow unsupported vcpkg triplets (needed for wasm32-emscripten)."""
+    ezvcpkg_cmake = os.path.join(native_source_dir, "cmake", "ezvcpkg", "ezvcpkg.cmake")
+    if not os.path.exists(ezvcpkg_cmake):
+        return
+    with open(ezvcpkg_cmake, "r") as f:
+        content = f.read()
+    if "--allow-unsupported" in content:
+        return  # Already patched
+    patched = content.replace("install --triplet", "install --allow-unsupported --triplet")
+    if patched != content:
+        with open(ezvcpkg_cmake, "w") as f:
+            f.write(patched)
+        print("[CESIUM] Patched ezvcpkg.cmake to allow unsupported triplets")
+
+
+def find_emsdk_node(emsdk_path):
+    """Find the node executable bundled with the Emscripten SDK."""
+    node_dir = os.path.join(emsdk_path, "node")
+    if os.path.exists(node_dir):
+        for entry in sorted(os.listdir(node_dir), reverse=True):
+            for candidate in ["bin/node.exe", "bin/node"]:
+                full_path = os.path.join(node_dir, entry, candidate)
+                if os.path.exists(full_path):
+                    return full_path
+    return "node"
+
+
 def compile_native(argumentsDict):
     shouldBuildArg = argumentsDict.get("buildCesium", None)
     if shouldBuildArg is None:
@@ -393,15 +453,20 @@ def compile_native(argumentsDict):
     print("Compiling Cesium Native...")
 
     platform = argumentsDict.get("platform", "")
+    isExt = is_extension_target(argumentsDict)
+    nativeDir = CESIUM_NATIVE_DIR_EXT if isExt else CESIUM_NATIVE_DIR_MODULE
+    sourceDir = scons_to_abs_path(nativeDir)
+    buildDir = os.path.join(sourceDir, get_native_build_dir_name(platform))
+
     result = None
     if platform == PLATFORM_WEB:
-        result = build_native_web()
+        result = build_native_web(buildDir)
     elif os.name == OS_WIN:
-        result = build_native_win()
+        result = build_native_win(buildDir)
     elif sys.platform == PLATFORM_MACOS:
-        result = build_native_macos()
+        result = build_native_macos(buildDir)
     elif os.name == OS_LINUX:
-        result = build_native_linux()
+        result = build_native_linux(buildDir)
     else:
         print(
             "Compiling for platform %s is not yet supported!" % os.name, file=sys.stderr
@@ -413,31 +478,21 @@ def compile_native(argumentsDict):
     print("Finished building Cesium Native!")
 
 
-def build_native_linux():
-    return subprocess.run(["cmake", "--build", "."])
+def build_native_linux(build_path):
+    return subprocess.run(["cmake", "--build", build_path])
 
 
-def build_native_web():
-    return subprocess.run(["cmake", "--build", "."])
+def build_native_web(build_path):
+    return subprocess.run(["cmake", "--build", build_path])
 
 
-def build_native_macos():
-    return subprocess.run(["cmake", "--build", "."])
+def build_native_macos(build_path):
+    return subprocess.run(["cmake", "--build", build_path])
 
 
-def build_native_win():
-    # execute MSBuild
-    buildConfig: str = RELEASE_CONFIG
-    solutionName: str = "cesium-native.sln"
-    msbuildPath: str = find_ms_build()
-    if msbuildPath == "":
-        print(
-            "Could not find MSBuild.exe, make sure to have Visual Studio installed",
-            file=sys.stderr,
-        )
-        return
-    releaseConfig = "/property:Configuration=%s" % buildConfig
-    return subprocess.run([msbuildPath, solutionName, releaseConfig])
+def build_native_win(build_path):
+    # cmake --build dispatches to MSBuild for Visual Studio generators
+    return subprocess.run(["cmake", "--build", build_path, "--config", RELEASE_CONFIG])
 
 
 def clean_cesium_definitions():
@@ -469,15 +524,20 @@ def clean_cesium_definitions():
     print("Finished cleaning native definitions")
 
 
-def install_additional_libs():
+def install_additional_libs(argumentsDict=None):
     print("Installing additional libraries")
     vcpkgPath = find_ezvcpkg_path()
     execExtension = ".exe" if os.name == OS_WIN else ""
     executable = "%s/%s" % (vcpkgPath, "vcpkg" + execExtension)
-    subprocess.run([executable, "install", "uriparser:%s" % (determine_triplet())])
-    subprocess.run([executable, "install", "ada-url:%s" % (determine_triplet())])
-    if os.name == OS_WIN:
-        subprocess.run([executable, "install", "curl:%s" % (determine_triplet())])
+    triplet = determine_triplet_for_args(argumentsDict) if argumentsDict else determine_triplet()
+    allow_unsupported = []
+    platform = argumentsDict.get("platform", "") if argumentsDict else ""
+    if platform == PLATFORM_WEB:
+        allow_unsupported = ["--allow-unsupported"]
+    subprocess.run([executable, "install"] + allow_unsupported + ["uriparser:%s" % triplet])
+    subprocess.run([executable, "install"] + allow_unsupported + ["ada-url:%s" % triplet])
+    if platform != PLATFORM_WEB and os.name == OS_WIN:
+        subprocess.run([executable, "install", "curl:%s" % triplet])
 
 
 def find_ms_build() -> str:
@@ -564,12 +624,12 @@ def scons_to_abs_path(path: str) -> str:
     return Dir(path).get_abspath()
 
 
-def find_ezvcpkg_include_path() -> str:
-    return f"{find_ezvcpkg_path()}/installed/{determine_triplet()}/include"
+def find_ezvcpkg_include_path(env=None) -> str:
+    return f"{find_ezvcpkg_path()}/installed/{determine_triplet(env)}/include"
 
 
-def find_ezvcpkg_lib_path() -> str:
-    return f"{find_ezvcpkg_path()}/installed/{determine_triplet()}/lib"
+def find_ezvcpkg_lib_path(env=None) -> str:
+    return f"{find_ezvcpkg_path()}/installed/{determine_triplet(env)}/lib"
 
 
 def get_root_dir() -> str:

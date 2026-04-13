@@ -151,7 +151,7 @@ else:
     # GDExtension pattern: SConstruct.py collects sources into a shared lib.
     cesium_env.add_source_files(sources)
 
-vcpkgIncludePath = cesium_build_utils.find_ezvcpkg_include_path()
+vcpkgIncludePath = cesium_build_utils.find_ezvcpkg_include_path(env)
 includePaths.append(vcpkgIncludePath)
 
 # Include cesium_auxiliars headers (for both module and extension)
@@ -159,12 +159,16 @@ includePaths.append(cesium_build_utils.scons_to_abs_path(root + "/cesium_auxilia
 
 env.Append(CPPPATH=includePaths)
 
-vcpkgLibPath = cesium_build_utils.find_ezvcpkg_lib_path()
+vcpkgLibPath = cesium_build_utils.find_ezvcpkg_lib_path(env)
 env.Prepend(LIBPATH=vcpkgLibPath)
 
+# Use the platform-specific build directory for library paths.
+# Include paths still come from the source tree (get_root_dir_native), but
+# compiled libraries live under native/build-{platform}/.
+native_build_dir = cesium_build_utils.get_native_build_path(env)
 root_dir_native = cesium_build_utils.get_root_dir_native()
 current_build_config = ""
-if (os.name  == cesium_build_utils.OS_WIN):
+if (not is_web and os.name == cesium_build_utils.OS_WIN):
     current_build_config = cesium_build_utils.RELEASE_CONFIG
 
 # Library paths and linking
@@ -437,25 +441,25 @@ elif (not is_web and os.name == cesium_build_utils.OS_LINUX and sys.platform != 
     env.Append(LIBPATH=["/usr/lib/x86_64-linux-gnu"])
     env.Append(CPPPATH=["/usr/include/x86_64-linux-gnu"])
 
-# Build common library paths
+# Build common library paths — compiled libs are under native/build-{platform}/
 common_libpaths = [
-    f"{root_dir_native}/CesiumGltfReader/{current_build_config}",
-    f"{root_dir_native}/CesiumAsync/{current_build_config}",
-    f"{root_dir_native}/CesiumJsonReader/{current_build_config}",
-    f"{root_dir_native}/CesiumJsonWriter/{current_build_config}",
-    f"{root_dir_native}/CesiumGltf/{current_build_config}",
-    f"{root_dir_native}/CesiumUtility/{current_build_config}",
-    f"{root_dir_native}/CesiumGeospatial/{current_build_config}",
-    f"{root_dir_native}/Cesium3DTilesSelection/{current_build_config}",
-    f"{root_dir_native}/CesiumRasterOverlays/{current_build_config}",
-    f"{root_dir_native}/CesiumGeometry/{current_build_config}",
-    f"{root_dir_native}/Cesium3DTilesReader/{current_build_config}",
-    f"{root_dir_native}/CesiumGltfContent/{current_build_config}",
-    f"{root_dir_native}/CesiumQuantizedMeshTerrain/{current_build_config}",
-    f"{root_dir_native}/Cesium3DTilesContent/{current_build_config}",
-    cesium_build_utils.get_root_dir_native() + "/libs/gsl",
-    cesium_build_utils.get_root_dir_native() + "/libs/absl",
-    cesium_build_utils.get_root_dir_native() + "/libs",
+    f"{native_build_dir}/CesiumGltfReader/{current_build_config}",
+    f"{native_build_dir}/CesiumAsync/{current_build_config}",
+    f"{native_build_dir}/CesiumJsonReader/{current_build_config}",
+    f"{native_build_dir}/CesiumJsonWriter/{current_build_config}",
+    f"{native_build_dir}/CesiumGltf/{current_build_config}",
+    f"{native_build_dir}/CesiumUtility/{current_build_config}",
+    f"{native_build_dir}/CesiumGeospatial/{current_build_config}",
+    f"{native_build_dir}/Cesium3DTilesSelection/{current_build_config}",
+    f"{native_build_dir}/CesiumRasterOverlays/{current_build_config}",
+    f"{native_build_dir}/CesiumGeometry/{current_build_config}",
+    f"{native_build_dir}/Cesium3DTilesReader/{current_build_config}",
+    f"{native_build_dir}/CesiumGltfContent/{current_build_config}",
+    f"{native_build_dir}/CesiumQuantizedMeshTerrain/{current_build_config}",
+    f"{native_build_dir}/Cesium3DTilesContent/{current_build_config}",
+    native_build_dir + "/libs/gsl",
+    native_build_dir + "/libs/absl",
+    native_build_dir + "/libs",
     cesium_build_utils.find_ezvcpkg_path(
     ) + "/installed/%s/lib" % (cesium_build_utils.determine_triplet(env))
 ]

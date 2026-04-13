@@ -59,7 +59,7 @@ else:
     env.Append(CXXFLAGS=cesium_build_utils.get_compile_flags(env))
     env.Append(LINKFLAGS=cesium_build_utils.get_linker_flags(env))
 
-    cesium_build_utils.install_additional_libs()
+    cesium_build_utils.install_additional_libs(ARGUMENTS)
 
     env.Append(CPPDEFINES=[compilationTarget])
     if env.get("platform", "") == cesium_build_utils.PLATFORM_WEB:
