@@ -485,11 +485,36 @@ def patch_vcpkg_wasm_triplet_pthread():
         with open(triplet_path, "w") as f:
             f.write(patched)
         print("[CESIUM] Patched wasm32-emscripten triplet with -pthread flags")
-        # Force vcpkg to rebuild packages by removing the installed triplet dir
-        installed_dir = os.path.join(vcpkg_base, "installed", "wasm32-emscripten")
-        if os.path.exists(installed_dir):
-            shutil.rmtree(installed_dir)
-            print("[CESIUM] Cleared wasm32-emscripten installed packages (will rebuild with -pthread)")
+        # Force vcpkg to rebuild all wasm32-emscripten packages with the new flags.
+        # We must use vcpkg remove to properly clean the tracking metadata, not just
+        # delete the installed directory.
+        exec_ext = ".exe" if os.name == OS_WIN else ""
+        vcpkg_exe = os.path.join(vcpkg_base, "vcpkg" + exec_ext)
+        if os.path.exists(vcpkg_exe):
+            print("[CESIUM] Removing wasm32-emscripten packages so vcpkg rebuilds with -pthread...")
+            subprocess.run(
+                [vcpkg_exe, "--vcpkg-root", vcpkg_base, "remove", "--outdated", "--recurse",
+                 "--triplet", "wasm32-emscripten"],
+                cwd=vcpkg_base,
+            )
+            # Also remove all installed packages for this triplet
+            installed_dir = os.path.join(vcpkg_base, "installed", "wasm32-emscripten")
+            vcpkg_status = os.path.join(vcpkg_base, "installed", "vcpkg", "status")
+            # Clear the status database entries for this triplet so vcpkg reinstalls everything
+            if os.path.exists(vcpkg_status):
+                with open(vcpkg_status, "r") as f:
+                    status_content = f.read()
+                # Remove all package entries for wasm32-emscripten
+                import re
+                cleaned = re.sub(
+                    r'Package:.*?Architecture: wasm32-emscripten.*?(?=\nPackage:|\Z)',
+                    '', status_content, flags=re.DOTALL
+                )
+                with open(vcpkg_status, "w") as f:
+                    f.write(cleaned)
+            if os.path.exists(installed_dir):
+                shutil.rmtree(installed_dir)
+            print("[CESIUM] Cleared wasm32-emscripten packages (will rebuild with -pthread)")
     except Exception as e:
         print(f"[CESIUM] Warning: could not patch wasm triplet: {e}")
 
