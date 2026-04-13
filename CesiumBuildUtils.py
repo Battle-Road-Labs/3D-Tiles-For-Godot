@@ -350,6 +350,11 @@ def configure_native(argumentsDict):
         ])
     else:
         cmake_args.append("-DVCPKG_TRIPLET=%s" % triplet)
+        # VCPKG_TARGET_TRIPLET is what vcpkg's cmake toolchain actually uses
+        # to locate packages. ezvcpkg auto-detects it and may choose a
+        # different triplet (e.g. x64-windows instead of x64-windows-static),
+        # so we must set it explicitly.
+        cmake_args.append("-DVCPKG_TARGET_TRIPLET=%s" % triplet)
 
     print(f"[CESIUM] Build directory: {buildDir}")
     result = subprocess.run(cmake_args)
