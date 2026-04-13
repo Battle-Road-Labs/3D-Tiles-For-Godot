@@ -330,15 +330,21 @@ def configure_native(argumentsDict):
         "-DVCPKG_TARGET_TRIPLET=%s" % triplet,
     ]
 
-    # If ezvcpkg has already been set up from a previous configure, pass the
-    # vcpkg toolchain file on the command line so cmake loads it from the very
-    # start. Without this, the first configure runs find_package() before the
-    # toolchain is active, caching paths from the wrong triplet directory.
+    # If ezvcpkg has already set up the vcpkg installation from a previous
+    # configure, pre-supply the toolchain file so cmake loads it at init time
+    # (before find_package runs). Without this, the first configure discovers
+    # packages from the wrong triplet and caches those paths permanently.
+    # We also force CESIUM_USE_EZVCPKG=ON so that cesium-native still uses
+    # ezvcpkg to install any missing packages (it defaults to OFF when it
+    # detects CMAKE_TOOLCHAIN_FILE pointing to vcpkg.cmake).
     try:
         vcpkg_base = find_ezvcpkg_path()
         vcpkg_toolchain = os.path.join(vcpkg_base, "scripts", "buildsystems", "vcpkg.cmake")
         if os.path.exists(vcpkg_toolchain):
-            cmake_args.append(f"-DCMAKE_TOOLCHAIN_FILE={vcpkg_toolchain}")
+            cmake_args.extend([
+                f"-DCMAKE_TOOLCHAIN_FILE={vcpkg_toolchain}",
+                "-DCESIUM_USE_EZVCPKG=ON",
+            ])
             print(f"[CESIUM] Using vcpkg toolchain: {vcpkg_toolchain}")
     except Exception:
         pass  # Fresh build — ezvcpkg will set up the toolchain during configure
@@ -373,6 +379,7 @@ def configure_native(argumentsDict):
             + errorMsg
         )
         exit(1)
+
     print("Configuration completed without any errors!")
 
 
