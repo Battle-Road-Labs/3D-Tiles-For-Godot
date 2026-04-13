@@ -356,9 +356,9 @@ def configure_native(argumentsDict):
             "-G", "Ninja",
             f"-DVCPKG_CHAINLOAD_TOOLCHAIN_FILE={toolchain}",
             f"-DCMAKE_CROSSCOMPILING_EMULATOR={node_path}",
-            # wasm32 has 32-bit size_t; cesium-native's Hash.cpp uses 64-bit
-            # constants and shifts that trigger -Werror. Downgrade to warnings.
-            "-DCMAKE_CXX_FLAGS=-Wno-error=constant-conversion -Wno-error=shift-count-overflow",
+            # wasm32 has 32-bit size_t/ptrdiff_t; cesium-native code assumes
+            # 64-bit and triggers -Werror. Downgrade these to warnings.
+            "-DCMAKE_CXX_FLAGS=-Wno-error=constant-conversion -Wno-error=shift-count-overflow -Wno-error=shorten-64-to-32",
         ])
 
     print(f"[CESIUM] Build directory: {buildDir}")
