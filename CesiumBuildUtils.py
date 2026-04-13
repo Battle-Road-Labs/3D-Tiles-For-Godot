@@ -326,7 +326,22 @@ def configure_native(argumentsDict):
         "-DCESIUM_TESTS_ENABLED=OFF",
         "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
         "-DGIT_LFS_SKIP_SMUDGE=1",
+        "-DVCPKG_TRIPLET=%s" % triplet,
+        "-DVCPKG_TARGET_TRIPLET=%s" % triplet,
     ]
+
+    # If ezvcpkg has already been set up from a previous configure, pass the
+    # vcpkg toolchain file on the command line so cmake loads it from the very
+    # start. Without this, the first configure runs find_package() before the
+    # toolchain is active, caching paths from the wrong triplet directory.
+    try:
+        vcpkg_base = find_ezvcpkg_path()
+        vcpkg_toolchain = os.path.join(vcpkg_base, "scripts", "buildsystems", "vcpkg.cmake")
+        if os.path.exists(vcpkg_toolchain):
+            cmake_args.append(f"-DCMAKE_TOOLCHAIN_FILE={vcpkg_toolchain}")
+            print(f"[CESIUM] Using vcpkg toolchain: {vcpkg_toolchain}")
+    except Exception:
+        pass  # Fresh build — ezvcpkg will set up the toolchain during configure
 
     if is_web:
         # Use Emscripten toolchain chainloaded through vcpkg
@@ -345,16 +360,8 @@ def configure_native(argumentsDict):
         cmake_args.extend([
             "-G", "Ninja",
             f"-DVCPKG_CHAINLOAD_TOOLCHAIN_FILE={toolchain}",
-            f"-DVCPKG_TARGET_TRIPLET={triplet}",
             f"-DCMAKE_CROSSCOMPILING_EMULATOR={node_path}",
         ])
-    else:
-        cmake_args.append("-DVCPKG_TRIPLET=%s" % triplet)
-        # VCPKG_TARGET_TRIPLET is what vcpkg's cmake toolchain actually uses
-        # to locate packages. ezvcpkg auto-detects it and may choose a
-        # different triplet (e.g. x64-windows instead of x64-windows-static),
-        # so we must set it explicitly.
-        cmake_args.append("-DVCPKG_TARGET_TRIPLET=%s" % triplet)
 
     print(f"[CESIUM] Build directory: {buildDir}")
     result = subprocess.run(cmake_args)
