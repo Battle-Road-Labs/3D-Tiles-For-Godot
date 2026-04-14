@@ -17,8 +17,11 @@ goto :done
 :build_web
 echo Building GDExtension for Web/WASM...
 rem Force emscripten-style longjmp to avoid conflict with godot-cpp's exception handling.
-rem EMCC_CFLAGS is read by emcc/em++ directly, bypassing SCons env construction.
-set EMCC_CFLAGS=-sSUPPORT_LONGJMP=emscripten
+rem -pthread enables atomics/bulk-memory needed for --shared-memory at link time.
+rem EMCC_CFLAGS is read by emcc/em++ directly, bypassing SCons env construction
+rem and cmake flag handling — this is the only reliable way to ensure ALL compilations
+rem (vcpkg packages, cesium-native, extension code) get these flags.
+set EMCC_CFLAGS=-sSUPPORT_LONGJMP=emscripten -pthread
 scons platform=web compileTarget=extension target=template_release precision=double production=yes
 goto :done
 
