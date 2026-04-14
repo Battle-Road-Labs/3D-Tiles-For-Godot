@@ -25,9 +25,11 @@ cesium_build_utils.clone_lite_html_if_needed()
 
 cesium_build_utils.compile_native(ARGUMENTS)
 
-# Build litehtml from source on macOS (no pre-built binaries available)
+# Build litehtml from source on platforms without pre-built WASM/macOS binaries
 if sys.platform == cesium_build_utils.PLATFORM_MACOS:
     cesium_build_utils.build_litehtml()
+elif ARGUMENTS.get("platform", "") == cesium_build_utils.PLATFORM_WEB:
+    cesium_build_utils.build_litehtml_web()
 
 if is_module:
     # Module build: the environment comes from the Godot engine build system.

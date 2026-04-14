@@ -211,9 +211,13 @@ def patch_godot_cpp_web_flags():
 
 
 def clone_lite_html_if_needed():
-    # clone_repo_if_needed(ROOT_DIR_EXT + "/third_party/lite-html", "Lite HTML",
-    #                      "https://github.com/litehtml/litehtml.git", "v0.9", "6ca1ab0419e770e6d35a1ef690238773a1dafcee")
-    pass
+    clone_repo_if_needed(
+        ROOT_DIR_EXT + "/third_party/litehtml-src",
+        "Lite HTML",
+        "https://github.com/litehtml/litehtml.git",
+        "v0.9",
+        "6ca1ab0419e770e6d35a1ef690238773a1dafcee",
+    )
 
 
 def build_litehtml(arch="arm64"):
@@ -277,6 +281,88 @@ def build_litehtml(arch="arm64"):
 
     os.chdir(prev_dir)
     print("litehtml build complete!")
+
+
+def build_litehtml_web():
+    """Build litehtml from source for Web/WASM using Emscripten."""
+    third_party_dir = scons_to_abs_path(ROOT_DIR_EXT + "/third_party")
+    source_dir = os.path.join(third_party_dir, "litehtml-src")
+    output_dir = os.path.join(third_party_dir, "litehtml", "web")
+
+    # Check if already built
+    if (os.path.exists(os.path.join(output_dir, "liblitehtml.a"))
+            and os.path.exists(os.path.join(output_dir, "libgumbo.a"))):
+        print("litehtml already built for Web/WASM, skipping...")
+        return
+
+    if not os.path.exists(source_dir):
+        print("litehtml source not found at %s" % source_dir, file=sys.stderr)
+        return
+
+    emsdk = os.environ.get("EMSDK", "")
+    if not emsdk:
+        print(
+            "Error: EMSDK environment variable not set. "
+            "Please install and activate the Emscripten SDK first.",
+            file=sys.stderr,
+        )
+        return
+
+    print("Building litehtml from source for Web/WASM...")
+
+    toolchain = os.path.join(
+        emsdk, "upstream", "emscripten", "cmake", "Modules", "Platform", "Emscripten.cmake"
+    )
+
+    build_dir = os.path.join(source_dir, "build-web")
+    os.makedirs(build_dir, exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
+
+    prev_dir = os.getcwd()
+    os.chdir(build_dir)
+
+    # Configure with CMake using Emscripten toolchain
+    result = subprocess.run([
+        "cmake",
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DCMAKE_TOOLCHAIN_FILE=%s" % toolchain,
+        "-DLITEHTML_BUILD_TESTING=OFF",
+        "-DCMAKE_CXX_FLAGS=-pthread -fPIC",
+        "-DCMAKE_C_FLAGS=-pthread -fPIC",
+        "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
+        "-G", "Ninja",
+        ".."
+    ])
+
+    if result.returncode != 0:
+        print("Failed to configure litehtml for Web/WASM", file=sys.stderr)
+        os.chdir(prev_dir)
+        return
+
+    # Build
+    result = subprocess.run(["cmake", "--build", ".", "--config", "Release"])
+
+    if result.returncode != 0:
+        print("Failed to build litehtml for Web/WASM", file=sys.stderr)
+        os.chdir(prev_dir)
+        return
+
+    # Copy output libraries — they may be in subdirectories
+    for lib in ["liblitehtml.a", "libgumbo.a"]:
+        src = os.path.join(build_dir, lib)
+        if not os.path.exists(src):
+            for walk_root, dirs, files in os.walk(build_dir):
+                if lib in files:
+                    src = os.path.join(walk_root, lib)
+                    break
+        if os.path.exists(src):
+            shutil.copy2(src, output_dir)
+            print("Copied %s to %s" % (lib, output_dir))
+        else:
+            print("Warning: %s not found after build" % lib, file=sys.stderr)
+
+    os.chdir(prev_dir)
+    print("litehtml Web/WASM build complete!")
 
 
 def clone_repo_if_needed(

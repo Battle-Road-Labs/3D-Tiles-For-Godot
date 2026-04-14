@@ -461,8 +461,10 @@ common_libpaths = [
     ) + "/installed/%s/lib" % (cesium_build_utils.determine_triplet(env))
 ]
 
-# Add litehtml path (macOS uses its own path added earlier, others use base path)
-if sys.platform != cesium_build_utils.PLATFORM_MACOS:
+# Add litehtml path — each platform uses its own compiled libraries
+if is_web:
+    common_libpaths.append(root + "/third_party/litehtml/web")
+elif sys.platform != cesium_build_utils.PLATFORM_MACOS:
     common_libpaths.append(root + "/third_party/litehtml")
 
 env.Append(

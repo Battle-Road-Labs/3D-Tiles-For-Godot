@@ -36,6 +36,10 @@ godot3dtiles/addons/cesium_godot/lib/*
 !godot-html/ultralight/lib/*.lib
 !cesium_godot/third_party/litehtml/*.lib
 
+# Ignore litehtml source (cloned at build time) and platform-specific build outputs
+cesium_godot/third_party/litehtml-src/
+cesium_godot/third_party/litehtml/web/
+
 # Ignore any project import files 
 godot3dtiles/**/*.uid
 godot3dtiles/**/*.import
