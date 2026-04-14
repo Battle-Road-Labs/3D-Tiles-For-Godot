@@ -479,9 +479,16 @@ def patch_vcpkg_wasm_triplet_pthread():
             return
         with open(triplet_path, "r") as f:
             content = f.read()
-        if "VCPKG_CXX_FLAGS" in content:
-            return  # Already patched
-        patched = content + '\nset(VCPKG_CXX_FLAGS "-pthread")\nset(VCPKG_C_FLAGS "-pthread")\n'
+        if "EMCC_CFLAGS" in content:
+            return  # Already patched with EMCC_CFLAGS passthrough
+        # Remove old incomplete patch if present
+        content = content.replace('\nset(VCPKG_CXX_FLAGS "-pthread")\nset(VCPKG_C_FLAGS "-pthread")\n', '')
+        # Add EMCC_CFLAGS to the passthrough list so vcpkg propagates it to emcc
+        patched = content.replace(
+            "set(VCPKG_ENV_PASSTHROUGH_UNTRACKED EMSCRIPTEN_ROOT EMSDK PATH)",
+            "set(VCPKG_ENV_PASSTHROUGH_UNTRACKED EMSCRIPTEN_ROOT EMSDK PATH EMCC_CFLAGS)"
+        )
+        patched += '\nset(VCPKG_CXX_FLAGS "-pthread")\nset(VCPKG_C_FLAGS "-pthread")\n'
         with open(triplet_path, "w") as f:
             f.write(patched)
         print("[CESIUM] Patched wasm32-emscripten triplet with -pthread flags")
