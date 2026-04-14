@@ -446,8 +446,8 @@ def configure_native(argumentsDict):
             # wasm32 has 32-bit size_t/ptrdiff_t; cesium-native code assumes
             # 64-bit and triggers -Werror. Downgrade these to warnings.
             # -pthread enables atomics+bulk-memory needed for --shared-memory at link time.
-            "-DCMAKE_CXX_FLAGS=-pthread -Wno-error=constant-conversion -Wno-error=shift-count-overflow -Wno-error=shorten-64-to-32 -Wno-error=sign-conversion",
-            "-DCMAKE_C_FLAGS=-pthread",
+            "-DCMAKE_CXX_FLAGS=-pthread -fPIC -Wno-error=constant-conversion -Wno-error=shift-count-overflow -Wno-error=shorten-64-to-32 -Wno-error=sign-conversion",
+            "-DCMAKE_C_FLAGS=-pthread -fPIC",
         ])
 
     print(f"[CESIUM] Build directory: {buildDir}")
@@ -554,10 +554,11 @@ def get_native_build_path(env=None):
 
 
 def patch_vcpkg_wasm_triplet_pthread():
-    """Patch the wasm32-emscripten vcpkg triplet to include -pthread flags.
+    """Patch the wasm32-emscripten vcpkg triplet to include -pthread and -fPIC flags.
 
-    Without this, vcpkg packages (like async++) are compiled without atomics/bulk-memory,
-    causing link errors when combined with code that uses --shared-memory."""
+    Without -pthread, vcpkg packages (like async++) are compiled without atomics/bulk-memory,
+    causing link errors when combined with code that uses --shared-memory.
+    Without -fPIC, vcpkg packages cannot be linked into a SIDE_MODULE shared library."""
     try:
         vcpkg_base = find_ezvcpkg_path()
         triplet_path = os.path.join(vcpkg_base, "triplets", "community", "wasm32-emscripten.cmake")
@@ -565,26 +566,29 @@ def patch_vcpkg_wasm_triplet_pthread():
             return
         with open(triplet_path, "r") as f:
             content = f.read()
-        if "EMCC_CFLAGS" in content:
-            return  # Already patched with EMCC_CFLAGS passthrough
-        # Remove old incomplete patch if present
+        # Check if fully patched (both EMCC_CFLAGS passthrough and -fPIC)
+        if "EMCC_CFLAGS" in content and "-fPIC" in content:
+            return  # Already fully patched
+        # Strip any previous partial patches before re-applying
         content = content.replace('\nset(VCPKG_CXX_FLAGS "-pthread")\nset(VCPKG_C_FLAGS "-pthread")\n', '')
+        content = content.replace('\nset(VCPKG_CXX_FLAGS "-pthread -fPIC")\nset(VCPKG_C_FLAGS "-pthread -fPIC")\n', '')
         # Add EMCC_CFLAGS to the passthrough list so vcpkg propagates it to emcc
-        patched = content.replace(
-            "set(VCPKG_ENV_PASSTHROUGH_UNTRACKED EMSCRIPTEN_ROOT EMSDK PATH)",
-            "set(VCPKG_ENV_PASSTHROUGH_UNTRACKED EMSCRIPTEN_ROOT EMSDK PATH EMCC_CFLAGS)"
-        )
-        patched += '\nset(VCPKG_CXX_FLAGS "-pthread")\nset(VCPKG_C_FLAGS "-pthread")\n'
+        if "EMCC_CFLAGS" not in content:
+            content = content.replace(
+                "set(VCPKG_ENV_PASSTHROUGH_UNTRACKED EMSCRIPTEN_ROOT EMSDK PATH)",
+                "set(VCPKG_ENV_PASSTHROUGH_UNTRACKED EMSCRIPTEN_ROOT EMSDK PATH EMCC_CFLAGS)"
+            )
+        patched = content + '\nset(VCPKG_CXX_FLAGS "-pthread -fPIC")\nset(VCPKG_C_FLAGS "-pthread -fPIC")\n'
         with open(triplet_path, "w") as f:
             f.write(patched)
-        print("[CESIUM] Patched wasm32-emscripten triplet with -pthread flags")
+        print("[CESIUM] Patched wasm32-emscripten triplet with -pthread -fPIC flags")
         # Force vcpkg to rebuild all wasm32-emscripten packages with the new flags.
         # We must use vcpkg remove to properly clean the tracking metadata, not just
         # delete the installed directory.
         exec_ext = ".exe" if os.name == OS_WIN else ""
         vcpkg_exe = os.path.join(vcpkg_base, "vcpkg" + exec_ext)
         if os.path.exists(vcpkg_exe):
-            print("[CESIUM] Removing wasm32-emscripten packages so vcpkg rebuilds with -pthread...")
+            print("[CESIUM] Removing wasm32-emscripten packages so vcpkg rebuilds with -pthread -fPIC...")
             subprocess.run(
                 [vcpkg_exe, "--vcpkg-root", vcpkg_base, "remove", "--outdated", "--recurse",
                  "--triplet", "wasm32-emscripten"],
@@ -607,7 +611,7 @@ def patch_vcpkg_wasm_triplet_pthread():
                     f.write(cleaned)
             if os.path.exists(installed_dir):
                 shutil.rmtree(installed_dir)
-            print("[CESIUM] Cleared wasm32-emscripten packages (will rebuild with -pthread)")
+            print("[CESIUM] Cleared wasm32-emscripten packages (will rebuild with -pthread -fPIC)")
     except Exception as e:
         print(f"[CESIUM] Warning: could not patch wasm triplet: {e}")
 
