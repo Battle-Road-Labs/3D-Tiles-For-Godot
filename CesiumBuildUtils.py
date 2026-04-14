@@ -594,23 +594,25 @@ def patch_vcpkg_wasm_triplet_pthread():
                  "--triplet", "wasm32-emscripten"],
                 cwd=vcpkg_base,
             )
-            # Also remove all installed packages for this triplet
+            # Remove installed packages for this triplet — delete first, then clean status
             installed_dir = os.path.join(vcpkg_base, "installed", "wasm32-emscripten")
-            vcpkg_status = os.path.join(vcpkg_base, "installed", "vcpkg", "status")
-            # Clear the status database entries for this triplet so vcpkg reinstalls everything
-            if os.path.exists(vcpkg_status):
-                with open(vcpkg_status, "r") as f:
-                    status_content = f.read()
-                # Remove all package entries for wasm32-emscripten
-                import re
-                cleaned = re.sub(
-                    r'Package:.*?Architecture: wasm32-emscripten.*?(?=\nPackage:|\Z)',
-                    '', status_content, flags=re.DOTALL
-                )
-                with open(vcpkg_status, "w") as f:
-                    f.write(cleaned)
             if os.path.exists(installed_dir):
                 shutil.rmtree(installed_dir)
+            # Clear the status database entries so vcpkg reinstalls everything
+            vcpkg_status = os.path.join(vcpkg_base, "installed", "vcpkg", "status")
+            try:
+                if os.path.exists(vcpkg_status):
+                    with open(vcpkg_status, "r", encoding="utf-8", errors="replace") as f:
+                        status_content = f.read()
+                    import re
+                    cleaned = re.sub(
+                        r'Package:.*?Architecture: wasm32-emscripten.*?(?=\nPackage:|\Z)',
+                        '', status_content, flags=re.DOTALL
+                    )
+                    with open(vcpkg_status, "w", encoding="utf-8") as f:
+                        f.write(cleaned)
+            except Exception as e:
+                print(f"[CESIUM] Warning: could not clean vcpkg status file: {e}")
             print("[CESIUM] Cleared wasm32-emscripten packages (will rebuild with -pthread -fPIC)")
     except Exception as e:
         print(f"[CESIUM] Warning: could not patch wasm triplet: {e}")
