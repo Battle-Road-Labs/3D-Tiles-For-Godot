@@ -21,7 +21,7 @@ rem -pthread enables atomics/bulk-memory needed for --shared-memory at link time
 rem EMCC_CFLAGS is read by emcc/em++ directly, bypassing SCons env construction
 rem and cmake flag handling — this is the only reliable way to ensure ALL compilations
 rem (vcpkg packages, cesium-native, extension code) get these flags.
-set EMCC_CFLAGS=-sSUPPORT_LONGJMP=emscripten -pthread
+set EMCC_CFLAGS=-sSUPPORT_LONGJMP=emscripten -pthread -fPIC
 scons platform=web compileTarget=extension target=template_release precision=double production=yes
 goto :done
 
