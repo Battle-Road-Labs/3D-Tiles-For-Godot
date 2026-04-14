@@ -215,6 +215,9 @@ if not is_web:
     libraries.append("libssl")
 
 if is_web:
+    # turbojpeg is a superset of jpeg — linking both causes duplicate symbols
+    # with wasm-ld (strict about duplicates unlike MSVC linker)
+    libraries.remove("jpeg")
     # Web builds use Emscripten — fewer system libs needed, abseil still required by s2
     libraries.extend([
         "crypto",
