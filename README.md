@@ -14,7 +14,7 @@ A Godot 4 extension that integrates Cesium 3D Tiles capabilities into Godot Engi
 Leverage decades worth of cutting-edge advancements from the 3D Tiles standard to create cohesive, interactive, and realistic simulations and applications.
 
 ## Supported Platforms
-As of now the plugin is available for Windows and Linux as development platforms, with support for Web and Android coming in the future
+As of now the plugin is available for Windows, Linux, and **macOS (Apple Silicon)** as development platforms, with support for Web and Android coming in the future. See [`docs/BUILD_MACOS.md`](docs/BUILD_MACOS.md) for macOS build instructions.
 
 ![Godot Cesium Plugin](readme_resources/NYC_Screenshot.png)
 
