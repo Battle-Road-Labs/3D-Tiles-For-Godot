@@ -60,9 +60,13 @@ def load_cesium_module(p_includePaths: list[str], moduleName: str, loadSources=F
     p_includePaths.append(cesium_build_utils.scons_to_abs_path(generated_include))
 
 
-env.Append(CPPDEFINES=[("_HAS_EXCEPTIONS", 1)])
-if not is_web and os.name == cesium_build_utils.OS_WIN:
-    env.Append(CXXFLAGS=["/EHsc"])
+if is_web:
+    env.Append(CPPDEFINES=[("_HAS_EXCEPTIONS", 0)])
+    env.Append(CXXFLAGS=["-fno-exceptions"])
+else:
+    env.Append(CPPDEFINES=[("_HAS_EXCEPTIONS", 1)])
+    if os.name == cesium_build_utils.OS_WIN:
+        env.Append(CXXFLAGS=["/EHsc"])
 env.Append(CPPDEFINES=["SPDLOG_NO_EXCEPTIONS",
                        "LIBASYNC_NO_EXCEPTIONS"])
 
