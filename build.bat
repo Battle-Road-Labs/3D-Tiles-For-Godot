@@ -23,7 +23,7 @@ rem -fwasm-exceptions: native wasm exception handling (no JS invoke_* wrappers)
 rem -sSUPPORT_LONGJMP=wasm: native wasm longjmp (pairs with -fwasm-exceptions)
 rem -pthread -fPIC: required for threaded SIDE_MODULE builds
 set EMCC_CFLAGS=-fwasm-exceptions -sSUPPORT_LONGJMP=wasm -pthread -fPIC
-scons platform=web compileTarget=extension target=template_release precision=double production=yes
+scons platform=web compileTarget=extension target=template_release precision=double production=yes disable_exceptions=no
 goto :done
 
 :build_module

@@ -60,6 +60,10 @@ else:
     cesium_build_utils.generate_precision_symbols(ARGUMENTS, env)
     env.Append(CXXFLAGS=cesium_build_utils.get_compile_flags(env))
     env.Append(LINKFLAGS=cesium_build_utils.get_linker_flags(env))
+    # On web, emcc defaults to no-exceptions. We must explicitly enable wasm
+    # exceptions via CCFLAGS (affects all C/C++) to override the default.
+    if env.get("platform", "") == cesium_build_utils.PLATFORM_WEB:
+        env.Append(CCFLAGS=["-fwasm-exceptions", "-sSUPPORT_LONGJMP=wasm"])
 
     cesium_build_utils.install_additional_libs(ARGUMENTS)
 
