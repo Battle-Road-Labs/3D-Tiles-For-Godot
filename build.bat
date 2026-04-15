@@ -11,7 +11,7 @@ goto :usage
 
 :build_extension
 echo Building GDExtension for Windows x64...
-scons arch=x64 compileTarget=extension target=template_release precision=double production=yes compiledb=yes
+scons arch=x64 compileTarget=extension target=template_release precision=double compiledb=yes
 goto :done
 
 :build_web
