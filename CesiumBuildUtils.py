@@ -50,7 +50,7 @@ def is_web_platform(env=None):
 
 def get_compile_flags(env=None):
     if is_web_platform(env):
-        return ["-std=c++20", "-fno-exceptions", "-fPIC", "-pthread"]
+        return ["-std=c++20", "-fwasm-exceptions", "-fPIC", "-pthread"]
     if os.name == OS_WIN:
         return ["/std:c++20", "/Zc:__cplusplus", "/utf-8", "/bigobj"]
     elif sys.platform == PLATFORM_MACOS:
@@ -332,7 +332,7 @@ def build_litehtml_web():
         "-DCMAKE_BUILD_TYPE=Release",
         "-DCMAKE_TOOLCHAIN_FILE=%s" % toolchain,
         "-DLITEHTML_BUILD_TESTING=OFF",
-        "-DCMAKE_CXX_FLAGS=-pthread -fPIC -fno-exceptions",
+        "-DCMAKE_CXX_FLAGS=-pthread -fPIC -fwasm-exceptions",
         "-DCMAKE_C_FLAGS=-pthread -fPIC",
         "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
         "-G", "Ninja",
@@ -451,7 +451,7 @@ def configure_native(argumentsDict):
             # wasm32 has 32-bit size_t/ptrdiff_t; cesium-native code assumes
             # 64-bit and triggers -Werror. Downgrade these to warnings.
             # -pthread enables atomics+bulk-memory needed for --shared-memory at link time.
-            "-DCMAKE_CXX_FLAGS=-pthread -fPIC -fno-exceptions -Wno-error=constant-conversion -Wno-error=shift-count-overflow -Wno-error=shorten-64-to-32 -Wno-error=sign-conversion",
+            "-DCMAKE_CXX_FLAGS=-pthread -fPIC -fwasm-exceptions -Wno-error=constant-conversion -Wno-error=shift-count-overflow -Wno-error=shorten-64-to-32 -Wno-error=sign-conversion",
             "-DCMAKE_C_FLAGS=-pthread -fPIC",
         ])
 
