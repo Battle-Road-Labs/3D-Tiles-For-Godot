@@ -478,5 +478,7 @@ env.Append(
 
 # This was a nightmare, so I abstracted it into a function, the function itself is also a nightmare
 # Note: os.name == 'posix' on both Linux and macOS, so we must check PLATFORM_MACOS first
-if (not is_web and os.name == cesium_build_utils.OS_LINUX and sys.platform != cesium_build_utils.PLATFORM_MACOS):
+if is_web:
+    cesium_build_utils.link_abseil_libs(env)
+elif (os.name == cesium_build_utils.OS_LINUX and sys.platform != cesium_build_utils.PLATFORM_MACOS):
     cesium_build_utils.link_abseil_libs(env)

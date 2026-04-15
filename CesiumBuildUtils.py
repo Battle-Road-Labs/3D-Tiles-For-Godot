@@ -121,7 +121,7 @@ def get_compile_target_definition(argsDict) -> str:
 
 def link_abseil_libs(env):
     foundLibs: list[SCons.Node.FS.File] = env.Glob(
-        f"{find_ezvcpkg_path()}/packages/abseil_{determine_triplet()}/lib/*absl*.a"
+        f"{find_ezvcpkg_path()}/packages/abseil_{determine_triplet(env)}/lib/*absl*.a"
     )
 
     # Dark magic to strip the lib prefix and the file extension
