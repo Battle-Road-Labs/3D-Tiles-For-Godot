@@ -559,11 +559,14 @@ def get_native_build_path(env=None):
 
 
 def patch_vcpkg_wasm_triplet_pthread():
-    """Patch the wasm32-emscripten vcpkg triplet to include -pthread and -fPIC flags.
+    """Patch the wasm32-emscripten vcpkg triplet for SIDE_MODULE builds.
 
-    Without -pthread, vcpkg packages (like async++) are compiled without atomics/bulk-memory,
-    causing link errors when combined with code that uses --shared-memory.
-    Without -fPIC, vcpkg packages cannot be linked into a SIDE_MODULE shared library."""
+    Adds flags via VCPKG_CMAKE_CONFIGURE_OPTIONS (following cesium-native PR #1267 approach):
+    - -pthread -fPIC: required for SIDE_MODULE shared library builds
+    - -fwasm-exceptions: native wasm exception handling (no JS invoke_* wrappers)
+    - -sSUPPORT_LONGJMP=wasm: native wasm longjmp (pairs with -fwasm-exceptions)
+
+    Also passes EMCC_CFLAGS through for make-based builds (openssl)."""
     try:
         vcpkg_base = find_ezvcpkg_path()
         triplet_path = os.path.join(vcpkg_base, "triplets", "community", "wasm32-emscripten.cmake")
@@ -571,19 +574,35 @@ def patch_vcpkg_wasm_triplet_pthread():
             return
         with open(triplet_path, "r") as f:
             content = f.read()
-        # Check if fully patched (both EMCC_CFLAGS passthrough and -fPIC)
-        if "EMCC_CFLAGS" in content and "-fPIC" in content:
+        # Check if already patched with our full configuration
+        if "VCPKG_CMAKE_CONFIGURE_OPTIONS" in content and "-fwasm-exceptions" in content:
             return  # Already fully patched
         # Strip any previous partial patches before re-applying
         content = content.replace('\nset(VCPKG_CXX_FLAGS "-pthread")\nset(VCPKG_C_FLAGS "-pthread")\n', '')
         content = content.replace('\nset(VCPKG_CXX_FLAGS "-pthread -fPIC")\nset(VCPKG_C_FLAGS "-pthread -fPIC")\n', '')
+        # Remove old VCPKG_CMAKE_CONFIGURE_OPTIONS if present
+        import re
+        content = re.sub(r'\nset\(VCPKG_CMAKE_CONFIGURE_OPTIONS[^)]*\)\n', '\n', content)
         # Add EMCC_CFLAGS to the passthrough list so vcpkg propagates it to emcc
+        # (needed for make-based builds like openssl that don't use cmake)
         if "EMCC_CFLAGS" not in content:
             content = content.replace(
                 "set(VCPKG_ENV_PASSTHROUGH_UNTRACKED EMSCRIPTEN_ROOT EMSDK PATH)",
                 "set(VCPKG_ENV_PASSTHROUGH_UNTRACKED EMSCRIPTEN_ROOT EMSDK PATH EMCC_CFLAGS)"
             )
-        patched = content + '\nset(VCPKG_CXX_FLAGS "-pthread -fPIC")\nset(VCPKG_C_FLAGS "-pthread -fPIC")\n'
+        # Following cesium-native PR #1267: pass flags through VCPKG_CMAKE_CONFIGURE_OPTIONS
+        # This sets CMAKE_C_FLAGS/CMAKE_CXX_FLAGS for all cmake-based vcpkg ports.
+        patch_block = '''
+# Cesium SIDE_MODULE flags (patched by CesiumBuildUtils.py)
+set(_cesiumFlags "-pthread -fPIC -fwasm-exceptions -sSUPPORT_LONGJMP=wasm")
+set(VCPKG_CXX_FLAGS "-pthread -fPIC")
+set(VCPKG_C_FLAGS "-pthread -fPIC")
+set(VCPKG_CMAKE_CONFIGURE_OPTIONS
+    -DCMAKE_C_FLAGS=${_cesiumFlags}
+    -DCMAKE_CXX_FLAGS=${_cesiumFlags}
+    -DCMAKE_EXE_LINKER_FLAGS=${_cesiumFlags})
+'''
+        patched = content + patch_block
         with open(triplet_path, "w") as f:
             f.write(patched)
         print("[CESIUM] Patched wasm32-emscripten triplet with -pthread -fPIC flags")
