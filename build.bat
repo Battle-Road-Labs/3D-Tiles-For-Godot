@@ -18,12 +18,11 @@ goto :done
 echo Building GDExtension for Web/WASM...
 rem Force emscripten-style longjmp to avoid conflict with godot-cpp's exception handling.
 rem -pthread enables atomics/bulk-memory needed for --shared-memory at link time.
-rem EMCC_CFLAGS provides base flags for ALL emcc invocations (vcpkg make-based builds
-rem like openssl, scons, etc). Keep it minimal — only -pthread and -fPIC here.
-rem Exception handling flags (-fwasm-exceptions -sSUPPORT_LONGJMP=wasm) are passed
-rem through the vcpkg triplet and cmake flags instead, to avoid breaking make-based
-rem builds like openssl that don't understand those flags.
-set EMCC_CFLAGS=-pthread -fPIC
+rem EMCC_CFLAGS is read by emcc/em++ for ALL compilations (vcpkg, cmake, scons).
+rem -fwasm-exceptions: native wasm exception handling (no JS invoke_* wrappers)
+rem -sSUPPORT_LONGJMP=wasm: native wasm longjmp (pairs with -fwasm-exceptions)
+rem -pthread -fPIC: required for threaded SIDE_MODULE builds
+set EMCC_CFLAGS=-fwasm-exceptions -sSUPPORT_LONGJMP=wasm -pthread -fPIC
 scons platform=web compileTarget=extension target=template_release precision=double production=yes
 goto :done
 
