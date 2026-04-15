@@ -211,13 +211,18 @@ def patch_godot_cpp_web_flags():
 
 
 def clone_lite_html_if_needed():
-    clone_repo_if_needed(
-        ROOT_DIR_EXT + "/third_party/litehtml-src",
-        "Lite HTML",
-        "https://github.com/litehtml/litehtml.git",
-        "v0.9",
-        "6ca1ab0419e770e6d35a1ef690238773a1dafcee",
-    )
+    """Clone litehtml at the exact commit matching the pre-built binaries."""
+    target_dir = scons_to_abs_path(ROOT_DIR_EXT + "/third_party/litehtml-src")
+    commit = "35ecd69d05e72b0148204a576db62c2148084193"
+    print("Cloning Lite HTML repo")
+    if os.path.exists(target_dir):
+        return
+    subprocess.run(["git", "clone", "--recursive",
+                     "https://github.com/litehtml/litehtml.git", target_dir])
+    prev_dir = os.getcwd()
+    os.chdir(target_dir)
+    subprocess.run(["git", "checkout", commit])
+    os.chdir(prev_dir)
 
 
 def build_litehtml(arch="arm64"):
