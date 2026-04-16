@@ -119,9 +119,12 @@ CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>> NetworkAssetAcc
 			method,
 			[url, p_promise = std::move(p_promise)](int32_t responseCode, const PackedByteArray &body) mutable {
 				// For file:// URLs, libcurl returns response code 0 on success (no HTTP layer).
-				// Treat code 0 with a non-empty body as a successful response.
+				// On web, HTTPClientWeb can also report code 0 while the body still arrives,
+				// due to a worker-thread / main-thread fetch-poll race where polled_response_code
+				// has not yet been populated by the time the C++ side reads it.
+				// In both cases: if we have a body, the HTTP exchange succeeded — treat as 200.
 				const bool isFileUrl = url.rfind("file://", 0) == 0;
-				if (isFileUrl && responseCode == 0 && body.size() > 0) {
+				if (responseCode == 0 && body.size() > 0) {
 					responseCode = HTTPClient::ResponseCode::RESPONSE_OK;
 				}
 
