@@ -98,8 +98,19 @@ EM_JS(void, cesium_web_fetch_js_start, (
 				var keyPtr = HEAPU32[idx];
 				if (keyPtr === 0) break;
 				var valPtr = HEAPU32[idx + 1];
+				var name = UTF8ToString(keyPtr);
+				// Strip x-cesium-* telemetry headers — third-party hosts (Bing,
+				// Mapbox, etc.) don't whitelist them in CORS preflight, which
+				// causes the preflight to fail and the real request to be blocked.
+				// Browsers auto-ignore User-Agent but dropping here avoids any
+				// preflight contribution.
+				var lower = name.toLowerCase();
+				if (lower.indexOf('x-cesium-') === 0 || lower === 'user-agent') {
+					idx += 2;
+					continue;
+				}
 				try {
-					headers.append(UTF8ToString(keyPtr), UTF8ToString(valPtr));
+					headers.append(name, UTF8ToString(valPtr));
 				} catch (e) { /* invalid header name — skip */ }
 				idx += 2;
 			}
