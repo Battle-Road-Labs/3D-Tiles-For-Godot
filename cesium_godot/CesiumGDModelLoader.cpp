@@ -49,7 +49,11 @@ Ref<ArrayMesh> CesiumGDModelLoader::generate_meshes_from_model(const CesiumGltf:
 
 	Ref<ArrayMesh> meshInstance = memnew(ArrayMesh);
 
-	Ref<Shader> texture_transform_shader = godot::ResourceLoader::get_singleton()->load("res://Shaders/spatial_texture_rotation.gdshader");
+	const String shader_path = "res://Shaders/spatial_texture_rotation.gdshader";
+	Ref<Shader> texture_transform_shader;
+	if (godot::ResourceLoader::get_singleton()->exists(shader_path)) {
+		texture_transform_shader = godot::ResourceLoader::get_singleton()->load(shader_path);
+	}
 	if (!texture_transform_shader.is_valid()) {
 		texture_transform_shader.instantiate();
 
