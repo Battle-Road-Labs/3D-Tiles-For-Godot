@@ -78,7 +78,7 @@ func init_buttons() -> void:
 	self.dynamic_camera_button = self.docked_scene.find_child("DynamicCameraButton") as Button
 	self.orbit_camera_button = self.docked_scene.find_child("OrbitCameraButton") as Button
 	self.token_panel_data.initialize_fields(self.token_panel)
-	
+
 	# Connect to their signals
 	self.upload_button.pressed.connect(on_upload_pressed)
 	self.learn_button.pressed.connect(on_learn_pressed)
@@ -89,7 +89,7 @@ func init_buttons() -> void:
 	self.dynamic_camera_button.pressed.connect(create_dynamic_camera)
 	self.orbit_camera_button.pressed.connect(create_orbit_camera)
 	self.token_button.pressed.connect(on_token_panel_pressed)
-	
+
 	self.docked_scene.find_child("VisitDepotButton").pressed.connect(on_visit_depot)
 
 func on_visit_depot() -> void:
@@ -158,6 +158,8 @@ func create_orbit_camera():
 func fetch_ion_asset_list():
 	const url := "https://api.cesium.com/v1/assets";
 	var token : String = CesiumGDConfig.get_singleton(self).accessToken;
+	if token.is_empty():
+		return null
 	var headers: PackedStringArray = ["Authorization: Bearer " + token]
 	var error: int = self.request_node.request(url, headers, HTTPClient.Method.METHOD_GET)
 	if (error != OK):
@@ -165,14 +167,20 @@ func fetch_ion_asset_list():
 		return null
 	var response = await self.request_node.request_completed
 	var status = response[1]
+	if status != 200:
+		push_error("Cesium Ion asset list request failed with status: " + str(status))
+		return null
 	var bodyBytes := response[3] as PackedByteArray
 	var body := JSON.parse_string(bodyBytes.get_string_from_utf8()) as Dictionary
+	if body == null or not body.has("items"):
+		push_error("Cesium Ion asset list response missing 'items' key")
+		return null
 	var by_type: Dictionary[String, Array] = {}
 	for item in body.items:
 		if item.type not in by_type:
 			by_type[item.type] = Array()
 		by_type[item.type].append(item)
-	
+
 	return by_type
 
 func make_button_container(type: String, entries: Array):
@@ -218,7 +226,7 @@ func add_ion_buttons() -> void:
 		return
 	for type in available_assets.keys():
 		make_button_container(type, available_assets[type])
-		
+
 func is_http_request_busy(http_request: HTTPRequest) -> bool:
 	return http_request.get_http_client_status() in [
 		HTTPClient.STATUS_CONNECTING,
