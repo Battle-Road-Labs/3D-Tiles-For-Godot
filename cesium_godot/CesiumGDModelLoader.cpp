@@ -448,6 +448,11 @@ Error CesiumGDModelLoader::copy_material_properties(const CesiumGltf::Material& 
 	godotMaterial->set_alpha_antialiasing(BaseMaterial3D::ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE);
 	godotMaterial->set_shading_mode(BaseMaterial3D::SHADING_MODE_PER_PIXEL);
 	godotMaterial->set_flag(BaseMaterial3D::FLAG_USE_TEXTURE_REPEAT, false);
+	// glTF albedo PNGs/JPEGs are sRGB-encoded, but our ImageTexture is created as
+	// FORMAT_RGBA8 with no color-space tag. Forward+ (Vulkan) often papers over this
+	// via sRGB format variants; Compatibility (GLES3/WebGL) does not — without this
+	// flag the texture samples as linear and web renders noticeably darker/desaturated.
+	godotMaterial->set_flag(BaseMaterial3D::FLAG_ALBEDO_TEXTURE_FORCE_SRGB, true);
 	return Error::OK;
 }
 
