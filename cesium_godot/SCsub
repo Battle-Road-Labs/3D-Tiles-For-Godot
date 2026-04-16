@@ -93,6 +93,7 @@ sources = [
     root + "/Utils/AssetManipulation.cpp",
     root + "/Utils/CesiumGDAssetBuilder.cpp",
     root + "/Utils/TokenTroubleShooting.cpp",
+    root + "/Utils/WebFetchClient.cpp",
 ]
 
 # cesium_auxiliars — in extension builds SConstruct.py globs these from the
