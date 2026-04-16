@@ -4,6 +4,7 @@
 
 #include <cstring>
 #include <emscripten.h>
+#include <emscripten/threading.h>
 
 namespace cesium_web_fetch_detail {
 
@@ -52,6 +53,11 @@ void cesium_web_fetch_complete(int32_t request_id, int32_t status, uint8_t* data
 // Launches a browser fetch(). The callback function pointer is the wasm table
 // index of cesium_web_fetch_complete; JS invokes it via wasmTable.get when the
 // fetch resolves.
+//
+// MUST run on the main browser thread. If called from an emscripten pthread
+// (Web Worker), the fetch() Promise's .then() never fires because the worker's
+// JS event loop stays blocked in Atomics.wait while the worker is idle. The
+// initiator (start_fetch) proxies to main thread before reaching this.
 EM_JS(void, cesium_web_fetch_js_start, (
 		int32_t request_id,
 		int32_t callback_fn_ptr,
@@ -87,7 +93,6 @@ EM_JS(void, cesium_web_fetch_js_start, (
 		var method = UTF8ToString(method_ptr);
 		var headers = new Headers();
 		if (headers_kv_ptr) {
-			// Unsigned shift to keep the index non-negative for memory > 2 GiB builds.
 			var idx = headers_kv_ptr >>> 2;
 			while (true) {
 				var keyPtr = HEAPU32[idx];
@@ -95,9 +100,7 @@ EM_JS(void, cesium_web_fetch_js_start, (
 				var valPtr = HEAPU32[idx + 1];
 				try {
 					headers.append(UTF8ToString(keyPtr), UTF8ToString(valPtr));
-				} catch (e) {
-					// Invalid header name per browser validation — skip.
-				}
+				} catch (e) { /* invalid header name — skip */ }
 				idx += 2;
 			}
 		}
@@ -127,6 +130,42 @@ EM_JS(void, cesium_web_fetch_js_start, (
 	}
 });
 
+// Owned context for proxying a fetch kickoff from a worker thread to main.
+// The original char* storage belonged to the caller's stack/std::string and can
+// vanish as soon as start_fetch returns, so we deep-copy into this struct.
+struct CesiumFetchDispatch {
+	int32_t request_id;
+	std::string method;
+	std::string url;
+	std::vector<std::pair<std::string, std::string>> headers;
+	std::vector<uint8_t> body;
+};
+
+// Runs on the main browser thread (either directly, or after the async proxy).
+// Rebuilds the flat header-pointer array, calls the EM_JS, and deletes itself.
+extern "C" EMSCRIPTEN_KEEPALIVE
+void cesium_web_fetch_invoke_on_main(CesiumFetchDispatch* dispatch) {
+	std::vector<const char*> kv;
+	kv.reserve(dispatch->headers.size() * 2 + 1);
+	for (const auto& h : dispatch->headers) {
+		kv.push_back(h.first.c_str());
+		kv.push_back(h.second.c_str());
+	}
+	kv.push_back(nullptr);
+
+	int32_t cb_ptr = static_cast<int32_t>(
+		reinterpret_cast<uintptr_t>(&cesium_web_fetch_complete));
+
+	cesium_web_fetch_js_start(
+		dispatch->request_id, cb_ptr,
+		dispatch->method.c_str(), dispatch->url.c_str(),
+		kv.data(),
+		dispatch->body.empty() ? nullptr : dispatch->body.data(),
+		static_cast<int32_t>(dispatch->body.size()));
+
+	delete dispatch;
+}
+
 namespace cesium_web_fetch_detail {
 
 void start_fetch(int32_t request_id,
@@ -135,10 +174,32 @@ void start_fetch(int32_t request_id,
 				 const char* const* headers_kv,
 				 const uint8_t* body,
 				 int32_t body_len) {
-	// On wasm32, function pointers are 32-bit table indices.
-	int32_t cb_ptr = static_cast<int32_t>(
-		reinterpret_cast<uintptr_t>(&cesium_web_fetch_complete));
-	cesium_web_fetch_js_start(request_id, cb_ptr, method, url, headers_kv, body, body_len);
+	auto* dispatch = new CesiumFetchDispatch();
+	dispatch->request_id = request_id;
+	dispatch->method = method;
+	dispatch->url = url;
+	if (headers_kv) {
+		for (size_t i = 0; headers_kv[i] != nullptr; i += 2) {
+			const char* k = headers_kv[i];
+			const char* v = headers_kv[i + 1] ? headers_kv[i + 1] : "";
+			dispatch->headers.emplace_back(std::string(k), std::string(v));
+		}
+	}
+	if (body != nullptr && body_len > 0) {
+		dispatch->body.assign(body, body + body_len);
+	}
+
+	if (emscripten_is_main_runtime_thread()) {
+		cesium_web_fetch_invoke_on_main(dispatch);
+	} else {
+		// Worker thread's JS event loop is blocked in Atomics.wait while the
+		// pthread idles, so a fetch() launched from here would register but its
+		// Promise .then would never fire. Main thread's event loop always runs.
+		emscripten_async_run_in_main_runtime_thread(
+			EM_FUNC_SIG_VI,
+			(void*)&cesium_web_fetch_invoke_on_main,
+			dispatch);
+	}
 }
 
 } // namespace cesium_web_fetch_detail
