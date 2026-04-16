@@ -26,11 +26,16 @@ NetworkAssetAccessor::NetworkAssetAccessor()
 {
 	constexpr size_t maxThreadsPerClient = 16;
 	this->m_httpClient.init_client(maxThreadsPerClient);
-	// Set all the default headers
+#ifndef __EMSCRIPTEN__
+	// x-cesium-* are telemetry headers api.cesium.com whitelists, but third-party
+	// tile hosts (Bing, Mapbox, etc.) don't — any custom x-* header forces a CORS
+	// preflight the third-party servers reject. Browsers enforce CORS; native
+	// builds don't, so skip only on web.
 	this->m_httpClient.add_default_header({"x-cesium-client", "3D Tiles For Godot"});
 	this->m_httpClient.add_default_header({"x-cesium-client-version", "1.0"});
 	String godotBuildInfo = Engine::get_singleton()->get_version_info().get("string", "");
 	this->m_httpClient.add_default_header({"x-cesium-client-engine", godotBuildInfo.utf8().get_data()});
+#endif
 }
 
 CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>> NetworkAssetAccessor::get(const CesiumAsync::AsyncSystem& asyncSystem, const std::string& url, const std::vector<THeader>& headers /*= {}*/)
