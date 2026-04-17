@@ -57,10 +57,18 @@ Ref<ArrayMesh> CesiumGDModelLoader::generate_meshes_from_model(const CesiumGltf:
 	if (!texture_transform_shader.is_valid()) {
 		texture_transform_shader.instantiate();
 
+		// Mirrors the legacy globe_tile_shd2 pattern: lit spatial pipeline with
+		// pre-amplified ALBEDO so the tile survives the web scene's aggressive
+		// tonemap_exposure (0.04). On Windows the default amplification of 1.0
+		// is used and the shader behaves like a plain lit texture.
+		// `albedo_texture : source_color` does the sRGB→linear on sample, so
+		// FORCE_SRGB on the StandardMaterial3D isn't needed on this path.
 		String code = R"(
 		shader_type spatial;
+		render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_lambert, specular_schlick_ggx;
 
 		uniform sampler2D albedo_texture : source_color;
+		uniform float albedo_amplification : hint_range(0.25, 50.0) = 1.0;
 		uniform vec2 uv_offset = vec2(0.0);
 		uniform vec2 uv_scale = vec2(1.0);
 		uniform float uv_rotation = 0.0;
@@ -68,7 +76,7 @@ Ref<ArrayMesh> CesiumGDModelLoader::generate_meshes_from_model(const CesiumGltf:
 		vec2 rotate_uv(vec2 uv, float angle) {
 			float s = sin(angle);
 			float c = cos(angle);
-			mat2 rot = mat2(c, -s, s, c);
+			mat2 rot = mat2(vec2(c, -s), vec2(s, c));
 			return rot * uv;
 		}
 
@@ -77,9 +85,11 @@ Ref<ArrayMesh> CesiumGDModelLoader::generate_meshes_from_model(const CesiumGltf:
 			uv *= uv_scale;
 			uv = rotate_uv(uv, uv_rotation);
 			uv += uv_offset;
-			vec4 albedo = texture(albedo_texture, uv);
-			ALBEDO = albedo.rgb;
-			ALPHA = albedo.a;
+			vec4 tex = texture(albedo_texture, uv);
+			ALBEDO = tex.rgb * albedo_amplification;
+			ALPHA = tex.a;
+			ROUGHNESS = 1.0;
+			METALLIC = 0.0;
 		}
 		)";
 
@@ -174,51 +184,64 @@ Ref<ArrayMesh> CesiumGDModelLoader::generate_meshes_from_model(const CesiumGltf:
 				godotMaterial->set_shading_mode(BaseMaterial3D::ShadingMode::SHADING_MODE_UNSHADED);
 			}
 
+			// Gather UV transform (identity if extension absent)
+			Vector3 offsetVector3 = Vector3(0, 0, 0);
+			Vector3 scaleVector3 = Vector3(1, 1, 1);
+			float rotation_value = 0.0f;
+			bool has_texture_transform = false;
 			if (modelReference->hasExtension<CesiumGltf::ExtensionKhrTextureTransform>()) {
 				const CesiumGltf::ExtensionKhrTextureTransform* texture_transform_ext = modelReference->getExtension<CesiumGltf::ExtensionKhrTextureTransform>();
 				if (texture_transform_ext) {
 					const std::vector<double>& offsetVec = texture_transform_ext->offset;
 					const std::vector<double>& scaleVec = texture_transform_ext->scale;
-					float rotation_value = texture_transform_ext->rotation;
-
-					Vector3 offsetVector3 = Vector3(0, 0, 0);
-					Vector3 scaleVector3 = Vector3(1, 1, 1);
-
+					rotation_value = texture_transform_ext->rotation;
 					if (offsetVec.size() == 2) {
 						offsetVector3 = Vector3(offsetVec[0], offsetVec[1], 0);
 					}
-
 					if (scaleVec.size() == 2) {
 						scaleVector3 = Vector3(scaleVec[0], scaleVec[1], 1);
 					}
-
-					if (texture_transform_shader.is_valid()) {
-						Ref<ShaderMaterial> shaderMat;
-						shaderMat.instantiate();
-						shaderMat->set_shader(texture_transform_shader);
-
-						Ref<Texture2D> albedo_texture_mat = godotMaterial->get_texture(BaseMaterial3D::TEXTURE_ALBEDO);
-						shaderMat->set_shader_parameter("albedo_texture", albedo_texture_mat);
-
-						shaderMat->set_shader_parameter("uv_offset", offsetVector3);
-						shaderMat->set_shader_parameter("uv_scale", scaleVector3);
-						shaderMat->set_shader_parameter("uv_rotation", rotation_value);
-						
-						finalMaterial = shaderMat;
-					}
-					else {
-
-						if (offsetVec.size() == 2) {
-							godotMaterial->set_uv1_offset(offsetVector3);
-						}
-
-
-						if (scaleVec.size() == 2) {
-							godotMaterial->set_uv1_scale(scaleVector3);
-						}
-					}
-					
+					has_texture_transform = true;
 				}
+			}
+
+			// Route through ShaderMaterial when:
+			//   - KHR_texture_transform is present (any platform), OR
+			//   - We're on web, to apply albedo_amplification that compensates for the
+			//     scene's aggressive web tonemap (globe_rig.gd sets tonemap_exposure=0.04).
+			// The shader mirrors globe_tile_shd2's lit + pre-amplified ALBEDO pattern.
+			bool force_shader_material = false;
+#ifdef __EMSCRIPTEN__
+			force_shader_material = true;
+#endif
+			if ((has_texture_transform || force_shader_material) && texture_transform_shader.is_valid()) {
+				Ref<ShaderMaterial> shaderMat;
+				shaderMat.instantiate();
+				shaderMat->set_shader(texture_transform_shader);
+
+				Ref<Texture2D> albedo_texture_mat = godotMaterial->get_texture(BaseMaterial3D::TEXTURE_ALBEDO);
+				shaderMat->set_shader_parameter("albedo_texture", albedo_texture_mat);
+
+				shaderMat->set_shader_parameter("uv_offset", offsetVector3);
+				shaderMat->set_shader_parameter("uv_scale", scaleVector3);
+				shaderMat->set_shader_parameter("uv_rotation", rotation_value);
+
+				// albedo_amplification: 1.0 elsewhere (shader matches StandardMaterial3D
+				// output), ~3.0 on web to match the legacy tile shader's doubled basecolor
+				// contribution and survive the aggressive tonemap.
+#ifdef __EMSCRIPTEN__
+				shaderMat->set_shader_parameter("albedo_amplification", 3.0f);
+#else
+				shaderMat->set_shader_parameter("albedo_amplification", 1.0f);
+#endif
+
+				finalMaterial = shaderMat;
+			}
+			else if (has_texture_transform) {
+				// Fallback: shader didn't load and we have a texture transform — fold
+				// offset/scale into the StandardMaterial3D's UV1 settings.
+				godotMaterial->set_uv1_offset(offsetVector3);
+				godotMaterial->set_uv1_scale(scaleVector3);
 			}
 
 			*error = apply_surface_to_mesh(primitive, meshInstance, arrays);
@@ -460,25 +483,8 @@ Error CesiumGDModelLoader::copy_material_properties(const CesiumGltf::Material& 
 	// flag the texture samples as linear and web renders noticeably darker/desaturated.
 	godotMaterial->set_flag(BaseMaterial3D::FLAG_ALBEDO_TEXTURE_FORCE_SRGB, true);
 
-#ifdef __EMSCRIPTEN__
-	// Web exposure compensation: globe_rig.gd drops tonemap_exposure from 0.5 to
-	// 0.04 on web (12.5x reduction) so that the legacy custom shader's pre-amplified
-	// ALBEDO lands at correct display brightness. StandardMaterial3D tiles don't
-	// pre-amplify, so they come out ~12x too dark. Route albedo through emission
-	// (OP_MULTIPLY, white tint) to add a scaled self-illumination that survives the
-	// aggressive tonemap — conceptually the same trick the legacy tile shader uses
-	// by summing the basecolor contribution twice into ALBEDO. emission_energy is
-	// the tuning knob; 12 approximates the exposure ratio.
-	Ref<Texture2D> albedoTex = godotMaterial->get_texture(BaseMaterial3D::TEXTURE_ALBEDO);
-	if (albedoTex.is_valid()) {
-		godotMaterial->set_feature(BaseMaterial3D::FEATURE_EMISSION, true);
-		godotMaterial->set_texture(BaseMaterial3D::TEXTURE_EMISSION, albedoTex);
-		godotMaterial->set_emission(Color(1.0f, 1.0f, 1.0f));
-		godotMaterial->set_emission_operator(BaseMaterial3D::EMISSION_OP_MULTIPLY);
-		godotMaterial->set_emission_energy_multiplier(12.0f);
-	}
-#endif
-
+	// Web exposure compensation is handled in the ShaderMaterial path — see the
+	// force_shader_material block where albedo_amplification is set to ~3.0 on web.
 	return Error::OK;
 }
 
