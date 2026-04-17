@@ -418,7 +418,11 @@ Ref<Shader> CesiumGDModelLoader::get_tile_shader()
 		// `albedo_texture : source_color` handles sRGB→linear on sample.
 		String code = R"(
 		shader_type spatial;
-		render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_lambert, specular_schlick_ggx;
+		// cull_disabled matches both the non-doubleSided (CULL_FRONT) and doubleSided
+		// (CULL_DISABLED) cases used by the StandardMaterial3D path. Cesium 3D Tiles
+		// winding is treated as inward-facing by the existing material code, so
+		// cull_back would hide the visible outside surfaces of the globe.
+		render_mode blend_mix, depth_draw_opaque, cull_disabled, diffuse_lambert, specular_schlick_ggx;
 
 		uniform sampler2D albedo_texture : source_color;
 		uniform float albedo_amplification : hint_range(0.25, 50.0) = 1.0;
