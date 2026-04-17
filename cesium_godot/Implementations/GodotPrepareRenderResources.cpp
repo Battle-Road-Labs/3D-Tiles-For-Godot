@@ -11,8 +11,12 @@
 
 #if defined(CESIUM_GD_EXT)
 #include <godot_cpp/classes/mesh_instance3d.hpp>
+#include <godot_cpp/classes/shader_material.hpp>
+#include <godot_cpp/classes/shader.hpp>
 #elif defined(CESIUM_GD_MODULE)
 #include "scene/3d/mesh_instance_3d.h"
+#include "scene/resources/shader.h"
+#include "scene/resources/material.h"
 using namespace godot;
 #endif
 
@@ -226,7 +230,25 @@ void GodotPrepareRenderResources::attachRasterInMainThread(const Tile& tile, int
 				continue;
 			}
 
-			arrayMesh->surface_set_material(primitiveIndex, godotMaterial);
+			Ref<Material> finalMaterial = godotMaterial;
+#ifdef __EMSCRIPTEN__
+			// Raster-overlay path replaces the ShaderMaterial from the initial mesh load,
+			// so we have to re-apply the web amplification here. Mirror the uv1 offset/scale
+			// the StandardMaterial3D uses (see above) as shader parameters.
+			Ref<Shader> tile_shader = CesiumGDModelLoader::get_tile_shader();
+			if (tile_shader.is_valid()) {
+				Ref<ShaderMaterial> shaderMat;
+				shaderMat.instantiate();
+				shaderMat->set_shader(tile_shader);
+				shaderMat->set_shader_parameter("albedo_texture", godotTexture);
+				shaderMat->set_shader_parameter("uv_scale", Vector3(scale.x, -scale.y, 1.0));
+				shaderMat->set_shader_parameter("uv_offset", Vector3(translation.x, 1.0 - translation.y, 0.0));
+				shaderMat->set_shader_parameter("uv_rotation", 0.0f);
+				shaderMat->set_shader_parameter("albedo_amplification", 3.0f);
+				finalMaterial = shaderMat;
+			}
+#endif
+			arrayMesh->surface_set_material(primitiveIndex, finalMaterial);
 
 			primitiveIndex++;
 		}

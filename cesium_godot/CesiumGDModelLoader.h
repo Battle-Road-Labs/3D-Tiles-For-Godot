@@ -7,6 +7,7 @@
 #include <godot_cpp/classes/mesh.hpp>
 #include <godot_cpp/classes/array_mesh.hpp>
 #include "godot_cpp/classes/standard_material3d.hpp"
+#include <godot_cpp/classes/shader.hpp>
 #include <godot_cpp/templates/vector.hpp>
 using namespace godot;
 
@@ -15,6 +16,7 @@ namespace godot {
 }
 #elif defined(CESIUM_GD_MODULE)
 #include <scene/resources/mesh.h>
+#include "scene/resources/shader.h"
 class MeshInstance3D;
 #endif
 
@@ -82,6 +84,11 @@ public:
 	static Error copy_material_properties(const CesiumGltf::Material& cesiumMaterial, Ref<StandardMaterial3D>& godotMaterial, const CesiumGltf::Model& modelReference);
 
 	static Error apply_surface_to_mesh(const CesiumGltf::MeshPrimitive& meshPrimitive, Ref<ArrayMesh>& meshInstance, const Array& arrays);
+
+	// Returns a cached Shader used for all Cesium tile surfaces. Lit pipeline
+	// with an `albedo_amplification` uniform so the same shader serves both the
+	// initial mesh load and the raster-overlay attach path.
+	static Ref<Shader> get_tile_shader();
 
 private:
 

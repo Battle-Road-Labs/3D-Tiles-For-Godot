@@ -49,52 +49,7 @@ Ref<ArrayMesh> CesiumGDModelLoader::generate_meshes_from_model(const CesiumGltf:
 
 	Ref<ArrayMesh> meshInstance = memnew(ArrayMesh);
 
-	const String shader_path = "res://Shaders/spatial_texture_rotation.gdshader";
-	Ref<Shader> texture_transform_shader;
-	if (godot::ResourceLoader::get_singleton()->exists(shader_path)) {
-		texture_transform_shader = godot::ResourceLoader::get_singleton()->load(shader_path);
-	}
-	if (!texture_transform_shader.is_valid()) {
-		texture_transform_shader.instantiate();
-
-		// Mirrors the legacy globe_tile_shd2 pattern: lit spatial pipeline with
-		// pre-amplified ALBEDO so the tile survives the web scene's aggressive
-		// tonemap_exposure (0.04). On Windows the default amplification of 1.0
-		// is used and the shader behaves like a plain lit texture.
-		// `albedo_texture : source_color` does the sRGB→linear on sample, so
-		// FORCE_SRGB on the StandardMaterial3D isn't needed on this path.
-		String code = R"(
-		shader_type spatial;
-		render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_lambert, specular_schlick_ggx;
-
-		uniform sampler2D albedo_texture : source_color;
-		uniform float albedo_amplification : hint_range(0.25, 50.0) = 1.0;
-		uniform vec2 uv_offset = vec2(0.0);
-		uniform vec2 uv_scale = vec2(1.0);
-		uniform float uv_rotation = 0.0;
-
-		vec2 rotate_uv(vec2 uv, float angle) {
-			float s = sin(angle);
-			float c = cos(angle);
-			mat2 rot = mat2(vec2(c, -s), vec2(s, c));
-			return rot * uv;
-		}
-
-		void fragment() {
-			vec2 uv = UV;
-			uv *= uv_scale;
-			uv = rotate_uv(uv, uv_rotation);
-			uv += uv_offset;
-			vec4 tex = texture(albedo_texture, uv);
-			ALBEDO = tex.rgb * albedo_amplification;
-			ALPHA = tex.a;
-			ROUGHNESS = 1.0;
-			METALLIC = 0.0;
-		}
-		)";
-
-		texture_transform_shader->set_code(code);
-	}
+	Ref<Shader> texture_transform_shader = get_tile_shader();
 
 	*error = Error::OK;
 	for (const CesiumGltf::Mesh& mesh : gltfMeshes) {
@@ -446,6 +401,54 @@ Error CesiumGDModelLoader::apply_surface_to_mesh(const CesiumGltf::MeshPrimitive
 	Mesh::PrimitiveType primitiveType = cesium_to_godot_primitive_mode(meshPrimitive.mode);
 	meshInstance->add_surface_from_arrays(primitiveType, arrays);
 	return Error::OK;
+}
+
+Ref<Shader> CesiumGDModelLoader::get_tile_shader()
+{
+	// Magic static (C++11): guaranteed to run its initializer exactly once even
+	// under concurrent calls. Worker threads create meshes; the main thread
+	// attaches raster overlays — both reach here.
+	static Ref<Shader> cached = []() -> Ref<Shader> {
+		Ref<Shader> s;
+		s.instantiate();
+		// Mirrors the legacy globe_tile_shd2 pattern: lit spatial pipeline with
+		// pre-amplified ALBEDO so a Cesium tile survives the web scene's aggressive
+		// tonemap_exposure (0.04). On non-web the amplification uniform defaults to
+		// 1.0 and the shader behaves like a plain lit texture.
+		// `albedo_texture : source_color` handles sRGB→linear on sample.
+		String code = R"(
+		shader_type spatial;
+		render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_lambert, specular_schlick_ggx;
+
+		uniform sampler2D albedo_texture : source_color;
+		uniform float albedo_amplification : hint_range(0.25, 50.0) = 1.0;
+		uniform vec2 uv_offset = vec2(0.0);
+		uniform vec2 uv_scale = vec2(1.0);
+		uniform float uv_rotation = 0.0;
+
+		vec2 rotate_uv(vec2 uv, float angle) {
+			float s = sin(angle);
+			float c = cos(angle);
+			mat2 rot = mat2(vec2(c, -s), vec2(s, c));
+			return rot * uv;
+		}
+
+		void fragment() {
+			vec2 uv = UV;
+			uv *= uv_scale;
+			uv = rotate_uv(uv, uv_rotation);
+			uv += uv_offset;
+			vec4 tex = texture(albedo_texture, uv);
+			ALBEDO = tex.rgb * albedo_amplification;
+			ALPHA = tex.a;
+			ROUGHNESS = 1.0;
+			METALLIC = 0.0;
+		}
+		)";
+		s->set_code(code);
+		return s;
+	}();
+	return cached;
 }
 
 Error CesiumGDModelLoader::copy_material_properties(const CesiumGltf::Material& cesiumMaterial, Ref<StandardMaterial3D>& godotMaterial, const CesiumGltf::Model& modelReference)
