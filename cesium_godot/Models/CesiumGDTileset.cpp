@@ -81,6 +81,13 @@ constexpr const char* URL_P_NAME = "url";
 
 constexpr const char* MAXIMUM_SCREEN_SPACE_DESC = "The maximum number of pixels of error when rendering this tileset.\nThis is used to select an appropriate level-of-detail.\n\nWhen a tileset uses the older layer.json / quantized-mesh format rather than 3D Tiles, this value is effectively divided by 8.0.\nSo the default value of 16.0 corresponds to the standard value for quantized-mesh terrain of 2.0";
 constexpr const char* MAXIMUM_SIMULTANEOUS_TILE_LOADS_DESC = "The maximum number of tiles that may simultaneously be in the process of loading.";
+
+// Sanity bounds for maximum_cached_bytes. Below the floor the cache thrashes
+// (tiles unload faster than they render). Above the ceiling we risk exhausting
+// the process heap — even desktop builds with growable memory cap at ~2 GiB
+// for typical 32-bit-addressable buffers and 4 GiB for wasm32.
+constexpr int64_t MAX_CACHED_BYTES_FLOOR = 4LL * 1024 * 1024;           // 4 MiB
+constexpr int64_t MAX_CACHED_BYTES_CEILING = 4LL * 1024 * 1024 * 1024;  // 4 GiB
 constexpr const char* PRELOAD_ANCESTORS_DESC = "Indicates whether the ancestors of rendered tiles should be preloaded.\nSetting this to true optimizes the zoom-out experience and provides more detail in newly-exposed areas when panning.\nThe down side is that it requires loading more tiles";
 constexpr const char* PRELOAD_SIBLINGS_DESC = "Indicates whether the siblings of rendered tiles should bepreloaded.\nSetting this to true causes tiles with the same parent as arendered tile to be loaded, even if they are culled.\nSetting this to truemay provide a better panning experience at the cost of loading more tiles.";
 constexpr const char* LOADING_DESCENDANT_LIMIT_DESC = "The number of loading descendant tiles that is considered \"too many\".\nIf a tile has too many loading descendants, that tile will be loaded and rendered before any of its descendants are loaded and rendered. \nThis means more feedback for the user that something is happening at the cost of a longer overall load time.\nSetting this to 0 will cause each tile level to be loaded successively, significantly increasing load time.\nSetting it to a large number (e.g. 1000) will minimize the number of tiles that are loaded but tend to make detail appear all at once after a long wait.";
@@ -204,6 +211,15 @@ Cesium3DTileset::Cesium3DTileset()
 	this->m_tilesetConfig->options.mainThreadLoadingTimeLimit = LOADING_LIMIT_SECONDS;
 	this->m_tilesetConfig->options.tileCacheUnloadTimeLimit = LOADING_LIMIT_SECONDS;
 	this->m_tilesetConfig->contentOptions.applyTextureTransform = false;
+#ifdef __EMSCRIPTEN__
+	// Web WASM heaps are tight compared to desktop. Cesium's 512 MB default tile
+	// cache plus Godot's own allocations (sky panorama, meshes, shader buffers)
+	// easily exhausts the heap. When alloc_static returns null, Godot's error
+	// handler (ScriptServer::capture_script_backtraces) itself allocates, failing
+	// again — producing infinite recursion and a Maximum-call-stack-exceeded abort.
+	// Cap at 256 MB on web; tune down if memory pressure persists.
+	this->m_tilesetConfig->options.maximumCachedBytes = 256LL * 1024 * 1024;
+#endif
 	CesiumGltf::SupportedGpuCompressedPixelFormats supportedFormats;
 
 	supportedFormats.ETC1_RGB = true;
@@ -248,6 +264,24 @@ void Cesium3DTileset::set_maximum_simultaneous_tile_loads(uint32_t count)
 uint32_t Cesium3DTileset::get_maximum_simultaneous_tile_loads() const
 {
 	return this->m_tilesetConfig->options.maximumSimultaneousTileLoads;
+}
+
+void Cesium3DTileset::set_maximum_cached_bytes(int64_t bytes)
+{
+	ERR_FAIL_COND_MSG(bytes < MAX_CACHED_BYTES_FLOOR,
+		String("Cesium3DTileset: maximum_cached_bytes=") + itos(bytes) +
+		" is below the " + itos(MAX_CACHED_BYTES_FLOOR) +
+		"-byte floor; ignored. A value this small thrashes the tile cache.");
+	ERR_FAIL_COND_MSG(bytes > MAX_CACHED_BYTES_CEILING,
+		String("Cesium3DTileset: maximum_cached_bytes=") + itos(bytes) +
+		" is above the " + itos(MAX_CACHED_BYTES_CEILING) +
+		"-byte ceiling; ignored. This would exhaust process memory.");
+	this->m_tilesetConfig->options.maximumCachedBytes = bytes;
+}
+
+int64_t Cesium3DTileset::get_maximum_cached_bytes() const
+{
+	return this->m_tilesetConfig->options.maximumCachedBytes;
 }
 
 void Cesium3DTileset::set_preload_ancestors(bool preload)
@@ -651,6 +685,11 @@ void Cesium3DTileset::_bind_methods()
 	ClassDB::bind_method(D_METHOD("set_maximum_simultaneous_tile_loads", "count"), &Cesium3DTileset::set_maximum_simultaneous_tile_loads);
 	ClassDB::bind_method(D_METHOD("get_maximum_simultaneous_tile_loads"), &Cesium3DTileset::get_maximum_simultaneous_tile_loads);
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "maximum_simultaneous_tile_loads", PROPERTY_HINT_NONE, MAXIMUM_SIMULTANEOUS_TILE_LOADS_DESC), "set_maximum_simultaneous_tile_loads", "get_maximum_simultaneous_tile_loads");
+
+	// Intentionally not exposed as a property — tile cache size is a runtime-tuning
+	// knob rather than scene-serializable configuration. Use the methods directly.
+	ClassDB::bind_method(D_METHOD("set_maximum_cached_bytes", "bytes"), &Cesium3DTileset::set_maximum_cached_bytes);
+	ClassDB::bind_method(D_METHOD("get_maximum_cached_bytes"), &Cesium3DTileset::get_maximum_cached_bytes);
 
 	ClassDB::bind_method(D_METHOD("set_preload_ancestors", "preload"), &Cesium3DTileset::set_preload_ancestors);
 	ClassDB::bind_method(D_METHOD("get_preload_ancestors"), &Cesium3DTileset::get_preload_ancestors);

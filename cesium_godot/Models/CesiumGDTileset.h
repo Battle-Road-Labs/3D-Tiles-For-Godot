@@ -58,6 +58,10 @@ public:
 
 	uint32_t get_maximum_simultaneous_tile_loads() const;
 
+	void set_maximum_cached_bytes(int64_t bytes);
+
+	int64_t get_maximum_cached_bytes() const;
+
 	void set_preload_ancestors(bool preload);
 
 	bool get_preload_ancestors() const;
