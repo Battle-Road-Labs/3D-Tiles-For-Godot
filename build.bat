@@ -8,6 +8,8 @@ if "%EZVCPKG_BASEDIR%"=="" set EZVCPKG_BASEDIR=C:\.ezvcpkg
 set TARGET=%1
 if "%TARGET%"=="" set TARGET=extension
 
+if "%EZVCPKG_BASEDIR%"=="" set EZVCPKG_BASEDIR=C:\.ezvcpkg
+
 if "%TARGET%"=="extension" goto :build_extension
 if "%TARGET%"=="web" goto :build_web
 if "%TARGET%"=="module" goto :build_module
