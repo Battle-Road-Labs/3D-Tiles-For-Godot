@@ -446,6 +446,12 @@ Error CesiumGDModelLoader::copy_material_properties(const CesiumGltf::Material& 
 	godotMaterial->set_cull_mode(cullMode);
 	godotMaterial->set_name(cesiumMaterial.name.c_str());
 	godotMaterial->set_alpha_antialiasing(BaseMaterial3D::ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE);
+	// Option A (force unshaded): Cesium imagery/photogrammetry has lighting baked in
+	// from the satellite source, so re-lighting causes double-lighting and renderer-
+	// dependent darkness. Match Cesium for Unity/Unreal by rendering tiles unshaded.
+	// Kept commented pending a decision — currently pursuing Option B (keep lighting,
+	// fix environment).
+	// godotMaterial->set_shading_mode(BaseMaterial3D::SHADING_MODE_UNSHADED);
 	godotMaterial->set_shading_mode(BaseMaterial3D::SHADING_MODE_PER_PIXEL);
 	godotMaterial->set_flag(BaseMaterial3D::FLAG_USE_TEXTURE_REPEAT, false);
 	// glTF albedo PNGs/JPEGs are sRGB-encoded, but our ImageTexture is created as
@@ -453,6 +459,26 @@ Error CesiumGDModelLoader::copy_material_properties(const CesiumGltf::Material& 
 	// via sRGB format variants; Compatibility (GLES3/WebGL) does not — without this
 	// flag the texture samples as linear and web renders noticeably darker/desaturated.
 	godotMaterial->set_flag(BaseMaterial3D::FLAG_ALBEDO_TEXTURE_FORCE_SRGB, true);
+
+#ifdef __EMSCRIPTEN__
+	// Web exposure compensation: globe_rig.gd drops tonemap_exposure from 0.5 to
+	// 0.04 on web (12.5x reduction) so that the legacy custom shader's pre-amplified
+	// ALBEDO lands at correct display brightness. StandardMaterial3D tiles don't
+	// pre-amplify, so they come out ~12x too dark. Route albedo through emission
+	// (OP_MULTIPLY, white tint) to add a scaled self-illumination that survives the
+	// aggressive tonemap — conceptually the same trick the legacy tile shader uses
+	// by summing the basecolor contribution twice into ALBEDO. emission_energy is
+	// the tuning knob; 12 approximates the exposure ratio.
+	Ref<Texture2D> albedoTex = godotMaterial->get_texture(BaseMaterial3D::TEXTURE_ALBEDO);
+	if (albedoTex.is_valid()) {
+		godotMaterial->set_feature(BaseMaterial3D::FEATURE_EMISSION, true);
+		godotMaterial->set_texture(BaseMaterial3D::TEXTURE_EMISSION, albedoTex);
+		godotMaterial->set_emission(Color(1.0f, 1.0f, 1.0f));
+		godotMaterial->set_emission_operator(BaseMaterial3D::EMISSION_OP_MULTIPLY);
+		godotMaterial->set_emission_energy_multiplier(12.0f);
+	}
+#endif
+
 	return Error::OK;
 }
 
