@@ -172,6 +172,7 @@ def clone_native_repo_if_needed():
         "9f6ae299e2709f866db52c4be29b6c31e10718c8",
     )
     patch_cesium_gltf_model_glm_include()
+    patch_ktx_overlay_port()
 
 
 def patch_cesium_gltf_model_glm_include():
@@ -200,6 +201,75 @@ def patch_cesium_gltf_model_glm_include():
         with open(model_cpp, "w") as f:
             f.write(patched)
         print("[CESIUM] Patched CesiumGltf/src/Model.cpp with glm/gtc/quaternion.hpp")
+
+
+# Sentinel marker injected into the overlay portfile.cmake so we can detect
+# whether we've already rewritten it.
+KTX_OVERLAY_SENTINEL = "# Godot3DTiles overlay: disable JS bindings"
+
+# CMake snippet appended to portfile.cmake after vcpkg_from_github(). Uses
+# vcpkg_replace_string for a literal string replacement — robust to line-number
+# drift from earlier patches (unlike a unified diff).
+KTX_DISABLE_JS_BINDINGS_SNIPPET = """
+# Godot3DTiles overlay: disable JS bindings (ktx_js, ktx_js_read, msc_basis_transcoder_js).
+# interface/js_binding/transcoder_wrapper.cpp uses val(ptr, allow_raw_pointers()) —
+# a 2-arg emscripten::val constructor removed in newer emscripten. Cesium-native
+# only links libktx.a / libktx_read.a, so the JS targets are unused.
+vcpkg_replace_string(
+    "${SOURCE_PATH}/CMakeLists.txt"
+    [[get_source_file_property(zstd_options external/basisu/zstd/zstd.c COMPILE_OPTIONS)
+
+if(EMSCRIPTEN)]]
+    [[get_source_file_property(zstd_options external/basisu/zstd/zstd.c COMPILE_OPTIONS)
+
+if(FALSE)  # Godot3DTiles: JS bindings disabled]]
+    IGNORE_UNCHANGED
+)
+"""
+
+
+def patch_ktx_overlay_port():
+    """Create an overlay vcpkg port for ktx that disables the JS binding targets.
+
+    KTX v4.4.2's interface/js_binding/transcoder_wrapper.cpp fails to compile on
+    newer emscripten (the 2-arg val() constructor it relies on was removed). The
+    cesium-native wasm32 build pulls ktx in via vcpkg, so we patch the port, not
+    the source tree directly. cesium-native ships an empty overlay-ports dir at
+    extern/vcpkg/ports/ which is gitignored inside our clone — so we rebuild it
+    here on every build.
+
+    Idempotent: bails out if the portfile already contains our sentinel."""
+    native_dir = scons_to_abs_path(CESIUM_NATIVE_DIR_EXT)
+    overlay_ktx_dir = os.path.join(native_dir, "extern", "vcpkg", "ports", "ktx")
+    portfile = os.path.join(overlay_ktx_dir, "portfile.cmake")
+    if os.path.exists(portfile):
+        with open(portfile, "r") as f:
+            if KTX_OVERLAY_SENTINEL in f.read():
+                return
+
+    ezvcpkg_path = find_ezvcpkg_path()
+    if not ezvcpkg_path:
+        return
+    upstream_ktx_dir = os.path.join(ezvcpkg_path, "ports", "ktx")
+    if not os.path.isdir(upstream_ktx_dir):
+        print(f"[CESIUM] Upstream ktx port not found at {upstream_ktx_dir}, skipping overlay")
+        return
+
+    os.makedirs(overlay_ktx_dir, exist_ok=True)
+
+    for name in os.listdir(upstream_ktx_dir):
+        src = os.path.join(upstream_ktx_dir, name)
+        dst = os.path.join(overlay_ktx_dir, name)
+        if os.path.isfile(src):
+            shutil.copy2(src, dst)
+
+    with open(portfile, "r") as f:
+        content = f.read()
+    if KTX_OVERLAY_SENTINEL not in content:
+        with open(portfile, "a", newline="\n") as f:
+            f.write(KTX_DISABLE_JS_BINDINGS_SNIPPET)
+
+    print(f"[CESIUM] Installed ktx overlay port at {overlay_ktx_dir} (disables JS bindings)")
 
 
 def clone_bindings_repo_if_needed():
