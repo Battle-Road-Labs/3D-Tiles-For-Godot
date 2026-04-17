@@ -38,12 +38,29 @@ case "$TARGET" in
         rm -rf cesium_godot/native/build-linux
         echo "Done."
         ;;
+    clean-deep)
+        echo "Cleaning cesium-native build trees..."
+        rm -rf cesium_godot/native/build-windows
+        rm -rf cesium_godot/native/build-web
+        rm -rf cesium_godot/native/build-linux
+        echo "Cleaning stale wasm32-emscripten vcpkg state..."
+        if [ -n "${EZVCPKG_BASEDIR:-}" ] && [ -d "$EZVCPKG_BASEDIR" ]; then
+            for d in "$EZVCPKG_BASEDIR"/*/; do
+                [ -d "$d" ] || continue
+                rm -rf "$d/installed/wasm32-emscripten"
+                rm -f "$d/installed/vcpkg/info/"*_wasm32-emscripten.list 2>/dev/null
+                rm -rf "$d/buildtrees/ktx"
+            done
+        fi
+        echo "Done."
+        ;;
     *)
-        echo "Usage: ./build.sh [extension|web|module|clean]"
+        echo "Usage: ./build.sh [extension|web|module|clean|clean-deep]"
         echo "  extension  - Build GDExtension for current platform (default)"
         echo "  web        - Build GDExtension for Web/WASM (requires EMSDK)"
         echo "  module     - Prepare dependencies for Godot engine module build"
         echo "  clean      - Remove cesium-native build-* directories"
+        echo "  clean-deep - clean + nuke stale wasm32-emscripten vcpkg state (recovery)"
         exit 1
         ;;
 esac

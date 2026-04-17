@@ -12,6 +12,7 @@ if "%TARGET%"=="extension" goto :build_extension
 if "%TARGET%"=="web" goto :build_web
 if "%TARGET%"=="module" goto :build_module
 if "%TARGET%"=="clean" goto :clean
+if "%TARGET%"=="clean-deep" goto :clean_deep
 goto :usage
 
 :build_extension
@@ -46,12 +47,28 @@ if exist cesium_godot\native\build-web rmdir /s /q cesium_godot\native\build-web
 echo Done.
 goto :done
 
+:clean_deep
+echo Cleaning cesium-native build trees...
+if exist cesium_godot\native\build-windows rmdir /s /q cesium_godot\native\build-windows
+if exist cesium_godot\native\build-web rmdir /s /q cesium_godot\native\build-web
+echo Cleaning stale wasm32-emscripten vcpkg state...
+if exist "%EZVCPKG_BASEDIR%" (
+    for /d %%d in ("%EZVCPKG_BASEDIR%\*") do (
+        if exist "%%d\installed\wasm32-emscripten" rmdir /s /q "%%d\installed\wasm32-emscripten"
+        if exist "%%d\installed\vcpkg\info" del /q "%%d\installed\vcpkg\info\*_wasm32-emscripten.list" 2>nul
+        if exist "%%d\buildtrees\ktx" rmdir /s /q "%%d\buildtrees\ktx"
+    )
+)
+echo Done.
+goto :done
+
 :usage
-echo Usage: build.bat [extension/web/module/clean]
+echo Usage: build.bat [extension/web/module/clean/clean-deep]
 echo   extension  - Build GDExtension for Windows x64 (default)
 echo   web        - Build GDExtension for Web/WASM
 echo   module     - Prepare dependencies for Godot engine module build
 echo   clean      - Remove cesium-native build-windows and build-web directories
+echo   clean-deep - clean + nuke stale wasm32-emscripten vcpkg state (recovery)
 
 :done
 pause
