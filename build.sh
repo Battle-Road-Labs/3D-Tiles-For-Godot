@@ -7,6 +7,7 @@ case "$TARGET" in
     extension)
         echo "Building GDExtension for $(uname -s) x64..."
         scons arch=x86_64 compileTarget=extension target=template_release precision=double production=yes compiledb=yes
+		scons arch=x86_64 compileTarget=extension target=template_debug precision=double compiledb=yes
         ;;
     web)
         echo "Building GDExtension for Web (WASM)..."
@@ -17,11 +18,14 @@ case "$TARGET" in
             exit 1
         fi
         # Force emscripten-style longjmp to avoid conflict with godot-cpp's exception handling.
-        # -pthread enables atomics/bulk-memory needed for --shared-memory at link time.
-        # EMCC_CFLAGS is read by emcc/em++ directly — the only reliable way to ensure
-        # ALL compilations (vcpkg, cesium-native, extension) get these flags.
-        export EMCC_CFLAGS="-sSUPPORT_LONGJMP=emscripten -pthread"
-        scons platform=web compileTarget=extension target=template_release precision=double production=yes
+		# -pthread enables atomics/bulk-memory needed for --shared-memory at link time.
+		# EMCC_CFLAGS is read by emcc/em++ for ALL compilations (vcpkg, cmake, scons).
+		# -fwasm-exceptions: native wasm exception handling (no JS invoke_* wrappers)
+		# -sSUPPORT_LONGJMP=wasm: native wasm longjmp (pairs with -fwasm-exceptions)
+		# -pthread -fPIC: required for threaded SIDE_MODULE builds
+        export EMCC_CFLAGS="-fwasm-exceptions -sSUPPORT_LONGJMP=wasm -pthread -fPIC"
+		scons platform=web compileTarget=extension target=template_release precision=double production=yes disable_exceptions=no
+		scons platform=web compileTarget=extension target=template_debug precision=double disable_exceptions=no
         ;;
     module)
         echo "Preparing module dependencies..."

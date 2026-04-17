@@ -11,7 +11,8 @@ goto :usage
 
 :build_extension
 echo Building GDExtension for Windows x64...
-scons arch=x64 compileTarget=extension target=template_release precision=double compiledb=yes
+scons arch=x64 compileTarget=extension target=template_release precision=double production=yes compiledb=yes
+scons arch=x64 compileTarget=extension target=template_debug precision=double compiledb=yes
 goto :done
 
 :build_web
@@ -24,7 +25,9 @@ rem -sSUPPORT_LONGJMP=wasm: native wasm longjmp (pairs with -fwasm-exceptions)
 rem -pthread -fPIC: required for threaded SIDE_MODULE builds
 set EMCC_CFLAGS=-fwasm-exceptions -sSUPPORT_LONGJMP=wasm -pthread -fPIC
 scons platform=web compileTarget=extension target=template_release precision=double production=yes disable_exceptions=no
+scons platform=web compileTarget=extension target=template_debug precision=double disable_exceptions=no
 goto :done
+
 
 :build_module
 echo Preparing module dependencies...
