@@ -171,6 +171,35 @@ def clone_native_repo_if_needed():
         "v0.52.1",
         "9f6ae299e2709f866db52c4be29b6c31e10718c8",
     )
+    patch_cesium_gltf_model_glm_include()
+
+
+def patch_cesium_gltf_model_glm_include():
+    """Add <glm/gtc/quaternion.hpp> to CesiumGltf/src/Model.cpp.
+
+    Newer GLM (from recent vcpkg pins) requires mat4_cast to be visible at the
+    translation unit level — ADL from glm/detail/type_quat.inl isn't enough.
+    Cesium-native v0.52.1 doesn't include this header, causing
+    'mat4_cast: identifier not found' when Model.cpp instantiates the
+    quaternion → mat4 conversion operator. Idempotent."""
+    model_cpp = os.path.join(
+        scons_to_abs_path(CESIUM_NATIVE_DIR_EXT),
+        "CesiumGltf", "src", "Model.cpp"
+    )
+    if not os.path.exists(model_cpp):
+        return
+    with open(model_cpp, "r") as f:
+        content = f.read()
+    if "<glm/gtc/quaternion.hpp>" in content:
+        return  # already patched
+    patched = content.replace(
+        "#include <glm/geometric.hpp>",
+        "#include <glm/geometric.hpp>\n#include <glm/gtc/quaternion.hpp>"
+    )
+    if patched != content:
+        with open(model_cpp, "w") as f:
+            f.write(patched)
+        print("[CESIUM] Patched CesiumGltf/src/Model.cpp with glm/gtc/quaternion.hpp")
 
 
 def clone_bindings_repo_if_needed():
