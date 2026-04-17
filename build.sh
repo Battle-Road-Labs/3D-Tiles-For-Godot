@@ -31,11 +31,19 @@ case "$TARGET" in
         echo "Preparing module dependencies..."
         scons compileTarget=module buildCesium=yes
         ;;
+    clean)
+        echo "Cleaning cesium-native build trees..."
+        rm -rf cesium_godot/native/build-windows
+        rm -rf cesium_godot/native/build-web
+        rm -rf cesium_godot/native/build-linux
+        echo "Done."
+        ;;
     *)
-        echo "Usage: ./build.sh [extension|web|module]"
+        echo "Usage: ./build.sh [extension|web|module|clean]"
         echo "  extension  - Build GDExtension for current platform (default)"
         echo "  web        - Build GDExtension for Web/WASM (requires EMSDK)"
         echo "  module     - Prepare dependencies for Godot engine module build"
+        echo "  clean      - Remove cesium-native build-* directories"
         exit 1
         ;;
 esac

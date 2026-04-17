@@ -1,12 +1,17 @@
 @echo off
 setlocal
 
+rem Default ezvcpkg location if not already set. The quoted form catches both
+rem unset and empty-string cases; `if not defined` misses the empty case.
+if "%EZVCPKG_BASEDIR%"=="" set EZVCPKG_BASEDIR=C:\.ezvcpkg
+
 set TARGET=%1
 if "%TARGET%"=="" set TARGET=extension
 
 if "%TARGET%"=="extension" goto :build_extension
 if "%TARGET%"=="web" goto :build_web
 if "%TARGET%"=="module" goto :build_module
+if "%TARGET%"=="clean" goto :clean
 goto :usage
 
 :build_extension
@@ -34,11 +39,19 @@ echo Preparing module dependencies...
 scons compileTarget=module buildCesium=yes
 goto :done
 
+:clean
+echo Cleaning cesium-native build trees...
+if exist cesium_godot\native\build-windows rmdir /s /q cesium_godot\native\build-windows
+if exist cesium_godot\native\build-web rmdir /s /q cesium_godot\native\build-web
+echo Done.
+goto :done
+
 :usage
-echo Usage: build.bat [extension/web/module]
+echo Usage: build.bat [extension/web/module/clean]
 echo   extension  - Build GDExtension for Windows x64 (default)
 echo   web        - Build GDExtension for Web/WASM
 echo   module     - Prepare dependencies for Godot engine module build
+echo   clean      - Remove cesium-native build-windows and build-web directories
 
 :done
 pause
