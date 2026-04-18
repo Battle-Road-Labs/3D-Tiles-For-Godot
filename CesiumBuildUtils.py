@@ -502,11 +502,23 @@ def configure_native(argumentsDict):
 
 
 def _hide_conflicting_vcpkg_triplets(target_triplet):
-    """Temporarily rename vcpkg triplet directories that conflict with the target.
+    """Temporarily rename find_package-visible content in conflicting vcpkg triplets.
 
-    cmake's find_package discovers packages from the wrong triplet directory
-    (e.g. x64-windows instead of x64-windows-static) despite VCPKG_TARGET_TRIPLET
-    being set correctly. Work around this by temporarily hiding the conflicting dirs."""
+    cmake's find_package otherwise picks up the wrong triplet (e.g. x64-windows
+    instead of x64-windows-static) despite VCPKG_TARGET_TRIPLET being set.
+    Hide lib/, include/, debug/, and share/<pkg>/ subdirs — but keep
+    share/vcpkg-cmake*/ and tools/ visible so vcpkg-cmake's host helpers remain
+    available when a port has a cache miss and needs to build from source."""
+    # Keep these share/ subdirs visible — vcpkg's port builds include() them.
+    preserve_share = {
+        "vcpkg-cmake",
+        "vcpkg-cmake-config",
+        "vcpkg-cmake-get-vars",
+        "vcpkg-get-python-packages",
+        "vcpkg-tool-meson",
+        "vcpkg-tool-ninja",
+        "vcpkg-pkgconfig-get-modules",
+    }
     hidden = []
     try:
         vcpkg_base = find_ezvcpkg_path()
@@ -517,19 +529,36 @@ def _hide_conflicting_vcpkg_triplets(target_triplet):
             entry_path = os.path.join(installed_dir, entry)
             if not os.path.isdir(entry_path):
                 continue
-            # Skip the target triplet, debug dirs, and vcpkg metadata
             if entry == target_triplet or entry == "vcpkg" or entry.endswith(".bak"):
                 continue
-            # Only hide triplets that could conflict (same arch prefix)
-            # e.g. x64-windows conflicts with x64-windows-static
-            if target_triplet.startswith(entry.split("-")[0] + "-"):
-                bak_path = entry_path + ".bak"
-                try:
-                    os.rename(entry_path, bak_path)
-                    hidden.append((bak_path, entry_path))
-                    print(f"[CESIUM] Temporarily hiding conflicting triplet: {entry}")
-                except OSError:
-                    pass  # Directory may be in use
+            if not target_triplet.startswith(entry.split("-")[0] + "-"):
+                continue
+            print(f"[CESIUM] Hiding find_package content in conflicting triplet: {entry}")
+            # Hide lib/, include/, debug/ outright
+            for sub in ("lib", "include", "debug"):
+                sp = os.path.join(entry_path, sub)
+                if os.path.isdir(sp):
+                    bak = sp + ".bak"
+                    try:
+                        os.rename(sp, bak)
+                        hidden.append((bak, sp))
+                    except OSError:
+                        pass
+            # Hide share/<pkg>/ individually, preserving vcpkg helper dirs
+            share_dir = os.path.join(entry_path, "share")
+            if os.path.isdir(share_dir):
+                for pkg in os.listdir(share_dir):
+                    if pkg in preserve_share or pkg.endswith(".bak"):
+                        continue
+                    pkg_path = os.path.join(share_dir, pkg)
+                    if not os.path.isdir(pkg_path):
+                        continue
+                    bak = pkg_path + ".bak"
+                    try:
+                        os.rename(pkg_path, bak)
+                        hidden.append((bak, pkg_path))
+                    except OSError:
+                        pass
     except Exception:
         pass
     return hidden
