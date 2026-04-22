@@ -49,8 +49,6 @@ Ref<ArrayMesh> CesiumGDModelLoader::generate_meshes_from_model(const CesiumGltf:
 
 	Ref<ArrayMesh> meshInstance = memnew(ArrayMesh);
 
-	Ref<Shader> texture_transform_shader = get_tile_shader();
-
 	*error = Error::OK;
 	for (const CesiumGltf::Mesh& mesh : gltfMeshes) {
 		int32_t surfaceIndex = 0;
@@ -169,10 +167,11 @@ Ref<ArrayMesh> CesiumGDModelLoader::generate_meshes_from_model(const CesiumGltf:
 #ifdef __EMSCRIPTEN__
 			force_shader_material = true;
 #endif
-			if ((has_texture_transform || force_shader_material) && texture_transform_shader.is_valid()) {
+			Ref<Shader> tile_shader = get_tile_shader(mat.doubleSided);
+			if ((has_texture_transform || force_shader_material) && tile_shader.is_valid()) {
 				Ref<ShaderMaterial> shaderMat;
 				shaderMat.instantiate();
-				shaderMat->set_shader(texture_transform_shader);
+				shaderMat->set_shader(tile_shader);
 
 				Ref<Texture2D> albedo_texture_mat = godotMaterial->get_texture(BaseMaterial3D::TEXTURE_ALBEDO);
 				shaderMat->set_shader_parameter("albedo_texture", albedo_texture_mat);
@@ -403,12 +402,13 @@ Error CesiumGDModelLoader::apply_surface_to_mesh(const CesiumGltf::MeshPrimitive
 	return Error::OK;
 }
 
-Ref<Shader> CesiumGDModelLoader::get_tile_shader()
+Ref<Shader> CesiumGDModelLoader::get_tile_shader(bool doubleSided)
 {
-	// Magic static (C++11): guaranteed to run its initializer exactly once even
-	// under concurrent calls. Worker threads create meshes; the main thread
-	// attaches raster overlays — both reach here.
-	static Ref<Shader> cached = []() -> Ref<Shader> {
+	// Magic statics (C++11): each initializer runs exactly once even under
+	// concurrent calls. Worker threads create meshes; the main thread attaches
+	// raster overlays — both reach here. render_mode can't be uniform-driven,
+	// so we cache one shader per cull variant and pick at material-creation.
+	auto build = [](const char* cull_mode) -> Ref<Shader> {
 		Ref<Shader> s;
 		s.instantiate();
 		// Mirrors the legacy globe_tile_shd2 pattern: lit spatial pipeline with
@@ -416,15 +416,14 @@ Ref<Shader> CesiumGDModelLoader::get_tile_shader()
 		// tonemap_exposure (0.04). On non-web the amplification uniform defaults to
 		// 1.0 and the shader behaves like a plain lit texture.
 		// `albedo_texture : source_color` handles sRGB→linear on sample.
-		String code = R"(
+		// cull_front: default Cesium terrain has inward-facing winding in this
+		// pipeline, so cull_front hides the invisible-from-outside side.
+		// cull_disabled: matches the StandardMaterial3D path for doubleSided=true
+		// glTF materials (e.g. Google 3D Tiles photogrammetry), whose winding +
+		// normals are authored outward and would be wrong-side-culled by cull_front.
+		String code = String(R"(
 		shader_type spatial;
-		// cull_front matches the StandardMaterial3D default for non-doubleSided Cesium
-		// tiles (CesiumGDModelLoader::copy_material_properties, line ~432). Cesium 3D
-		// Tiles have inward-facing winding in this pipeline, so cull_front hides the
-		// invisible-from-outside triangle side and avoids double-rendering at seams.
-		// doubleSided tiles (e.g. photogrammetry) will render single-sided, which is
-		// a minor regression vs the original CULL_DISABLED — revisit if needed.
-		render_mode blend_mix, depth_draw_opaque, cull_front, diffuse_lambert, specular_schlick_ggx;
+		render_mode blend_mix, depth_draw_opaque, )") + cull_mode + R"(, diffuse_lambert, specular_schlick_ggx;
 
 		uniform sampler2D albedo_texture : source_color;
 		uniform float albedo_amplification : hint_range(0.25, 50.0) = 1.0;
@@ -453,8 +452,11 @@ Ref<Shader> CesiumGDModelLoader::get_tile_shader()
 		)";
 		s->set_code(code);
 		return s;
-	}();
-	return cached;
+	};
+
+	static Ref<Shader> cached_cull_front = build("cull_front");
+	static Ref<Shader> cached_cull_disabled = build("cull_disabled");
+	return doubleSided ? cached_cull_disabled : cached_cull_front;
 }
 
 Error CesiumGDModelLoader::copy_material_properties(const CesiumGltf::Material& cesiumMaterial, Ref<StandardMaterial3D>& godotMaterial, const CesiumGltf::Model& modelReference)

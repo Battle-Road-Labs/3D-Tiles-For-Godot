@@ -234,8 +234,10 @@ void GodotPrepareRenderResources::attachRasterInMainThread(const Tile& tile, int
 #ifdef __EMSCRIPTEN__
 			// Raster-overlay path replaces the ShaderMaterial from the initial mesh load,
 			// so we have to re-apply the web amplification here. Mirror the uv1 offset/scale
-			// the StandardMaterial3D uses (see above) as shader parameters.
-			Ref<Shader> tile_shader = CesiumGDModelLoader::get_tile_shader();
+			// the StandardMaterial3D uses (see above) as shader parameters. Pick the cull
+			// variant matching the source glTF material so photogrammetry buildings
+			// (doubleSided=true) don't get wrong-side-culled by cull_front.
+			Ref<Shader> tile_shader = CesiumGDModelLoader::get_tile_shader(mat.doubleSided);
 			if (tile_shader.is_valid()) {
 				Ref<ShaderMaterial> shaderMat;
 				shaderMat.instantiate();

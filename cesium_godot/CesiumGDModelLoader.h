@@ -87,8 +87,11 @@ public:
 
 	// Returns a cached Shader used for all Cesium tile surfaces. Lit pipeline
 	// with an `albedo_amplification` uniform so the same shader serves both the
-	// initial mesh load and the raster-overlay attach path.
-	static Ref<Shader> get_tile_shader();
+	// initial mesh load and the raster-overlay attach path. Two variants are
+	// cached: cull_front (default, matches inward-winding Cesium terrain) and
+	// cull_disabled (for glTF materials with doubleSided=true, e.g. Google 3D
+	// Tiles photogrammetry, whose winding + normals are authored outward).
+	static Ref<Shader> get_tile_shader(bool doubleSided = false);
 
 private:
 
