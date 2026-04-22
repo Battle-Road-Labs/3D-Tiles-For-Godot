@@ -67,14 +67,6 @@ elif os.name == cesium_build_utils.OS_WIN:
     env.Append(CXXFLAGS=["/EHsc"])
 env.Append(CPPDEFINES=["SPDLOG_NO_EXCEPTIONS",
                        "LIBASYNC_NO_EXCEPTIONS"])
-# fmt 11+ makes basic_format_string's constructor consteval, which breaks
-# the SPDLOG_FMT_STRING("{:02}") path in spdlog/details/fmt_helper.h on
-# emscripten's clang — `it - begin()` isn't a constant expression in that
-# context. Force fmt to emit a plain constructor and the format-string check
-# falls back to runtime. Harmless elsewhere. Apply to both envs because
-# cesium_env was Clone()d before this point.
-env.Append(CPPDEFINES=[("FMT_USE_CONSTEVAL", 0)])
-cesium_env.Append(CPPDEFINES=[("FMT_USE_CONSTEVAL", 0)])
 
 includePaths = []
 

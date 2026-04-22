@@ -700,6 +700,38 @@ set(VCPKG_CMAKE_CONFIGURE_OPTIONS
         print(f"[CESIUM] Warning: could not patch wasm triplet: {e}")
 
 
+def patch_fmt_consteval(env=None):
+    """Disable consteval in ezvcpkg-installed fmt's basic_format_string.
+
+    Spdlog's SPDLOG_FMT_STRING("{:02}") path in details/fmt_helper.h instantiates
+    fmt::basic_format_string<...> whose constructor is consteval in fmt 11+.
+    Emscripten's clang rejects the instantiation as not a constant expression.
+    Flipping FMT_USE_CONSTEVAL to 0 at the source makes fmt emit a plain
+    constructor so the format-string check falls back to runtime. Command-line
+    -DFMT_USE_CONSTEVAL=0 doesn't work because fmt/base.h redefines it.
+
+    Idempotent: the second run finds `FMT_USE_CONSTEVAL 0` and is a no-op.
+    """
+    try:
+        ezvcpkg = find_ezvcpkg_path()
+        if not ezvcpkg:
+            return
+        triplet = determine_triplet(env)
+        base_h = os.path.join(ezvcpkg, "installed", triplet, "include", "fmt", "base.h")
+        if not os.path.exists(base_h):
+            return
+        with open(base_h, "r", encoding="utf-8", errors="replace") as f:
+            content = f.read()
+        needle = "#  define FMT_USE_CONSTEVAL 1"
+        if needle not in content:
+            return
+        with open(base_h, "w", encoding="utf-8") as f:
+            f.write(content.replace(needle, "#  define FMT_USE_CONSTEVAL 0"))
+        print(f"[CESIUM] Patched {base_h}: FMT_USE_CONSTEVAL 1 -> 0")
+    except Exception as e:
+        print(f"[CESIUM] Warning: could not patch fmt/base.h: {e}")
+
+
 def patch_ezvcpkg_allow_unsupported(native_source_dir):
     """Patch ezvcpkg.cmake to allow unsupported vcpkg triplets (needed for wasm32-emscripten)."""
     ezvcpkg_cmake = os.path.join(native_source_dir, "cmake", "ezvcpkg", "ezvcpkg.cmake")
@@ -833,6 +865,9 @@ def install_additional_libs(argumentsDict=None):
     subprocess.run([executable, "install"] + allow_unsupported + ["ada-url:%s" % triplet])
     if platform != PLATFORM_WEB and os.name == OS_WIN:
         subprocess.run([executable, "install", "curl:%s" % triplet])
+    # Runs after vcpkg install so the patch survives a fresh fmt reinstall.
+    if platform == PLATFORM_WEB:
+        patch_fmt_consteval({"platform": platform})
 
 
 def find_ms_build() -> str:
