@@ -649,7 +649,17 @@ def patch_vcpkg_wasm_triplet_pthread():
         # state that a buggy earlier version of this function could produce
         # (two `set()` calls concatenated without a newline between them) —
         # always re-patch in that case.
-        already_patched = "zstd_DIR" in content and "-fwasm-exceptions" in content
+        # Require the quoted `"-DCMAKE_C_FLAGS=` form — earlier versions of
+        # this patch emitted unquoted `-DCMAKE_C_FLAGS=${_cesiumFlags}`, which
+        # causes CMake's `set()` to tokenize the expanded flag string by
+        # whitespace and only `-pthread` reaches CMAKE_C_FLAGS in the port
+        # subprocess. The rest (including -sSUPPORT_LONGJMP=wasm) gets dropped.
+        # Detecting the quoted form forces re-patch from the unquoted state.
+        already_patched = (
+            "zstd_DIR" in content
+            and "-fwasm-exceptions" in content
+            and '"-DCMAKE_C_FLAGS=${_cesiumFlags}"' in content
+        )
         # Two `set()` calls concatenated with no whitespace between them —
         # CMake parses `)set(` as a syntax error. This shape only appears if
         # an earlier buggy version of this function collapsed lines during
@@ -691,16 +701,25 @@ def patch_vcpkg_wasm_triplet_pthread():
         zstd_dir_cmake = os.path.join(
             vcpkg_base, "installed", "wasm32-emscripten", "share", "zstd"
         ).replace("\\", "/")
+        # Quote each -D...=... arg so CMake treats each full flag string as a
+        # single list element. Without quotes, ${_cesiumFlags} expands and the
+        # whitespace in it splits the flag assignment into multiple list items
+        # (`-DCMAKE_C_FLAGS=-pthread`, `-fPIC`, `-fwasm-exceptions`,
+        # `-sSUPPORT_LONGJMP=wasm`). Only `-pthread` actually reaches
+        # CMAKE_C_FLAGS in the port subprocess; the rest become orphan cmake
+        # args that get dropped. That silently loses -sSUPPORT_LONGJMP=wasm,
+        # which is why libjpeg-turbo was still emitting saveSetjmp calls at
+        # runtime despite a fresh rebuild.
         patch_block = f'''
 # Cesium SIDE_MODULE flags (patched by CesiumBuildUtils.py)
 set(_cesiumFlags "-pthread -fPIC -fwasm-exceptions -sSUPPORT_LONGJMP=wasm")
 set(VCPKG_CXX_FLAGS "-pthread -fPIC")
 set(VCPKG_C_FLAGS "-pthread -fPIC")
 set(VCPKG_CMAKE_CONFIGURE_OPTIONS
-    -DCMAKE_C_FLAGS=${{_cesiumFlags}}
-    -DCMAKE_CXX_FLAGS=${{_cesiumFlags}}
-    -DCMAKE_EXE_LINKER_FLAGS=${{_cesiumFlags}}
-    -Dzstd_DIR={zstd_dir_cmake})
+    "-DCMAKE_C_FLAGS=${{_cesiumFlags}}"
+    "-DCMAKE_CXX_FLAGS=${{_cesiumFlags}}"
+    "-DCMAKE_EXE_LINKER_FLAGS=${{_cesiumFlags}}"
+    "-Dzstd_DIR={zstd_dir_cmake}")
 '''
         patched = content + patch_block
         with open(triplet_path, "w") as f:
