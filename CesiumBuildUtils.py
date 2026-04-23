@@ -642,15 +642,22 @@ def patch_vcpkg_wasm_triplet_pthread():
             return
         with open(triplet_path, "r") as f:
             content = f.read()
-        # Check if already patched with our full configuration
-        if "VCPKG_CMAKE_CONFIGURE_OPTIONS" in content and "-fwasm-exceptions" in content:
-            return  # Already fully patched
+        # Check if already patched with our full current configuration. The
+        # `zstd_DIR` marker means the latest patch (with explicit zstd path for
+        # KTX's find_package) is applied; older patches lacking this marker
+        # will be stripped and re-applied below.
+        if "zstd_DIR" in content and "-fwasm-exceptions" in content:
+            return  # Already fully patched with the current version
         # Strip any previous partial patches before re-applying
         content = content.replace('\nset(VCPKG_CXX_FLAGS "-pthread")\nset(VCPKG_C_FLAGS "-pthread")\n', '')
         content = content.replace('\nset(VCPKG_CXX_FLAGS "-pthread -fPIC")\nset(VCPKG_C_FLAGS "-pthread -fPIC")\n', '')
-        # Remove old VCPKG_CMAKE_CONFIGURE_OPTIONS if present
+        # Remove old VCPKG_CMAKE_CONFIGURE_OPTIONS block if present (may span
+        # multiple lines if we add `-Dzstd_DIR=...` — match non-greedy to `)`).
         import re
-        content = re.sub(r'\nset\(VCPKG_CMAKE_CONFIGURE_OPTIONS[^)]*\)\n', '\n', content)
+        content = re.sub(r'\nset\(VCPKG_CMAKE_CONFIGURE_OPTIONS[\s\S]*?\)\n', '\n', content)
+        # Also strip the stale _cesiumFlags line so it can be re-emitted cleanly.
+        content = re.sub(r'\nset\(_cesiumFlags [^\n]*\)\n', '\n', content)
+        content = re.sub(r'\n# Cesium SIDE_MODULE flags \(patched by CesiumBuildUtils\.py\)\n', '\n', content)
         # Add EMCC_CFLAGS to the passthrough list so vcpkg propagates it to emcc
         # (needed for make-based builds like openssl that don't use cmake)
         if "EMCC_CFLAGS" not in content:
@@ -660,15 +667,27 @@ def patch_vcpkg_wasm_triplet_pthread():
             )
         # Following cesium-native PR #1267: pass flags through VCPKG_CMAKE_CONFIGURE_OPTIONS
         # This sets CMAKE_C_FLAGS/CMAKE_CXX_FLAGS for all cmake-based vcpkg ports.
-        patch_block = '''
+        #
+        # -Dzstd_DIR: KTX's CMakeLists calls `find_package(zstd)`, and Emscripten's
+        # CMAKE_FIND_ROOT_PATH_MODE_PACKAGE=ONLY (combined with Windows absolute
+        # paths) collapses find_package search to the emscripten sysroot, so it
+        # never checks the vcpkg installed dir. Pass zstd_DIR explicitly; CMake
+        # uses it as a hint that bypasses the root-path restrictions. The path
+        # is baked in at patch time from find_ezvcpkg_path() so it's absolute
+        # and not subject to VCPKG_INSTALLED_DIR resolution timing.
+        zstd_dir_cmake = os.path.join(
+            vcpkg_base, "installed", "wasm32-emscripten", "share", "zstd"
+        ).replace("\\", "/")
+        patch_block = f'''
 # Cesium SIDE_MODULE flags (patched by CesiumBuildUtils.py)
 set(_cesiumFlags "-pthread -fPIC -fwasm-exceptions -sSUPPORT_LONGJMP=wasm")
 set(VCPKG_CXX_FLAGS "-pthread -fPIC")
 set(VCPKG_C_FLAGS "-pthread -fPIC")
 set(VCPKG_CMAKE_CONFIGURE_OPTIONS
-    -DCMAKE_C_FLAGS=${_cesiumFlags}
-    -DCMAKE_CXX_FLAGS=${_cesiumFlags}
-    -DCMAKE_EXE_LINKER_FLAGS=${_cesiumFlags})
+    -DCMAKE_C_FLAGS=${{_cesiumFlags}}
+    -DCMAKE_CXX_FLAGS=${{_cesiumFlags}}
+    -DCMAKE_EXE_LINKER_FLAGS=${{_cesiumFlags}}
+    -Dzstd_DIR={zstd_dir_cmake})
 '''
         patched = content + patch_block
         with open(triplet_path, "w") as f:
