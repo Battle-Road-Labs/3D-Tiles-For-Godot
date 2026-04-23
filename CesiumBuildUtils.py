@@ -437,6 +437,7 @@ def configure_native(argumentsDict):
     if is_web:
         patch_ezvcpkg_allow_unsupported(sourceDir)
         patch_vcpkg_wasm_triplet_pthread()
+        patch_libjpeg_turbo_port_no_setjmp()
         # KTX's vcpkg port applies 0001-Use-vcpkg-zstd.patch which replaces
         # KTX's vendored zstd with find_package(zstd). KTX's vcpkg.json
         # doesn't declare zstd as a dep (at least not for our feature set),
@@ -822,6 +823,98 @@ def patch_fmt_consteval(env=None):
         print(f"[CESIUM] Patched {base_h}: FMT_USE_CONSTEVAL 1 -> 0")
     except Exception as e:
         print(f"[CESIUM] Warning: could not patch fmt/base.h: {e}")
+
+
+def patch_libjpeg_turbo_port_no_setjmp():
+    """Neutralize setjmp/longjmp in libjpeg-turbo's TurboJPEG API for wasm SIDE_MODULE.
+
+    emsdk 3.1.56's emcc ignores -sSUPPORT_LONGJMP=wasm at compile time when
+    producing relocatable object files for SIDE_MODULE builds — confirmed via
+    llvm-nm on turbojpeg.c.o showing `U saveSetjmp` / `U testSetjmp` despite
+    the flag being in the emcc invocation. In a SIDE_MODULE, those imports
+    can't be resolved against Godot's main wasm, and the extension aborts the
+    first time tjInitDecompress runs (KTX image decode for building tiles).
+
+    Rather than upgrade emsdk (breaks KTX) or patch emsdk directly, we patch
+    libjpeg-turbo's port to append a vcpkg_replace_string that turns setjmp()
+    into a no-op returning 0 and longjmp() into abort(). Practical effect:
+    the error-recovery branch in tjInitDecompress/tjDecompress is never taken
+    (setjmp return 0 means "first pass"), and a corrupt JPEG triggers
+    abort() on the tile-loading worker thread instead of graceful error
+    reporting. For a 3D tiles viewer that trade-off is fine: the previous
+    behavior on a bad tile was a hard crash via the undefined saveSetjmp
+    import, so we're not losing anything.
+
+    Idempotent — checks for a sentinel marker in portfile.cmake."""
+    try:
+        vcpkg_base = find_ezvcpkg_path()
+        port_dir = os.path.join(vcpkg_base, "ports", "libjpeg-turbo")
+        portfile = os.path.join(port_dir, "portfile.cmake")
+        if not os.path.exists(portfile):
+            return
+        with open(portfile, "r", encoding="utf-8") as f:
+            content = f.read()
+        marker = "# CESIUM_NO_SETJMP_PATCH"
+        if marker in content:
+            return  # already patched
+        # Must run AFTER source extraction (SOURCE_PATH set by vcpkg_from_*)
+        # but BEFORE the configure/build step. Insert directly before
+        # vcpkg_cmake_configure — that's the first step that reads sources.
+        inject = (
+            "\n" + marker + "\n"
+            "# Neutralize setjmp/longjmp for emsdk 3.1.56 SIDE_MODULE builds.\n"
+            "# See CesiumBuildUtils.py patch_libjpeg_turbo_port_no_setjmp.\n"
+            'vcpkg_replace_string(\n'
+            '    "${SOURCE_PATH}/src/turbojpeg.c"\n'
+            '    "#include <setjmp.h>"\n'
+            '    "#include <setjmp.h>\\n#include <stdlib.h>\\n'
+            '#undef setjmp\\n#undef longjmp\\n'
+            '#define setjmp(env) 0\\n'
+            '#define longjmp(env, val) abort()\\n"\n'
+            ')\n\n'
+        )
+        anchor = None
+        for candidate in ("vcpkg_cmake_configure", "vcpkg_configure_cmake", "vcpkg_cmake_build"):
+            if candidate in content:
+                anchor = candidate
+                break
+        if anchor is None:
+            print("[CESIUM] Warning: could not find configure step in libjpeg-turbo "
+                  "portfile.cmake — no-setjmp patch skipped.")
+            return
+        patched = content.replace(anchor + "(", inject + anchor + "(", 1)
+        with open(portfile, "w", encoding="utf-8") as f:
+            f.write(patched)
+        print("[CESIUM] Patched libjpeg-turbo port to neutralize setjmp for wasm SIDE_MODULE")
+        # Force rebuild: vcpkg sees the package as installed and skips it
+        # until we remove it. Also clear the binary archive cache (keyed on
+        # port contents — changing portfile.cmake should invalidate the key
+        # but stale entries have bitten us before).
+        exec_ext = ".exe" if os.name == OS_WIN else ""
+        vcpkg_exe = os.path.join(vcpkg_base, "vcpkg" + exec_ext)
+        if os.path.exists(vcpkg_exe):
+            subprocess.run(
+                [vcpkg_exe, "--vcpkg-root", vcpkg_base, "remove",
+                 "libjpeg-turbo:wasm32-emscripten", "--recurse"],
+                cwd=vcpkg_base,
+            )
+        archives_override = os.environ.get("VCPKG_DEFAULT_BINARY_CACHE", "")
+        if archives_override:
+            archives_dir = archives_override
+        elif os.name == OS_WIN:
+            archives_dir = os.path.join(os.environ.get("LOCALAPPDATA", ""), "vcpkg", "archives")
+        elif sys.platform == PLATFORM_MACOS:
+            archives_dir = os.path.expanduser("~/Library/Caches/vcpkg/archives")
+        else:
+            archives_dir = os.path.expanduser("~/.cache/vcpkg/archives")
+        if archives_dir and os.path.exists(archives_dir):
+            try:
+                shutil.rmtree(archives_dir)
+                print(f"[CESIUM] Cleared vcpkg binary archive cache: {archives_dir}")
+            except Exception as e:
+                print(f"[CESIUM] Warning: could not clear vcpkg binary cache: {e}")
+    except Exception as e:
+        print(f"[CESIUM] Warning: could not patch libjpeg-turbo port: {e}")
 
 
 def patch_ezvcpkg_allow_unsupported(native_source_dir):
