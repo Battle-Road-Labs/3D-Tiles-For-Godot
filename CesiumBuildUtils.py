@@ -741,17 +741,27 @@ set(VCPKG_CMAKE_CONFIGURE_OPTIONS
             installed_dir = os.path.join(vcpkg_base, "installed", "wasm32-emscripten")
             if os.path.exists(installed_dir):
                 shutil.rmtree(installed_dir)
-            # Clear the status database entries so vcpkg reinstalls everything
+            # Clear the status database entries so vcpkg reinstalls everything.
+            # The status file is a series of stanzas separated by blank lines;
+            # each stanza has multiple `Key: value` fields. Split by blank-line
+            # boundaries and drop any stanza whose Architecture is wasm32-
+            # emscripten. This avoids the bug in the earlier non-greedy regex
+            # that spanned across non-wasm stanzas and deleted valid entries
+            # for other triplets (x64-windows-static, x64-windows, etc.),
+            # corrupting the db with 'Package X installed, but dependency Y
+            # is not' errors on subsequent vcpkg invocations.
             vcpkg_status = os.path.join(vcpkg_base, "installed", "vcpkg", "status")
             try:
                 if os.path.exists(vcpkg_status):
                     with open(vcpkg_status, "r", encoding="utf-8", errors="replace") as f:
                         status_content = f.read()
-                    import re
-                    cleaned = re.sub(
-                        r'Package:.*?Architecture: wasm32-emscripten.*?(?=\nPackage:|\Z)',
-                        '', status_content, flags=re.DOTALL
-                    )
+                    stanzas = re.split(r'\n\n+', status_content)
+                    arch_re = re.compile(r'^Architecture:\s*wasm32-emscripten\s*$', re.MULTILINE)
+                    kept = [s for s in stanzas if not arch_re.search(s)]
+                    cleaned = '\n\n'.join(kept)
+                    # Preserve trailing blank line if the original had one
+                    if status_content.endswith('\n') and not cleaned.endswith('\n'):
+                        cleaned += '\n'
                     with open(vcpkg_status, "w", encoding="utf-8") as f:
                         f.write(cleaned)
             except Exception as e:
