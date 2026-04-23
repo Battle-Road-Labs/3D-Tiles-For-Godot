@@ -8,8 +8,13 @@ if "%EZVCPKG_BASEDIR%"=="" set EZVCPKG_BASEDIR=C:\.ezvcpkg
 rem Default emsdk install location and version. Only used by the web target
 rem (see :ensure_emsdk). Override EMSDK_DIR to point at an existing checkout;
 rem override EMSDK_VERSION to pin to a different toolchain.
-rem 3.1.56 is pinned because newer emsdk breaks the KTX library from vcpkg.
-if "%EMSDK_DIR%"=="" set EMSDK_DIR=C:\emsdk
+rem
+rem 3.1.56 is pinned for this repo because newer emsdk breaks the KTX library
+rem from vcpkg. The Godot engine itself uses a newer emsdk (4.0.11+) which
+rem typically lives at %USERPROFILE%\emsdk — keep this repo's emsdk in a
+rem separate directory so both installs can coexist and each project can
+rem activate its own required version without fighting the other.
+if "%EMSDK_DIR%"=="" set EMSDK_DIR=C:\emsdk-cesium
 if "%EMSDK_VERSION%"=="" set EMSDK_VERSION=3.1.56
 
 set TARGET=%1
@@ -81,20 +86,23 @@ echo   clean-deep - clean + nuke stale wasm32-emscripten vcpkg state (recovery)
 goto :done
 
 rem --- Ensure Emscripten SDK is installed and activated in this shell --------
-rem If EMSDK is already defined, the parent shell has sourced emsdk_env; skip.
-rem Otherwise, clone+install emsdk into %EMSDK_DIR% if needed, then source
-rem emsdk_env.bat so PATH and EMSDK* env vars are set for scons/emcc.
+rem Always activate this repo's pinned emsdk (3.1.56 at %EMSDK_DIR%), even if
+rem the parent shell has a different emsdk active (e.g. the user was just
+rem working in the Godot repo with 4.0.11 at %USERPROFILE%\emsdk). Checking
+rem `defined EMSDK` would skip activation and silently compile against the
+rem wrong toolchain. Clone emsdk into %EMSDK_DIR% if missing, then run
+rem install+activate for the pinned version — both are near-instant no-ops
+rem when already applied, so the cost on repeat builds is negligible.
 rem
 rem Note: emsdk.bat install/activate internally uses setlocal/endlocal+set
-rem patterns that can clobber a caller's EMSDK_DIR on first install (the
-rem activate step was observed to wipe it on 3.1.56). Stash the path into
-rem an underscore-prefixed name that won't collide with emsdk's internals.
+rem patterns that can clobber a caller's EMSDK_DIR on first install. Stash
+rem the path into an underscore-prefixed name that won't collide with
+rem emsdk's internals, and use that for the final emsdk_env.bat call.
 :ensure_emsdk
-if defined EMSDK exit /b 0
 set "_CESIUM_EMSDK_DIR=%EMSDK_DIR%"
 set "_CESIUM_EMSDK_VERSION=%EMSDK_VERSION%"
-if exist "%_CESIUM_EMSDK_DIR%\emsdk.bat" goto :activate_emsdk
-echo emsdk not found at %_CESIUM_EMSDK_DIR% - cloning and installing %_CESIUM_EMSDK_VERSION%...
+if exist "%_CESIUM_EMSDK_DIR%\emsdk.bat" goto :run_emsdk_install
+echo emsdk not found at %_CESIUM_EMSDK_DIR% - cloning...
 where git >nul 2>&1
 if errorlevel 1 (
     echo ERROR: git is required on PATH to clone emsdk. Install git, or pre-install emsdk and set EMSDK_DIR.
@@ -102,6 +110,7 @@ if errorlevel 1 (
 )
 git clone https://github.com/emscripten-core/emsdk.git "%_CESIUM_EMSDK_DIR%"
 if errorlevel 1 exit /b 1
+:run_emsdk_install
 pushd "%_CESIUM_EMSDK_DIR%"
 call emsdk.bat install %_CESIUM_EMSDK_VERSION%
 if errorlevel 1 (
@@ -116,8 +125,7 @@ if errorlevel 1 (
     exit /b 1
 )
 popd
-:activate_emsdk
-echo Activating emsdk from %_CESIUM_EMSDK_DIR%...
+echo Activating emsdk %_CESIUM_EMSDK_VERSION% from %_CESIUM_EMSDK_DIR%...
 call "%_CESIUM_EMSDK_DIR%\emsdk_env.bat"
 exit /b %ERRORLEVEL%
 
