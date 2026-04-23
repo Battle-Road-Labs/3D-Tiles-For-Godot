@@ -50,6 +50,12 @@ Otherwise, to get a `compile_commands.json` file to use with an IDE or Text Edit
 ```
 scons compiledb=yes arch=x64 compileTarget=extension debug_symbols=yes
 ```
+Alternatively, run "build.bat <platform>" where platform options are as follows:
+extension = windows build gdextension
+web = web build gdextension
+module = UNSUPPORTED/UNTESTED builds as module
+clean = cleans cesium native build trees
+clean-deep = clean plus cleans stale wasm32-emscripten vcpkg state
 
 #### Build Flags Explained:
 
