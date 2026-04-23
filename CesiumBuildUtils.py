@@ -642,18 +642,31 @@ def patch_vcpkg_wasm_triplet_pthread():
             return
         with open(triplet_path, "r") as f:
             content = f.read()
+        import re
         # Check if already patched with our full current configuration. The
         # `zstd_DIR` marker means the latest patch (with explicit zstd path for
-        # KTX's find_package) is applied; older patches lacking this marker
-        # will be stripped and re-applied below.
-        if "zstd_DIR" in content and "-fwasm-exceptions" in content:
-            return  # Already fully patched with the current version
-        # Strip any previous partial patches before re-applying
-        content = content.replace('\nset(VCPKG_CXX_FLAGS "-pthread")\nset(VCPKG_C_FLAGS "-pthread")\n', '')
-        content = content.replace('\nset(VCPKG_CXX_FLAGS "-pthread -fPIC")\nset(VCPKG_C_FLAGS "-pthread -fPIC")\n', '')
+        # KTX's find_package) is applied. Also detect the malformed `)set(`
+        # state that a buggy earlier version of this function could produce
+        # (two `set()` calls concatenated without a newline between them) —
+        # always re-patch in that case.
+        already_patched = "zstd_DIR" in content and "-fwasm-exceptions" in content
+        # Two `set()` calls concatenated with no whitespace between them —
+        # CMake parses `)set(` as a syntax error. This shape only appears if
+        # an earlier buggy version of this function collapsed lines during
+        # strip operations. Always re-patch to repair.
+        malformed = ")set(" in content
+        if already_patched and not malformed:
+            return
+        # Strip any previous partial patches before re-applying. Use '\n' as
+        # the replacement (not '') so we don't collapse the preceding and
+        # following lines into a single line — that's exactly what produced
+        # the malformed `)set(` state in earlier runs.
+        content = content.replace('\nset(VCPKG_CXX_FLAGS "-pthread")\nset(VCPKG_C_FLAGS "-pthread")\n', '\n')
+        content = content.replace('\nset(VCPKG_CXX_FLAGS "-pthread -fPIC")\nset(VCPKG_C_FLAGS "-pthread -fPIC")\n', '\n')
+        # Repair any existing `)set(` concatenation in the file from prior buggy runs.
+        content = re.sub(r'\)set\(', ')\nset(', content)
         # Remove old VCPKG_CMAKE_CONFIGURE_OPTIONS block if present (may span
         # multiple lines if we add `-Dzstd_DIR=...` — match non-greedy to `)`).
-        import re
         content = re.sub(r'\nset\(VCPKG_CMAKE_CONFIGURE_OPTIONS[\s\S]*?\)\n', '\n', content)
         # Also strip the stale _cesiumFlags line so it can be re-emitted cleanly.
         content = re.sub(r'\nset\(_cesiumFlags [^\n]*\)\n', '\n', content)
