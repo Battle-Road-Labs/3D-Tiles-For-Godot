@@ -15,7 +15,13 @@ rem typically lives at %USERPROFILE%\emsdk — keep this repo's emsdk in a
 rem separate directory so both installs can coexist and each project can
 rem activate its own required version without fighting the other.
 if "%EMSDK_DIR%"=="" set EMSDK_DIR=C:\emsdk-cesium
-if "%EMSDK_VERSION%"=="" set EMSDK_VERSION=3.1.56
+rem Bumped 3.1.56 -> 3.1.60 to pick up the -sSUPPORT_LONGJMP=wasm compile-time
+rem lowering fix. 3.1.56 accepted the flag but emitted saveSetjmp/testSetjmp
+rem imports in SIDE_MODULE .o files anyway, which Godot's main wasm can't
+rem resolve. If 3.1.60 breaks KTX again (the original reason we pinned 3.1.56),
+rem step up gradually to 3.1.64 / 3.1.70 / etc. Revert to 3.1.56 only as last
+rem resort — saveSetjmp workarounds there got messy.
+if "%EMSDK_VERSION%"=="" set EMSDK_VERSION=3.1.60
 
 set TARGET=%1
 if "%TARGET%"=="" set TARGET=extension

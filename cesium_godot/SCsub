@@ -101,30 +101,6 @@ sources = [
 if _is_module:
     sources.append(root + "/cesium_auxiliars/missing_functions.cpp")
 
-# Web-only: vendored emscripten setjmp shim. emsdk 3.1.56's emcc doesn't
-# honor -sSUPPORT_LONGJMP=wasm for compile-time lowering in SIDE_MODULE
-# builds, leaving libturbojpeg.a with undefined references to saveSetjmp
-# / testSetjmp / __wasm_longjmp. Compiling emscripten's own implementations
-# into our SIDE_MODULE makes those references resolve locally. See
-# third_party/emscripten_sjlj/README.md.
-#
-# Compiled in a per-file env clone so __USING_WASM_SJLJ__ only reaches these
-# two files — it selects the wasm-EH branch in emscripten_setjmp.c, which
-# emits __wasm_longjmp (matching libturbojpeg's __c_longjmp tag) instead of
-# emscripten_longjmp (which would pull in setThrew / _emscripten_throw_longjmp).
-if is_web:
-    sjlj_env = cesium_env.Clone()
-    sjlj_env.Append(CPPDEFINES=["__USING_WASM_SJLJ__"])
-    sjlj_sources = [
-        root + "/third_party/emscripten_sjlj/emscripten_setjmp.c",
-        root + "/third_party/emscripten_sjlj/emscripten_tempret.s",
-    ]
-    if _is_module:
-        sjlj_objs = []
-        sjlj_env.add_source_files(sjlj_objs, sjlj_sources)
-        env.modules_sources += sjlj_objs
-    else:
-        sjlj_env.add_source_files(sjlj_sources)
 
 
 load_cesium_module(includePaths, "Cesium3DTiles")
