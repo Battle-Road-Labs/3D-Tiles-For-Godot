@@ -93,6 +93,16 @@ public:
 	// Tiles photogrammetry, whose winding + normals are authored outward).
 	static Ref<Shader> get_tile_shader(bool doubleSided = false);
 
+	// Diagnostic: drop skirt geometry from tile meshes, keeping only
+	// non-skirt indices as indicated by CesiumGltfContent::SkirtMeshMetadata
+	// on the mesh extras. When true, the tile edges can crack (cross-LOD
+	// seams) but any on-screen artifact caused by skirt polygons themselves
+	// disappears, which tells us whether a reported seam is *caused by*
+	// skirts or merely *revealed when skirts are absent*.
+	// Overridable via the CESIUM_SKIP_SKIRTS env var at process start;
+	// non-empty + not "0"/"false" enables. Default: false (keep skirts).
+	static bool skip_skirts;
+
 private:
 
 	static constexpr Mesh::PrimitiveType cesium_to_godot_primitive_mode(int32_t mode);

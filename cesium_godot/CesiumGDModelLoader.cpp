@@ -35,11 +35,24 @@ using namespace godot;
 #include "CesiumGltf/ExtensionKhrTextureTransform.h"
 #include <CesiumGltf/ExtensionKhrMaterialsUnlit.h>
 #include "CesiumGeometry/Transforms.h"
+#include <CesiumGltfContent/SkirtMeshMetadata.h>
+#include <cstdlib>
+#include <string>
 
 #undef OPAQUE
 
 constexpr int32_t RGBA_CHANNEL_COUNT = 4;
 constexpr int32_t RGB_CHANNEL_COUNT = 3;
+
+namespace {
+	bool cesium_env_skip_skirts() {
+		const char* env = std::getenv("CESIUM_SKIP_SKIRTS");
+		if (!env || !*env) return false;
+		std::string v(env);
+		return v != "0" && v != "false" && v != "False" && v != "FALSE";
+	}
+}
+bool CesiumGDModelLoader::skip_skirts = cesium_env_skip_skirts();
 
 Ref<ArrayMesh> CesiumGDModelLoader::generate_meshes_from_model(const CesiumGltf::Model& model, Error* error)
 {	
@@ -98,6 +111,33 @@ Ref<ArrayMesh> CesiumGDModelLoader::generate_meshes_from_model(const CesiumGltf:
 			if (indexBuffer.is_empty()) {
 				for (int32_t i = 0; i < vertices.size(); i++) {
 					indexBuffer.push_back(i);
+				}
+			}
+
+			// DIAGNOSTIC: Optionally drop skirt geometry. 3D Tiles producers
+			// attach CesiumGltfContent::SkirtMeshMetadata to the mesh's
+			// extras describing a contiguous non-skirt index range; anything
+			// outside [noSkirtIndicesBegin, noSkirtIndicesBegin+Count) is
+			// skirt. Slicing to just the non-skirt portion is enough to
+			// remove them from rendering. If the metadata is absent (e.g.
+			// tilesets that don't emit it), this is a no-op and a log line
+			// is printed once so we can tell the difference between
+			// "skipped-nothing" and "skirts-gone".
+			if (skip_skirts && !indexBuffer.is_empty()) {
+				std::optional<CesiumGltfContent::SkirtMeshMetadata> skirt =
+					CesiumGltfContent::SkirtMeshMetadata::parseFromGltfExtras(mesh.extras);
+				if (skirt.has_value() && skirt->noSkirtIndicesCount > 0) {
+					const uint32_t begin = skirt->noSkirtIndicesBegin;
+					const uint32_t count = skirt->noSkirtIndicesCount;
+					const uint32_t end = begin + count;
+					if (end <= static_cast<uint32_t>(indexBuffer.size())) {
+						Vector<int32_t> trimmed;
+						trimmed.resize(count);
+						for (uint32_t i = 0; i < count; ++i) {
+							trimmed.write[i] = indexBuffer[begin + i];
+						}
+						indexBuffer = trimmed;
+					}
 				}
 			}
 
@@ -183,10 +223,18 @@ Ref<ArrayMesh> CesiumGDModelLoader::generate_meshes_from_model(const CesiumGltf:
 				// albedo_amplification: 1.0 elsewhere (shader matches StandardMaterial3D
 				// output), ~3.0 on web to match the legacy tile shader's doubled basecolor
 				// contribution and survive the aggressive tonemap.
+				// ambient_level (web only): lifts dark raster-overlay tiles (ocean
+				// imagery, shadow-side terrain) via texture-modulated EMISSION.
+				// See shader comment; treat this as the tunable knob for overall
+				// baseline brightness on non-Google datasets. Google photogrammetry
+				// is unaffected at modest values because its textures are already
+				// mid-bright — crank it higher if Google also looks washed out.
 #ifdef __EMSCRIPTEN__
 				shaderMat->set_shader_parameter("albedo_amplification", 3.0f);
+				shaderMat->set_shader_parameter("ambient_level", 1.0f);
 #else
 				shaderMat->set_shader_parameter("albedo_amplification", 1.0f);
+				shaderMat->set_shader_parameter("ambient_level", 0.0f);
 #endif
 
 				finalMaterial = shaderMat;
@@ -421,12 +469,27 @@ Ref<Shader> CesiumGDModelLoader::get_tile_shader(bool doubleSided)
 		// cull_disabled: matches the StandardMaterial3D path for doubleSided=true
 		// glTF materials (e.g. Google 3D Tiles photogrammetry), whose winding +
 		// normals are authored outward and would be wrong-side-culled by cull_front.
+		// Opaque + unconditional depth writes: photogrammetric tiles are fully
+		// opaque in practice (textures have alpha=1), and blend_mix with
+		// depth_draw_opaque was allowing adjacent-LOD-tile fragments to arrive
+		// in non-deterministic order without writing depth, producing visible
+		// seams at nadir. blend_disabled skips the blend path entirely and
+		// depth_draw_always guarantees every fragment contributes to the
+		// depth buffer so the depth test resolves overlapping tile fragments
+		// deterministically.
 		String code = String(R"(
 		shader_type spatial;
-		render_mode blend_mix, depth_draw_opaque, )") + cull_mode + R"(, diffuse_lambert, specular_schlick_ggx;
+		render_mode blend_disabled, depth_draw_always, )") + cull_mode + R"(, diffuse_lambert, specular_schlick_ggx;
 
 		uniform sampler2D albedo_texture : source_color;
 		uniform float albedo_amplification : hint_range(0.25, 50.0) = 1.0;
+		// ambient_level: constant self-illumination scaled by the texture color.
+		// Acts like a directionless ambient light source that each tile fragment
+		// reflects based on its own albedo — dark areas (e.g. ocean) get lifted
+		// out of the shadow, bright areas scale proportionally. Unlike
+		// albedo_amplification (a pure multiplier on the lit contribution), this
+		// survives into pixels that happen to be oriented away from the sun.
+		uniform float ambient_level : hint_range(0.0, 3.0) = 0.0;
 		uniform vec2 uv_offset = vec2(0.0);
 		uniform vec2 uv_scale = vec2(1.0);
 		uniform float uv_rotation = 0.0;
@@ -445,7 +508,8 @@ Ref<Shader> CesiumGDModelLoader::get_tile_shader(bool doubleSided)
 			uv += uv_offset;
 			vec4 tex = texture(albedo_texture, uv);
 			ALBEDO = tex.rgb * albedo_amplification;
-			ALPHA = tex.a;
+			EMISSION = tex.rgb * ambient_level;
+			ALPHA = 1.0;
 			ROUGHNESS = 1.0;
 			METALLIC = 0.0;
 		}

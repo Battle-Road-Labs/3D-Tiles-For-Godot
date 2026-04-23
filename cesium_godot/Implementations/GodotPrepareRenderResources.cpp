@@ -247,6 +247,11 @@ void GodotPrepareRenderResources::attachRasterInMainThread(const Tile& tile, int
 				shaderMat->set_shader_parameter("uv_offset", Vector3(translation.x, 1.0 - translation.y, 0.0));
 				shaderMat->set_shader_parameter("uv_rotation", 0.0f);
 				shaderMat->set_shader_parameter("albedo_amplification", 3.0f);
+				// Web-only texture-modulated ambient emission so dark overlays
+				// (ocean imagery, shadow-side terrain) don't get crushed by the
+				// scene's aggressive tonemap. Kept at 1.0 to match the initial
+				// mesh-load path in CesiumGDModelLoader; tune both together.
+				shaderMat->set_shader_parameter("ambient_level", 1.0f);
 				finalMaterial = shaderMat;
 			}
 #endif
