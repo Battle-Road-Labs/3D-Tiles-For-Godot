@@ -469,17 +469,9 @@ Ref<Shader> CesiumGDModelLoader::get_tile_shader(bool doubleSided)
 		// cull_disabled: matches the StandardMaterial3D path for doubleSided=true
 		// glTF materials (e.g. Google 3D Tiles photogrammetry), whose winding +
 		// normals are authored outward and would be wrong-side-culled by cull_front.
-		// Opaque + unconditional depth writes: photogrammetric tiles are fully
-		// opaque in practice (textures have alpha=1), and blend_mix with
-		// depth_draw_opaque was allowing adjacent-LOD-tile fragments to arrive
-		// in non-deterministic order without writing depth, producing visible
-		// seams at nadir. blend_disabled skips the blend path entirely and
-		// depth_draw_always guarantees every fragment contributes to the
-		// depth buffer so the depth test resolves overlapping tile fragments
-		// deterministically.
 		String code = String(R"(
 		shader_type spatial;
-		render_mode blend_disabled, depth_draw_always, )") + cull_mode + R"(, diffuse_lambert, specular_schlick_ggx;
+		render_mode blend_mix, depth_draw_opaque, )") + cull_mode + R"(, diffuse_lambert, specular_schlick_ggx;
 
 		uniform sampler2D albedo_texture : source_color;
 		uniform float albedo_amplification : hint_range(0.25, 50.0) = 1.0;
@@ -509,7 +501,7 @@ Ref<Shader> CesiumGDModelLoader::get_tile_shader(bool doubleSided)
 			vec4 tex = texture(albedo_texture, uv);
 			ALBEDO = tex.rgb * albedo_amplification;
 			EMISSION = tex.rgb * ambient_level;
-			ALPHA = 1.0;
+			ALPHA = tex.a;
 			ROUGHNESS = 1.0;
 			METALLIC = 0.0;
 		}
