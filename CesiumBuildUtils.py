@@ -437,6 +437,16 @@ def configure_native(argumentsDict):
     if is_web:
         patch_ezvcpkg_allow_unsupported(sourceDir)
         patch_vcpkg_wasm_triplet_pthread()
+        # KTX's vcpkg port applies 0001-Use-vcpkg-zstd.patch which replaces
+        # KTX's vendored zstd with find_package(zstd). KTX's vcpkg.json
+        # doesn't declare zstd as a dep (at least not for our feature set),
+        # so ezvcpkg_fetch doesn't install it — KTX's configure then fails
+        # with "Could not find a package configuration file provided by zstd".
+        # Pre-install it so it's present in installed/<triplet>/share/zstd/
+        # before ezvcpkg processes the KTX port.
+        vcpkg_exe = os.path.join(find_ezvcpkg_path(), "vcpkg" + (".exe" if os.name == OS_WIN else ""))
+        if os.path.exists(vcpkg_exe):
+            subprocess.run([vcpkg_exe, "install", "--allow-unsupported", "zstd:%s" % triplet])
 
     cmake_args = [
         "cmake",
@@ -886,6 +896,14 @@ def install_additional_libs(argumentsDict=None):
     subprocess.run([executable, "install"] + allow_unsupported + ["ada-url:%s" % triplet])
     if platform != PLATFORM_WEB and os.name == OS_WIN:
         subprocess.run([executable, "install", "curl:%s" % triplet])
+    # KTX's vcpkg port applies 0001-Use-vcpkg-zstd.patch, which rewrites KTX
+    # to find_package(zstd) instead of using its vendored copy. But KTX's
+    # vcpkg.json doesn't declare zstd as a dep for our feature set, so ezvcpkg
+    # doesn't pull it in when building cesium-native. Install it explicitly
+    # for web so it's present in installed/wasm32-emscripten/share/zstd/ by
+    # the time ezvcpkg_fetch processes ktx.
+    if platform == PLATFORM_WEB:
+        subprocess.run([executable, "install"] + allow_unsupported + ["zstd:%s" % triplet])
     # Runs after vcpkg install so the patch survives a fresh fmt reinstall.
     if platform == PLATFORM_WEB:
         patch_fmt_consteval({"platform": platform})
