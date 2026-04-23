@@ -696,6 +696,27 @@ set(VCPKG_CMAKE_CONFIGURE_OPTIONS
             except Exception as e:
                 print(f"[CESIUM] Warning: could not clean vcpkg status file: {e}")
             print("[CESIUM] Cleared wasm32-emscripten packages (will rebuild with -pthread -fPIC)")
+            # Layer 4: vcpkg binary archive cache. Keyed by a hash that includes
+            # triplet content, so a patched triplet normally invalidates old
+            # entries — but stale/partial entries from prior attempts can still
+            # short-circuit a rebuild (the libjpeg-turbo saveSetjmp incident).
+            # Archive files aren't labeled by triplet, so clearing the whole
+            # dir is the only safe option. Respects VCPKG_DEFAULT_BINARY_CACHE.
+            archives_override = os.environ.get("VCPKG_DEFAULT_BINARY_CACHE", "")
+            if archives_override:
+                archives_dir = archives_override
+            elif os.name == OS_WIN:
+                archives_dir = os.path.join(os.environ.get("LOCALAPPDATA", ""), "vcpkg", "archives")
+            elif sys.platform == PLATFORM_MACOS:
+                archives_dir = os.path.expanduser("~/Library/Caches/vcpkg/archives")
+            else:
+                archives_dir = os.path.expanduser("~/.cache/vcpkg/archives")
+            if archives_dir and os.path.exists(archives_dir):
+                try:
+                    shutil.rmtree(archives_dir)
+                    print(f"[CESIUM] Cleared vcpkg binary archive cache: {archives_dir}")
+                except Exception as e:
+                    print(f"[CESIUM] Warning: could not clear vcpkg binary cache at {archives_dir}: {e}")
     except Exception as e:
         print(f"[CESIUM] Warning: could not patch wasm triplet: {e}")
 

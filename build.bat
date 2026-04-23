@@ -5,6 +5,12 @@ rem Default ezvcpkg location if not already set. The quoted form catches both
 rem unset and empty-string cases; `if not defined` misses the empty case.
 if "%EZVCPKG_BASEDIR%"=="" set EZVCPKG_BASEDIR=C:\.ezvcpkg
 
+rem Default emsdk install location and version. Only used by the web target
+rem (see :ensure_emsdk). Override EMSDK_DIR to point at an existing checkout;
+rem override EMSDK_VERSION to pin (e.g. `set EMSDK_VERSION=3.1.64`).
+if "%EMSDK_DIR%"=="" set EMSDK_DIR=C:\emsdk
+if "%EMSDK_VERSION%"=="" set EMSDK_VERSION=latest
+
 set TARGET=%1
 if "%TARGET%"=="" set TARGET=extension
 
@@ -23,6 +29,8 @@ goto :done
 
 :build_web
 echo Building GDExtension for Web/WASM...
+call :ensure_emsdk
+if errorlevel 1 goto :done
 rem Force emscripten-style longjmp to avoid conflict with godot-cpp's exception handling.
 rem -pthread enables atomics/bulk-memory needed for --shared-memory at link time.
 rem EMCC_CFLAGS is read by emcc/em++ for ALL compilations (vcpkg, cmake, scons).
@@ -69,6 +77,41 @@ echo   web        - Build GDExtension for Web/WASM
 echo   module     - Prepare dependencies for Godot engine module build
 echo   clean      - Remove cesium-native build-windows and build-web directories
 echo   clean-deep - clean + nuke stale wasm32-emscripten vcpkg state (recovery)
+goto :done
+
+rem --- Ensure Emscripten SDK is installed and activated in this shell --------
+rem If EMSDK is already defined, the parent shell has sourced emsdk_env; skip.
+rem Otherwise, clone+install emsdk into %EMSDK_DIR% if needed, then source
+rem emsdk_env.bat so PATH and EMSDK* env vars are set for scons/emcc.
+:ensure_emsdk
+if defined EMSDK exit /b 0
+if exist "%EMSDK_DIR%\emsdk.bat" goto :activate_emsdk
+echo emsdk not found at %EMSDK_DIR% - cloning and installing %EMSDK_VERSION%...
+where git >nul 2>&1
+if errorlevel 1 (
+    echo ERROR: git is required on PATH to clone emsdk. Install git, or pre-install emsdk and set EMSDK_DIR.
+    exit /b 1
+)
+git clone https://github.com/emscripten-core/emsdk.git "%EMSDK_DIR%"
+if errorlevel 1 exit /b 1
+pushd "%EMSDK_DIR%"
+call emsdk.bat install %EMSDK_VERSION%
+if errorlevel 1 (
+    popd
+    echo ERROR: emsdk install %EMSDK_VERSION% failed.
+    exit /b 1
+)
+call emsdk.bat activate %EMSDK_VERSION%
+if errorlevel 1 (
+    popd
+    echo ERROR: emsdk activate %EMSDK_VERSION% failed.
+    exit /b 1
+)
+popd
+:activate_emsdk
+echo Activating emsdk from %EMSDK_DIR%...
+call "%EMSDK_DIR%\emsdk_env.bat"
+exit /b %ERRORLEVEL%
 
 :done
 pause
