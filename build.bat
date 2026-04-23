@@ -7,9 +7,10 @@ if "%EZVCPKG_BASEDIR%"=="" set EZVCPKG_BASEDIR=C:\.ezvcpkg
 
 rem Default emsdk install location and version. Only used by the web target
 rem (see :ensure_emsdk). Override EMSDK_DIR to point at an existing checkout;
-rem override EMSDK_VERSION to pin (e.g. `set EMSDK_VERSION=3.1.64`).
+rem override EMSDK_VERSION to pin to a different toolchain.
+rem 3.1.56 is pinned because newer emsdk breaks the KTX library from vcpkg.
 if "%EMSDK_DIR%"=="" set EMSDK_DIR=C:\emsdk
-if "%EMSDK_VERSION%"=="" set EMSDK_VERSION=latest
+if "%EMSDK_VERSION%"=="" set EMSDK_VERSION=3.1.56
 
 set TARGET=%1
 if "%TARGET%"=="" set TARGET=extension
@@ -83,34 +84,41 @@ rem --- Ensure Emscripten SDK is installed and activated in this shell --------
 rem If EMSDK is already defined, the parent shell has sourced emsdk_env; skip.
 rem Otherwise, clone+install emsdk into %EMSDK_DIR% if needed, then source
 rem emsdk_env.bat so PATH and EMSDK* env vars are set for scons/emcc.
+rem
+rem Note: emsdk.bat install/activate internally uses setlocal/endlocal+set
+rem patterns that can clobber a caller's EMSDK_DIR on first install (the
+rem activate step was observed to wipe it on 3.1.56). Stash the path into
+rem an underscore-prefixed name that won't collide with emsdk's internals.
 :ensure_emsdk
 if defined EMSDK exit /b 0
-if exist "%EMSDK_DIR%\emsdk.bat" goto :activate_emsdk
-echo emsdk not found at %EMSDK_DIR% - cloning and installing %EMSDK_VERSION%...
+set "_CESIUM_EMSDK_DIR=%EMSDK_DIR%"
+set "_CESIUM_EMSDK_VERSION=%EMSDK_VERSION%"
+if exist "%_CESIUM_EMSDK_DIR%\emsdk.bat" goto :activate_emsdk
+echo emsdk not found at %_CESIUM_EMSDK_DIR% - cloning and installing %_CESIUM_EMSDK_VERSION%...
 where git >nul 2>&1
 if errorlevel 1 (
     echo ERROR: git is required on PATH to clone emsdk. Install git, or pre-install emsdk and set EMSDK_DIR.
     exit /b 1
 )
-git clone https://github.com/emscripten-core/emsdk.git "%EMSDK_DIR%"
+git clone https://github.com/emscripten-core/emsdk.git "%_CESIUM_EMSDK_DIR%"
 if errorlevel 1 exit /b 1
-pushd "%EMSDK_DIR%"
-call emsdk.bat install %EMSDK_VERSION%
+pushd "%_CESIUM_EMSDK_DIR%"
+call emsdk.bat install %_CESIUM_EMSDK_VERSION%
 if errorlevel 1 (
     popd
-    echo ERROR: emsdk install %EMSDK_VERSION% failed.
+    echo ERROR: emsdk install %_CESIUM_EMSDK_VERSION% failed.
     exit /b 1
 )
-call emsdk.bat activate %EMSDK_VERSION%
+call emsdk.bat activate %_CESIUM_EMSDK_VERSION%
 if errorlevel 1 (
     popd
-    echo ERROR: emsdk activate %EMSDK_VERSION% failed.
+    echo ERROR: emsdk activate %_CESIUM_EMSDK_VERSION% failed.
     exit /b 1
 )
 popd
 :activate_emsdk
-echo Activating emsdk from %EMSDK_DIR%...
-call "%EMSDK_DIR%\emsdk_env.bat"
+echo Activating emsdk from %_CESIUM_EMSDK_DIR%...
+call "%_CESIUM_EMSDK_DIR%\emsdk_env.bat"
 exit /b %ERRORLEVEL%
 
 :done
