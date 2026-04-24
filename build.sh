@@ -1,6 +1,50 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Default ezvcpkg location if not already set. Used by vcpkg for any native
+# build (Linux extension as well as the web SIDE_MODULE). Matches build.bat's
+# C:\.ezvcpkg equivalent.
+export EZVCPKG_BASEDIR="${EZVCPKG_BASEDIR:-$HOME/.ezvcpkg}"
+
+# Default emsdk install location and version. Only used by the web target
+# (see ensure_emsdk). Override EMSDK_DIR to point at an existing checkout;
+# override EMSDK_VERSION to pin to a different toolchain.
+#
+# 3.1.60 is pinned for this repo (bumped from 3.1.56 to pick up the
+# -sSUPPORT_LONGJMP=wasm compile-time lowering fix). If 3.1.60 breaks KTX
+# again (the original reason we pinned 3.1.56), step up gradually to 3.1.64 /
+# 3.1.70 etc. Revert to 3.1.56 only as last resort — saveSetjmp workarounds
+# there got messy. Kept in a separate directory from any other emsdk (e.g.
+# the Godot engine's) so both can coexist with independent configs.
+export EMSDK_DIR="${EMSDK_DIR:-$HOME/emsdk-cesium}"
+export EMSDK_VERSION="${EMSDK_VERSION:-3.1.60}"
+
+# Always activate this repo's pinned emsdk, even if the parent shell has a
+# different one active. Checking $EMSDK and skipping activation would
+# silently compile against the wrong toolchain. install + activate are
+# near-instant no-ops once applied, so cost on repeat builds is negligible.
+ensure_emsdk() {
+    if [ ! -f "$EMSDK_DIR/emsdk" ]; then
+        echo "emsdk not found at $EMSDK_DIR - cloning..."
+        if ! command -v git >/dev/null 2>&1; then
+            echo "ERROR: git is required on PATH to clone emsdk. Install git, or pre-install emsdk and set EMSDK_DIR." >&2
+            return 1
+        fi
+        git clone https://github.com/emscripten-core/emsdk.git "$EMSDK_DIR" || return 1
+    fi
+    ( cd "$EMSDK_DIR" && ./emsdk install "$EMSDK_VERSION" ) || {
+        echo "ERROR: emsdk install $EMSDK_VERSION failed." >&2
+        return 1
+    }
+    ( cd "$EMSDK_DIR" && ./emsdk activate "$EMSDK_VERSION" ) || {
+        echo "ERROR: emsdk activate $EMSDK_VERSION failed." >&2
+        return 1
+    }
+    echo "Activating emsdk $EMSDK_VERSION from $EMSDK_DIR..."
+    # shellcheck disable=SC1091
+    source "$EMSDK_DIR/emsdk_env.sh"
+}
+
 TARGET="${1:-extension}"
 
 case "$TARGET" in
@@ -11,12 +55,7 @@ case "$TARGET" in
         ;;
     web)
         echo "Building GDExtension for Web (WASM)..."
-        if [ -z "${EMSDK:-}" ]; then
-            echo "Error: EMSDK environment variable not set."
-            echo "Please install and activate the Emscripten SDK first:"
-            echo "  source <emsdk-path>/emsdk_env.sh"
-            exit 1
-        fi
+        ensure_emsdk
         # Force emscripten-style longjmp to avoid conflict with godot-cpp's exception handling.
 		# -pthread enables atomics/bulk-memory needed for --shared-memory at link time.
 		# EMCC_CFLAGS is read by emcc/em++ for ALL compilations (vcpkg, cmake, scons).
