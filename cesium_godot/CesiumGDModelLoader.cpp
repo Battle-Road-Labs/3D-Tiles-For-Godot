@@ -51,6 +51,27 @@ namespace {
 		std::string v(env);
 		return v != "0" && v != "false" && v != "False" && v != "FALSE";
 	}
+
+#ifdef __EMSCRIPTEN__
+	// Web builds skip BaseMaterial3D entirely (see project_web_material_path memory).
+	// This helper pulls the baseColorTexture straight out of the cesium model so we
+	// never instantiate a StandardMaterial3D on worker threads.
+	Ref<Texture2D> load_albedo_texture_for_cesium_material(
+			const CesiumGltf::Material& cesiumMaterial,
+			const CesiumGltf::Model& model) {
+		if (!cesiumMaterial.pbrMetallicRoughness.has_value()) {
+			return Ref<Texture2D>();
+		}
+		const std::optional<CesiumGltf::TextureInfo>& baseTexture =
+				cesiumMaterial.pbrMetallicRoughness->baseColorTexture;
+		if (!baseTexture.has_value()) {
+			return Ref<Texture2D>();
+		}
+		const int32_t imageIndex = model.textures.at(baseTexture->index).source;
+		const CesiumGltf::Image& image = model.images.at(imageIndex);
+		return CesiumGDTextureLoader::load_image_texture(*image.pAsset.get(), true, false);
+	}
+#endif
 }
 bool CesiumGDModelLoader::skip_skirts = cesium_env_skip_skirts();
 
@@ -69,10 +90,16 @@ Ref<ArrayMesh> CesiumGDModelLoader::generate_meshes_from_model(const CesiumGltf:
 
 			const CesiumGltf::Model* modelReference = &model;
 
-			// Create the material for the gltf
-			Ref<StandardMaterial3D> godotMaterial = memnew(StandardMaterial3D);
 			const CesiumGltf::Material& mat = modelReference->materials.at(primitive.material);
+			// On web we skip BaseMaterial3D entirely — it registers into a global
+			// SelfList on construction and is touched from the main thread's
+			// physics_process, but we're building meshes on cesium-native worker
+			// threads. The resulting WASM out-of-bounds on flush_changes() is what
+			// this guard prevents. See project_web_material_path memory.
+#ifndef __EMSCRIPTEN__
+			Ref<StandardMaterial3D> godotMaterial = memnew(StandardMaterial3D);
 			copy_material_properties(mat, godotMaterial, *modelReference);
+#endif
 
 			// Then copy all the other properties defined in the file
 			Vector<Vector3> vertices = get_attribute_from_primitive<Vector3>(primitive, model, "POSITION");
@@ -147,10 +174,12 @@ Ref<ArrayMesh> CesiumGDModelLoader::generate_meshes_from_model(const CesiumGltf:
 			#if defined(CESIUM_GD_EXT)
 			arrays = generate_array_mesh_ext(vertices, indexBuffer, normals, textureCoords, textureCoords1);
 
+#ifndef __EMSCRIPTEN__
 			if (normals.is_empty()) {
 				godotMaterial->set_shading_mode(BaseMaterial3D::ShadingMode::SHADING_MODE_UNSHADED);
 			}
-			
+#endif
+
 			#elif defined(CESIUM_GD_MODULE)
 			arrays.resize(ArrayMesh::ARRAY_MAX);
 			arrays[ArrayMesh::ARRAY_VERTEX] = vertices;
@@ -172,10 +201,18 @@ Ref<ArrayMesh> CesiumGDModelLoader::generate_meshes_from_model(const CesiumGltf:
 			}
 			#endif
 			
+#ifndef __EMSCRIPTEN__
 			Ref<Material> finalMaterial = godotMaterial;
 			if (modelReference->hasExtension<CesiumGltf::ExtensionKhrMaterialsUnlit>()) {
 				godotMaterial->set_shading_mode(BaseMaterial3D::ShadingMode::SHADING_MODE_UNSHADED);
 			}
+#else
+			// On web the shader path is mandatory (see force_shader_material below),
+			// so finalMaterial is assigned inside the shader-routing block. If the
+			// shader fails to load we fall through with a null Ref, producing a
+			// Godot-default-material surface — degraded but non-crashing.
+			Ref<Material> finalMaterial;
+#endif
 
 			// Gather UV transform (identity if extension absent)
 			Vector3 offsetVector3 = Vector3(0, 0, 0);
@@ -213,7 +250,11 @@ Ref<ArrayMesh> CesiumGDModelLoader::generate_meshes_from_model(const CesiumGltf:
 				shaderMat.instantiate();
 				shaderMat->set_shader(tile_shader);
 
+#ifdef __EMSCRIPTEN__
+				Ref<Texture2D> albedo_texture_mat = load_albedo_texture_for_cesium_material(mat, *modelReference);
+#else
 				Ref<Texture2D> albedo_texture_mat = godotMaterial->get_texture(BaseMaterial3D::TEXTURE_ALBEDO);
+#endif
 				shaderMat->set_shader_parameter("albedo_texture", albedo_texture_mat);
 
 				shaderMat->set_shader_parameter("uv_offset", offsetVector3);
@@ -239,12 +280,14 @@ Ref<ArrayMesh> CesiumGDModelLoader::generate_meshes_from_model(const CesiumGltf:
 
 				finalMaterial = shaderMat;
 			}
+#ifndef __EMSCRIPTEN__
 			else if (has_texture_transform) {
 				// Fallback: shader didn't load and we have a texture transform — fold
 				// offset/scale into the StandardMaterial3D's UV1 settings.
 				godotMaterial->set_uv1_offset(offsetVector3);
 				godotMaterial->set_uv1_scale(scaleVector3);
 			}
+#endif
 
 			*error = apply_surface_to_mesh(primitive, meshInstance, arrays);
 			meshInstance->surface_set_material(surfaceIndex, finalMaterial);
