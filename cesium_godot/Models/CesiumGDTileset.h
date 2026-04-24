@@ -98,6 +98,19 @@ public:
 
 	bool get_create_physics_meshes() const;
 
+	// Worker-pool sizes exposed for platforms with tight thread budgets (web).
+	// m_signalingThreadPool and m_physicsMeshThread are reserved for future work
+	// queues — at present nothing enqueues into them, so web defaults to 0 to
+	// avoid consuming emscripten PTHREAD_POOL_SIZE slots for no reason.
+	// Native keeps the historical 5 / 4 defaults.
+	void set_signaling_thread_count(uint32_t count);
+
+	uint32_t get_signaling_thread_count() const;
+
+	void set_physics_mesh_thread_count(uint32_t count);
+
+	uint32_t get_physics_mesh_thread_count() const;
+
 	bool get_show_hierarchy() const;
 
 	void set_show_hierarchy(bool show);
@@ -166,6 +179,14 @@ private:
 	CesiumGeoreference* m_georeference = nullptr;
 
 	BRThreadPool m_signalingThreadPool;
+
+#ifdef __EMSCRIPTEN__
+	uint32_t m_signalingThreadCount = 0;
+	uint32_t m_physicsMeshThreadCount = 0;
+#else
+	uint32_t m_signalingThreadCount = 5;
+	uint32_t m_physicsMeshThreadCount = 4;
+#endif
 
 	Callable m_debugVolumesFunction;
 protected:

@@ -236,7 +236,9 @@ Cesium3DTileset::Cesium3DTileset()
 		ERR_PRINT(String("Failed to load a given tileset, error: ") + failData.message.c_str());
 	};
 
-	this->m_signalingThreadPool.init(5);
+	// m_signalingThreadPool.init() is deferred to create_tileset_externals() so
+	// scene-set properties (signaling_thread_count) take effect before any
+	// workers are spawned. See set_signaling_thread_count.
 
 	Cesium3DTilesContent::registerAllTileContentTypes();
 }
@@ -376,6 +378,26 @@ void Cesium3DTileset::set_create_physics_meshes(bool shouldCreate)
 bool Cesium3DTileset::get_create_physics_meshes() const
 {
 	return this->m_createPhysicsMeshes;
+}
+
+void Cesium3DTileset::set_signaling_thread_count(uint32_t count)
+{
+	this->m_signalingThreadCount = count;
+}
+
+uint32_t Cesium3DTileset::get_signaling_thread_count() const
+{
+	return this->m_signalingThreadCount;
+}
+
+void Cesium3DTileset::set_physics_mesh_thread_count(uint32_t count)
+{
+	this->m_physicsMeshThreadCount = count;
+}
+
+uint32_t Cesium3DTileset::get_physics_mesh_thread_count() const
+{
+	return this->m_physicsMeshThreadCount;
 }
 
 void Cesium3DTileset::update_tileset(const Transform3D& cameraTransform)
@@ -551,10 +573,17 @@ Cesium3DTilesSelection::TilesetExternals Cesium3DTileset::create_tileset_externa
 	auto gunzipAccessor = std::make_shared<CesiumAsync::GunzipAssetAccessor>(
 		cachedAccessor
 	);
-	
+
+	// Lazy pool init — scene properties have been applied by the time we get
+	// here, so m_signalingThreadCount reflects what the user (or platform
+	// default) wants. Guard against re-init if the tileset is reloaded.
+	if (this->m_signalingThreadPool.size() == 0) {
+		this->m_signalingThreadPool.init(this->m_signalingThreadCount);
+	}
+
 	auto taskProcessor = std::make_shared<SimpleTaskProcessor>();
 	CesiumAsync::AsyncSystem asyncSystem(taskProcessor);
-	auto renderResourcesProvider = std::make_shared<GodotPrepareRenderResources>(this);
+	auto renderResourcesProvider = std::make_shared<GodotPrepareRenderResources>(this, this->m_physicsMeshThreadCount);
 	auto creditSystem = std::make_shared<CesiumUtility::CreditSystem>();
 	CesiumGDCreditSystem::get_singleton(this)->add_credit_system(creditSystem);
 	
@@ -714,6 +743,14 @@ void Cesium3DTileset::_bind_methods()
 	ClassDB::bind_method(D_METHOD("set_create_physics_meshes", "shouldGenerate"), &Cesium3DTileset::set_create_physics_meshes);
 	ClassDB::bind_method(D_METHOD("get_create_physics_meshes"), &Cesium3DTileset::get_create_physics_meshes);
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "create_physics_meshes"), "set_create_physics_meshes", "get_create_physics_meshes");
+
+	ClassDB::bind_method(D_METHOD("set_signaling_thread_count", "count"), &Cesium3DTileset::set_signaling_thread_count);
+	ClassDB::bind_method(D_METHOD("get_signaling_thread_count"), &Cesium3DTileset::get_signaling_thread_count);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "signaling_thread_count"), "set_signaling_thread_count", "get_signaling_thread_count");
+
+	ClassDB::bind_method(D_METHOD("set_physics_mesh_thread_count", "count"), &Cesium3DTileset::set_physics_mesh_thread_count);
+	ClassDB::bind_method(D_METHOD("get_physics_mesh_thread_count"), &Cesium3DTileset::get_physics_mesh_thread_count);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "physics_mesh_thread_count"), "set_physics_mesh_thread_count", "get_physics_mesh_thread_count");
 
 	ClassDB::bind_method(D_METHOD("get_data_source"), &Cesium3DTileset::get_data_source);
 	ClassDB::bind_method(D_METHOD("set_data_source", "data_source"), &Cesium3DTileset::set_data_source);
