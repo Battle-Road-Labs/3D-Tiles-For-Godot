@@ -3,6 +3,7 @@
 
 #include "Implementations/DocumentContainer.h"
 #include "Models/Cesium3DTile.h"
+#include "Models/CesiumGDGlobeAnchor.h"
 #include "Models/CesiumGDCreditSystem.h"
 #include "Models/CesiumGDTileset.h"
 #include "Models/CesiumHTTPRequestNode.h"
@@ -45,7 +46,8 @@ void initialize_cesium_godot_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<TokenTroubleshooting>();
 	ClassDB::register_class<GeoreferencedMesh>();
 	ClassDB::register_class<Cesium3DTile>();
-	
+	ClassDB::register_class<CesiumGDGlobeAnchor>();
+
 	ClassDB::register_class<CesiumGDCreditSystem>(true);
 }
 
