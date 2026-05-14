@@ -463,6 +463,10 @@ def configure_native(argumentsDict):
         web_extra_flags = "-sMEMORY64=1 -Wno-experimental" if is_web_memory64() else ""
         patch_vcpkg_wasm_triplet_pthread(triplet, web_extra_flags)
         patch_libjpeg_turbo_port_no_setjmp()
+        # KTX's JS bindings (ktx_js, msc_basis_transcoder_js) fail under MEMORY64
+        # and are dead code for cesium-native (which uses the C API). Safe for
+        # both wasm32 and wasm64 to drop them.
+        patch_ktx_disable_js_bindings()
         # KTX's vcpkg port applies 0001-Use-vcpkg-zstd.patch which replaces
         # KTX's vendored zstd with find_package(zstd). KTX's vcpkg.json
         # doesn't declare zstd as a dep (at least not for our feature set),
@@ -901,6 +905,71 @@ def patch_fmt_consteval(env=None):
         print(f"[CESIUM] Patched {base_h}: FMT_USE_CONSTEVAL 1 -> 0")
     except Exception as e:
         print(f"[CESIUM] Warning: could not patch fmt/base.h: {e}")
+
+
+def patch_ktx_disable_js_bindings():
+    """Disable KTX's interface/js_binding subdirectory in the vcpkg KTX port.
+
+    KTX's ktx_wrapper.cpp registers an emscripten::class_<ktx::texture>::constructor
+    binding. Under MEMORY64 codegen, emscripten's GenericBindingType<ktx::texture>::
+    toWireType template path resolves to `new ktx::texture(v)` where v binds to
+    the deleted `texture(texture&)` non-const copy ctor — compilation aborts.
+    Under wasm32 a different binding specialization is selected and it works.
+
+    Cesium-native consumes KTX through its C API; the JS bindings (ktx_js,
+    msc_basis_transcoder_js) are unused dead weight for either triplet. Patching
+    the port to skip building them via overwriting interface/js_binding/CMakeLists.txt
+    with a stub is safe for both wasm32 and wasm64.
+
+    Idempotent — detects marker and skips if already applied."""
+    try:
+        vcpkg_base = find_ezvcpkg_path()
+        port_dir = os.path.join(vcpkg_base, "ports", "ktx")
+        portfile = os.path.join(port_dir, "portfile.cmake")
+        if not os.path.exists(portfile):
+            return
+        with open(portfile, "r", encoding="utf-8") as f:
+            content = f.read()
+        marker = "# CESIUM_DISABLE_KTX_JS"
+        if marker in content:
+            return  # already patched
+        # Stub-out the JS-binding subdir CMakeLists. This runs after source
+        # extraction, before vcpkg_cmake_configure, so the top-level
+        # `add_subdirectory(interface/js_binding)` still resolves (no missing
+        # path error) but contributes zero targets.
+        injection = (
+            "\n"
+            f"{marker}\n"
+            "# Disable KTX JS bindings (ktx_js, msc_basis_transcoder_js) — they\n"
+            "# fail to compile under MEMORY64 due to emscripten's bind.h template\n"
+            "# path hitting ktx::texture's deleted non-const copy ctor. JS bindings\n"
+            "# are unused by cesium-native (which uses the C API), so disabling is\n"
+            "# safe for both wasm32 and wasm64.\n"
+            "file(WRITE \"${SOURCE_PATH}/interface/js_binding/CMakeLists.txt\"\n"
+            "     \"# Disabled by cesium-build-utils\\n\")\n\n"
+        )
+        if "vcpkg_cmake_configure(" not in content:
+            return  # unfamiliar port shape; skip rather than corrupt
+        content = content.replace(
+            "vcpkg_cmake_configure(",
+            injection + "vcpkg_cmake_configure(",
+            1,
+        )
+        with open(portfile, "w", encoding="utf-8") as f:
+            f.write(content)
+        print("[CESIUM] Patched KTX port to disable JS bindings (wasm64 compat)")
+        # Force vcpkg to rebuild KTX for the current triplet so the new port
+        # patch actually applies. ktx is the only port with this concern.
+        exec_ext = ".exe" if os.name == OS_WIN else ""
+        vcpkg_exe = os.path.join(vcpkg_base, "vcpkg" + exec_ext)
+        if os.path.exists(vcpkg_exe):
+            subprocess.run(
+                [vcpkg_exe, "--vcpkg-root", vcpkg_base, "remove",
+                 f"ktx:{determine_triplet()}", "--recurse"],
+                cwd=vcpkg_base,
+            )
+    except Exception as e:
+        print(f"[CESIUM] Warning: could not patch KTX port to disable JS bindings: {e}")
 
 
 def patch_libjpeg_turbo_port_no_setjmp():
