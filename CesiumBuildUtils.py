@@ -231,27 +231,71 @@ def clone_bindings_repo_if_needed():
 
 
 def patch_godot_cpp_web_flags():
-    """Patch godot-cpp's web.py to use emscripten-style longjmp instead of wasm-style.
+    """Patch godot-cpp's web tools to:
+      1. Use emscripten-style longjmp instead of wasm-style (longjmp/exception
+         backend conflict on emcc 3.1.56+).
+      2. Accept arch=wasm64 (vanilla godot-cpp only knows wasm32).
+      3. Apply -sMEMORY64=1 + -Wno-experimental when arch=wasm64 so godot-cpp's
+         own library TUs match the wasm64 ABI used by cesium-native and the
+         GDExtension. Without this, godot-cpp builds wasm32 (i32 table indices)
+         while everything else is wasm64 (i64 table indices), and wasm-opt's
+         --table64-lowering pass aborts with "i32 != i64: call-indirect call
+         target must match the table index type"."""
+    bindings_dir = scons_to_abs_path(BINDINGS_DIR)
+    web_py_path = os.path.join(bindings_dir, "tools", "web.py")
+    godotcpp_py_path = os.path.join(bindings_dir, "tools", "godotcpp.py")
+    changed = False
 
-    Newer Emscripten (3.1.56+) defaults to emscripten-style C++ exception handling,
-    which conflicts with wasm-style setjmp/longjmp. Force both to use the emscripten
-    backend so they don't clash."""
-    web_py_path = os.path.join(scons_to_abs_path(BINDINGS_DIR), "tools", "web.py")
-    if not os.path.exists(web_py_path):
-        return
+    if os.path.exists(web_py_path):
+        with open(web_py_path, "r") as f:
+            content = f.read()
+        patched = content.replace(
+            "-sSUPPORT_LONGJMP='wasm'",
+            "-sSUPPORT_LONGJMP='emscripten'",
+        )
+        # Fix the buggy tuple-as-string check and allow wasm64. ("wasm32") is
+        # a bare string, not a tuple, so `arch not in ("wasm32")` does substring
+        # matching — wasm64 is not a substring of wasm32, so the gate fires.
+        patched = patched.replace(
+            'if env["arch"] not in ("wasm32"):\n'
+            '        print("Only wasm32 supported on web. Exiting.")\n'
+            '        env.Exit(1)',
+            'if env["arch"] not in ("wasm32", "wasm64"):\n'
+            '        print("Only wasm32/wasm64 supported on web. Exiting.")\n'
+            '        env.Exit(1)\n'
+            '\n'
+            '    # CESIUM patch: emit MEMORY64 codegen when arch=wasm64 so godot-cpp\n'
+            '    # matches the wasm64 ABI of cesium-native and the GDExtension. Without\n'
+            '    # this, godot-cpp\'s call_indirect ops produce i32 table indices while\n'
+            '    # the rest of the link uses i64, and wasm-opt rejects the final wasm.\n'
+            '    # -Wno-experimental silences the -Wexperimental warning that some deps\n'
+            '    # build with -Werror.\n'
+            '    if env["arch"] == "wasm64":\n'
+            '        env.Append(CCFLAGS=["-sMEMORY64=1", "-Wno-experimental"])\n'
+            '        env.Append(LINKFLAGS=["-sMEMORY64=1"])',
+        )
+        if patched != content:
+            with open(web_py_path, "w") as f:
+                f.write(patched)
+            changed = True
 
-    with open(web_py_path, "r") as f:
-        content = f.read()
+    if os.path.exists(godotcpp_py_path):
+        with open(godotcpp_py_path, "r") as f:
+            content = f.read()
+        # Add "wasm64" to the allowed architecture_array (right after wasm32).
+        # Vanilla godot-cpp rejects unknown archs via Variables validation, so
+        # arch=wasm64 fails before web.py even runs without this.
+        patched = content.replace(
+            '"wasm32",\n]',
+            '"wasm32",\n    "wasm64",\n]',
+        )
+        if patched != content:
+            with open(godotcpp_py_path, "w") as f:
+                f.write(patched)
+            changed = True
 
-    patched = content.replace(
-        "-sSUPPORT_LONGJMP='wasm'",
-        "-sSUPPORT_LONGJMP='emscripten'"
-    )
-
-    if patched != content:
-        with open(web_py_path, "w") as f:
-            f.write(patched)
-        print("[CESIUM] Patched godot-cpp web.py for Emscripten compatibility")
+    if changed:
+        print("[CESIUM] Patched godot-cpp web/godotcpp tools (longjmp + wasm64 support)")
 
 
 def clone_lite_html_if_needed():

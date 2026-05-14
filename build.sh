@@ -89,8 +89,13 @@ case "$TARGET" in
         # compile; some deps (KTX/astc-encoder) build with -Werror -Wpedantic which
         # upgrades it to a fatal error without this suppress.
         export EMCC_CFLAGS="-fwasm-exceptions -sSUPPORT_LONGJMP=wasm -pthread -fPIC -sMEMORY64=1 -Wno-experimental"
-		scons platform=web compileTarget=extension target=template_release precision=double production=yes disable_exceptions=no
-		scons platform=web compileTarget=extension target=template_debug precision=double disable_exceptions=no
+		# arch=wasm64 routes through godot-cpp's tools/web.py (CESIUM-patched to
+		# accept wasm64 and emit -sMEMORY64=1). Without it godot-cpp defaults to
+		# wasm32 and builds its library with i32 table indices, which wasm-opt
+		# --table64-lowering rejects against the i64-indexed link from
+		# cesium-native + the extension.
+		scons platform=web arch=wasm64 compileTarget=extension target=template_release precision=double production=yes disable_exceptions=no
+		scons platform=web arch=wasm64 compileTarget=extension target=template_debug precision=double disable_exceptions=no
         ;;
     module)
         echo "Preparing module dependencies..."

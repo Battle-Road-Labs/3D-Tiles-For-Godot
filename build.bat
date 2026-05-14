@@ -77,8 +77,12 @@ rem -Wno-experimental: emsdk emits a -Wexperimental warning on every MEMORY64
 rem compile; some deps (KTX/astc-encoder) build with -Werror -Wpedantic which
 rem upgrades it to a fatal error without this suppress.
 set EMCC_CFLAGS=-fwasm-exceptions -sSUPPORT_LONGJMP=wasm -pthread -fPIC -sMEMORY64=1 -Wno-experimental
-scons platform=web compileTarget=extension target=template_release precision=double production=yes disable_exceptions=no
-scons platform=web compileTarget=extension target=template_debug precision=double disable_exceptions=no
+rem arch=wasm64 routes through godot-cpp's tools/web.py (CESIUM-patched to accept
+rem wasm64 and emit -sMEMORY64=1). Without it godot-cpp defaults to wasm32 and
+rem builds its library with i32 table indices, which wasm-opt --table64-lowering
+rem rejects against the i64-indexed link from cesium-native + the extension.
+scons platform=web arch=wasm64 compileTarget=extension target=template_release precision=double production=yes disable_exceptions=no
+scons platform=web arch=wasm64 compileTarget=extension target=template_debug precision=double disable_exceptions=no
 goto :done
 
 
