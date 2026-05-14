@@ -15,13 +15,19 @@ rem typically lives at %USERPROFILE%\emsdk — keep this repo's emsdk in a
 rem separate directory so both installs can coexist and each project can
 rem activate its own required version without fighting the other.
 if "%EMSDK_DIR%"=="" set EMSDK_DIR=C:\emsdk-cesium
-rem Bumped 3.1.56 -> 3.1.60 to pick up the -sSUPPORT_LONGJMP=wasm compile-time
-rem lowering fix. 3.1.56 accepted the flag but emitted saveSetjmp/testSetjmp
-rem imports in SIDE_MODULE .o files anyway, which Godot's main wasm can't
-rem resolve. If 3.1.60 breaks KTX again (the original reason we pinned 3.1.56),
-rem step up gradually to 3.1.64 / 3.1.70 / etc. Revert to 3.1.56 only as last
-rem resort — saveSetjmp workarounds there got messy.
-if "%EMSDK_VERSION%"=="" set EMSDK_VERSION=3.1.60
+rem Version history:
+rem   3.1.56 -> 3.1.60: picked up the -sSUPPORT_LONGJMP=wasm compile-time lowering
+rem     fix. 3.1.56 accepted the flag but emitted saveSetjmp/testSetjmp imports in
+rem     SIDE_MODULE .o files anyway, which Godot's main wasm can't resolve.
+rem   3.1.60 -> 3.1.62: required for wasm64. Godot's platform/web/detect.py enforces
+rem     emcc >= 3.1.62, and the wasm64 SIDE_MODULE dyncall metadata format stabilized
+rem     in 3.1.62 — building the extension at 3.1.60 against a 3.1.62+ main module
+rem     yields "Cannot set properties of undefined (setting 'sig')" at runtime
+rem     because function-table entries fail to wire up.
+rem If KTX or any other dep regresses at a higher emsdk, step up incrementally
+rem (3.1.64, 3.1.70, 4.0.x) rather than reverting — older toolchains have known
+rem dlink-ABI gaps that re-surface as opaque runtime errors.
+if "%EMSDK_VERSION%"=="" set EMSDK_VERSION=3.1.62
 
 set TARGET=%1
 if "%TARGET%"=="" set TARGET=extension

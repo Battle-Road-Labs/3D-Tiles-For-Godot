@@ -10,14 +10,22 @@ export EZVCPKG_BASEDIR="${EZVCPKG_BASEDIR:-$HOME/.ezvcpkg}"
 # (see ensure_emsdk). Override EMSDK_DIR to point at an existing checkout;
 # override EMSDK_VERSION to pin to a different toolchain.
 #
-# 3.1.60 is pinned for this repo (bumped from 3.1.56 to pick up the
-# -sSUPPORT_LONGJMP=wasm compile-time lowering fix). If 3.1.60 breaks KTX
-# again (the original reason we pinned 3.1.56), step up gradually to 3.1.64 /
-# 3.1.70 etc. Revert to 3.1.56 only as last resort — saveSetjmp workarounds
-# there got messy. Kept in a separate directory from any other emsdk (e.g.
-# the Godot engine's) so both can coexist with independent configs.
+# Version history:
+#   3.1.56 -> 3.1.60: picked up the -sSUPPORT_LONGJMP=wasm compile-time lowering
+#     fix. 3.1.56 accepted the flag but emitted saveSetjmp/testSetjmp imports in
+#     SIDE_MODULE .o files anyway, which Godot's main wasm can't resolve.
+#   3.1.60 -> 3.1.62: required for wasm64. Godot's platform/web/detect.py enforces
+#     emcc >= 3.1.62, and the wasm64 SIDE_MODULE dyncall metadata format
+#     stabilized in 3.1.62 — building the extension at 3.1.60 against a 3.1.62+
+#     main module yields "Cannot set properties of undefined (setting 'sig')"
+#     at runtime because function-table entries fail to wire up.
+# If KTX or any other dep regresses at a higher emsdk, step up incrementally
+# (3.1.64, 3.1.70, 4.0.x) rather than reverting — older toolchains have known
+# dlink-ABI gaps that re-surface as opaque runtime errors. Kept in a separate
+# directory from any other emsdk (e.g. the Godot engine's) so both can coexist
+# with independent configs.
 export EMSDK_DIR="${EMSDK_DIR:-$HOME/emsdk-cesium}"
-export EMSDK_VERSION="${EMSDK_VERSION:-3.1.60}"
+export EMSDK_VERSION="${EMSDK_VERSION:-3.1.62}"
 
 # Always activate this repo's pinned emsdk, even if the parent shell has a
 # different one active. Checking $EMSDK and skipping activation would
