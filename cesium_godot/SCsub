@@ -504,6 +504,10 @@ elif (not is_web and os.name == cesium_build_utils.OS_LINUX and sys.platform != 
     libraries.extend([
         "crypto",
         "libz-ng",
+        # System zlib provides inflateInit2_ etc. — universally present on Linux,
+        # avoids runtime "undefined symbol: inflateInit2_" if libz-ng isn't on the
+        # target machine and dead-strip drops zlib-ng symbols.
+        "z",
         "liblibmodpbase64"
     ])
     env.Append(LIBPATH=["/usr/lib/x86_64-linux-gnu"])
