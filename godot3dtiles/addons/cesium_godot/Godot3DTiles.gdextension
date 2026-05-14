@@ -14,6 +14,8 @@ macos.debug.arm64 = "res://addons/cesium_godot/lib/libGodot3DTiles.macos.templat
 macos.release.arm64 = "res://addons/cesium_godot/lib/libGodot3DTiles.macos.template_release.double.arm64.dylib"
 web.debug.wasm32 = "res://addons/cesium_godot/lib/Godot3DTiles.web.template_release.double.wasm32.wasm"
 web.release.wasm32 = "res://addons/cesium_godot/lib/Godot3DTiles.web.template_release.double.wasm32.wasm"
+web.debug.wasm64 = "res://addons/cesium_godot/lib/Godot3DTiles.web.template_release.double.wasm64.wasm"
+web.release.wasm64 = "res://addons/cesium_godot/lib/Godot3DTiles.web.template_release.double.wasm64.wasm"
 
 
 [icons]

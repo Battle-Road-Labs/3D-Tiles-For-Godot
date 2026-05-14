@@ -48,9 +48,21 @@ def is_web_platform(env=None):
     return False
 
 
+def is_web_memory64():
+    """Returns True when the current web build should target wasm64 (Memory64).
+
+    Driven by the CESIUM_WEB_MEMORY64 env var (set by build.bat/build.sh `web64`).
+    Affects vcpkg triplet selection, native build dir name, EMCC flags,
+    and the GDExtension output filename (wasm32 -> wasm64 suffix)."""
+    return os.environ.get("CESIUM_WEB_MEMORY64", "").lower() in ("1", "yes", "true")
+
+
 def get_compile_flags(env=None):
     if is_web_platform(env):
-        return ["-std=c++20", "-fwasm-exceptions", "-fPIC", "-pthread"]
+        flags = ["-std=c++20", "-fwasm-exceptions", "-fPIC", "-pthread"]
+        if is_web_memory64():
+            flags.append("-sMEMORY64=1")
+        return flags
     if os.name == OS_WIN:
         return ["/std:c++20", "/Zc:__cplusplus", "/utf-8", "/bigobj"]
     elif sys.platform == PLATFORM_MACOS:
@@ -61,12 +73,15 @@ def get_compile_flags(env=None):
 
 def get_linker_flags(env=None):
     if is_web_platform(env):
-        return [
+        flags = [
             "-sSIDE_MODULE=1",
             "-pthread",
             "-sPTHREAD_POOL_SIZE=4",
             "-sALLOW_MEMORY_GROWTH=1",
         ]
+        if is_web_memory64():
+            flags.append("-sMEMORY64=1")
+        return flags
     if os.name == OS_WIN:
         return ["/IGNORE:4217"]
     return []
@@ -318,15 +333,19 @@ def build_litehtml(arch="arm64"):
 
 
 def build_litehtml_web():
-    """Build litehtml from source for Web/WASM using Emscripten."""
+    """Build litehtml from source for Web/WASM using Emscripten.
+
+    Uses a parallel build-web64/ output dir when wasm64 mode is active so a
+    wasm32 build can coexist with a wasm64 build without cross-contamination."""
     third_party_dir = scons_to_abs_path(ROOT_DIR_EXT + "/third_party")
     source_dir = os.path.join(third_party_dir, "litehtml-src")
-    output_dir = os.path.join(third_party_dir, "litehtml", "web")
+    out_subdir = "web64" if is_web_memory64() else "web"
+    output_dir = os.path.join(third_party_dir, "litehtml", out_subdir)
 
     # Check if already built
     if (os.path.exists(os.path.join(output_dir, "liblitehtml.a"))
             and os.path.exists(os.path.join(output_dir, "libgumbo.a"))):
-        print("litehtml already built for Web/WASM, skipping...")
+        print("litehtml already built for Web/WASM (%s), skipping..." % out_subdir)
         return
 
     if not os.path.exists(source_dir):
@@ -342,27 +361,28 @@ def build_litehtml_web():
         )
         return
 
-    print("Building litehtml from source for Web/WASM...")
+    print("Building litehtml from source for Web/WASM (%s)..." % out_subdir)
 
     toolchain = os.path.join(
         emsdk, "upstream", "emscripten", "cmake", "Modules", "Platform", "Emscripten.cmake"
     )
 
-    build_dir = os.path.join(source_dir, "build-web")
+    build_dir = os.path.join(source_dir, "build-" + out_subdir)
     os.makedirs(build_dir, exist_ok=True)
     os.makedirs(output_dir, exist_ok=True)
 
     prev_dir = os.getcwd()
     os.chdir(build_dir)
 
+    memory64_flag = " -sMEMORY64=1" if is_web_memory64() else ""
     # Configure with CMake using Emscripten toolchain
     result = subprocess.run([
         "cmake",
         "-DCMAKE_BUILD_TYPE=Release",
         "-DCMAKE_TOOLCHAIN_FILE=%s" % toolchain,
         "-DLITEHTML_BUILD_TESTING=OFF",
-        "-DCMAKE_CXX_FLAGS=-pthread -fPIC -fwasm-exceptions",
-        "-DCMAKE_C_FLAGS=-pthread -fPIC",
+        "-DCMAKE_CXX_FLAGS=-pthread -fPIC -fwasm-exceptions" + memory64_flag,
+        "-DCMAKE_C_FLAGS=-pthread -fPIC" + memory64_flag,
         "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
         "-G", "Ninja",
         ".."
@@ -436,7 +456,9 @@ def configure_native(argumentsDict):
 
     if is_web:
         patch_ezvcpkg_allow_unsupported(sourceDir)
-        patch_vcpkg_wasm_triplet_pthread()
+        # For wasm64, add -sMEMORY64=1 to all vcpkg port builds via the triplet.
+        web_extra_flags = "-sMEMORY64=1" if is_web_memory64() else ""
+        patch_vcpkg_wasm_triplet_pthread(triplet, web_extra_flags)
         patch_libjpeg_turbo_port_no_setjmp()
         # KTX's vcpkg port applies 0001-Use-vcpkg-zstd.patch which replaces
         # KTX's vendored zstd with find_package(zstd). KTX's vcpkg.json
@@ -461,6 +483,16 @@ def configure_native(argumentsDict):
         "-DVCPKG_TRIPLET=%s" % triplet,
         "-DVCPKG_TARGET_TRIPLET=%s" % triplet,
     ]
+
+    # wasm64: lift MEMORY64=1 into cesium-native's own cmake build (not just
+    # the vcpkg ports). All compile units in the cesium-native libs need the
+    # same flag or the final link mixes wasm32/wasm64 calling conventions.
+    if is_web and is_web_memory64():
+        cmake_args.extend([
+            "-DCMAKE_C_FLAGS=-sMEMORY64=1",
+            "-DCMAKE_CXX_FLAGS=-sMEMORY64=1",
+            "-DCMAKE_EXE_LINKER_FLAGS=-sMEMORY64=1",
+        ])
 
     # Workaround: cmake's find_package picks up configs from the x64-windows
     # (shared/DLL) triplet even when VCPKG_TARGET_TRIPLET is x64-windows-static.
@@ -587,7 +619,7 @@ def _restore_hidden_vcpkg_triplets(hidden_dirs):
 
 def determine_triplet(env=None):
     if is_web_platform(env):
-        return "wasm32-emscripten"
+        return "wasm64-emscripten" if is_web_memory64() else "wasm32-emscripten"
     if os.name == OS_WIN:
         return "x64-windows-static"
     if sys.platform == PLATFORM_MACOS:
@@ -600,7 +632,7 @@ def determine_triplet_for_args(argumentsDict):
     """Determine the vcpkg triplet based on SCons arguments."""
     platform = argumentsDict.get("platform", "")
     if platform == PLATFORM_WEB:
-        return "wasm32-emscripten"
+        return "wasm64-emscripten" if is_web_memory64() else "wasm32-emscripten"
     return determine_triplet()
 
 
@@ -610,7 +642,7 @@ def get_native_build_dir_name(platform_str=""):
     Each platform gets its own out-of-tree CMake build directory so that
     multiple platform builds can coexist under cesium_godot/native/."""
     if platform_str == PLATFORM_WEB:
-        return "build-web"
+        return "build-web64" if is_web_memory64() else "build-web"
     if os.name == OS_WIN:
         return "build-windows"
     if sys.platform == PLATFORM_MACOS:
@@ -627,18 +659,31 @@ def get_native_build_path(env=None):
     return os.path.join(scons_to_abs_path(currentRootDir + "/native"), build_dir_name)
 
 
-def patch_vcpkg_wasm_triplet_pthread():
-    """Patch the wasm32-emscripten vcpkg triplet for SIDE_MODULE builds.
+def patch_vcpkg_wasm_triplet_pthread(triplet_name="wasm32-emscripten", extra_flags=""):
+    """Patch a wasm-emscripten vcpkg triplet for SIDE_MODULE builds.
 
     Adds flags via VCPKG_CMAKE_CONFIGURE_OPTIONS (following cesium-native PR #1267 approach):
     - -pthread -fPIC: required for SIDE_MODULE shared library builds
     - -fwasm-exceptions: native wasm exception handling (no JS invoke_* wrappers)
     - -sSUPPORT_LONGJMP=wasm: native wasm longjmp (pairs with -fwasm-exceptions)
+    - extra_flags: additional flags appended verbatim (e.g. "-sMEMORY64=1" for wasm64).
+
+    For wasm64-emscripten the upstream vcpkg tree has no such triplet, so this
+    function seeds one from the wasm32-emscripten community triplet on first
+    call (vcpkg's VCPKG_TARGET_ARCHITECTURE field doesn't recognize "wasm64",
+    so the seeded file keeps the wasm32 label — the actual MEMORY64=1 lift
+    is purely a compile/link-flag concern handled here).
 
     Also passes EMCC_CFLAGS through for make-based builds (openssl)."""
     try:
         vcpkg_base = find_ezvcpkg_path()
-        triplet_path = os.path.join(vcpkg_base, "triplets", "community", "wasm32-emscripten.cmake")
+        triplet_path = os.path.join(vcpkg_base, "triplets", "community", f"{triplet_name}.cmake")
+        # Seed a wasm64-emscripten community triplet from wasm32-emscripten if missing.
+        if not os.path.exists(triplet_path) and triplet_name == "wasm64-emscripten":
+            src_path = os.path.join(vcpkg_base, "triplets", "community", "wasm32-emscripten.cmake")
+            if os.path.exists(src_path):
+                shutil.copy2(src_path, triplet_path)
+                print(f"[CESIUM] Seeded {triplet_name}.cmake from wasm32-emscripten")
         if not os.path.exists(triplet_path):
             return
         with open(triplet_path, "r") as f:
@@ -700,8 +745,11 @@ def patch_vcpkg_wasm_triplet_pthread():
         # is baked in at patch time from find_ezvcpkg_path() so it's absolute
         # and not subject to VCPKG_INSTALLED_DIR resolution timing.
         zstd_dir_cmake = os.path.join(
-            vcpkg_base, "installed", "wasm32-emscripten", "share", "zstd"
+            vcpkg_base, "installed", triplet_name, "share", "zstd"
         ).replace("\\", "/")
+        cesium_flags = "-pthread -fPIC -fwasm-exceptions -sSUPPORT_LONGJMP=wasm"
+        if extra_flags:
+            cesium_flags = cesium_flags + " " + extra_flags
         # Quote each -D...=... arg so CMake treats each full flag string as a
         # single list element. Without quotes, ${_cesiumFlags} expands and the
         # whitespace in it splits the flag assignment into multiple list items
@@ -711,11 +759,16 @@ def patch_vcpkg_wasm_triplet_pthread():
         # args that get dropped. That silently loses -sSUPPORT_LONGJMP=wasm,
         # which is why libjpeg-turbo was still emitting saveSetjmp calls at
         # runtime despite a fresh rebuild.
+        # Inline cesium_flags into the cmake set() so VCPKG_CMAKE_CONFIGURE_OPTIONS
+        # gets the literal string with both substitutions resolved at Python time.
+        vcpkg_short_flags = "-pthread -fPIC"
+        if extra_flags:
+            vcpkg_short_flags = vcpkg_short_flags + " " + extra_flags
         patch_block = f'''
 # Cesium SIDE_MODULE flags (patched by CesiumBuildUtils.py)
-set(_cesiumFlags "-pthread -fPIC -fwasm-exceptions -sSUPPORT_LONGJMP=wasm")
-set(VCPKG_CXX_FLAGS "-pthread -fPIC")
-set(VCPKG_C_FLAGS "-pthread -fPIC")
+set(_cesiumFlags "{cesium_flags}")
+set(VCPKG_CXX_FLAGS "{vcpkg_short_flags}")
+set(VCPKG_C_FLAGS "{vcpkg_short_flags}")
 set(VCPKG_CMAKE_CONFIGURE_OPTIONS
     "-DCMAKE_C_FLAGS=${{_cesiumFlags}}"
     "-DCMAKE_CXX_FLAGS=${{_cesiumFlags}}"
@@ -725,21 +778,21 @@ set(VCPKG_CMAKE_CONFIGURE_OPTIONS
         patched = content + patch_block
         with open(triplet_path, "w") as f:
             f.write(patched)
-        print("[CESIUM] Patched wasm32-emscripten triplet with -pthread -fPIC flags")
-        # Force vcpkg to rebuild all wasm32-emscripten packages with the new flags.
+        print(f"[CESIUM] Patched {triplet_name} triplet (flags: {cesium_flags})")
+        # Force vcpkg to rebuild all packages on this triplet with the new flags.
         # We must use vcpkg remove to properly clean the tracking metadata, not just
         # delete the installed directory.
         exec_ext = ".exe" if os.name == OS_WIN else ""
         vcpkg_exe = os.path.join(vcpkg_base, "vcpkg" + exec_ext)
         if os.path.exists(vcpkg_exe):
-            print("[CESIUM] Removing wasm32-emscripten packages so vcpkg rebuilds with -pthread -fPIC...")
+            print(f"[CESIUM] Removing {triplet_name} packages so vcpkg rebuilds with new flags...")
             subprocess.run(
                 [vcpkg_exe, "--vcpkg-root", vcpkg_base, "remove", "--outdated", "--recurse",
-                 "--triplet", "wasm32-emscripten"],
+                 "--triplet", triplet_name],
                 cwd=vcpkg_base,
             )
             # Remove installed packages for this triplet — delete first, then clean status
-            installed_dir = os.path.join(vcpkg_base, "installed", "wasm32-emscripten")
+            installed_dir = os.path.join(vcpkg_base, "installed", triplet_name)
             if os.path.exists(installed_dir):
                 shutil.rmtree(installed_dir)
             # Clear the status database entries so vcpkg reinstalls everything.
@@ -757,7 +810,10 @@ set(VCPKG_CMAKE_CONFIGURE_OPTIONS
                     with open(vcpkg_status, "r", encoding="utf-8", errors="replace") as f:
                         status_content = f.read()
                     stanzas = re.split(r'\n\n+', status_content)
-                    arch_re = re.compile(r'^Architecture:\s*wasm32-emscripten\s*$', re.MULTILINE)
+                    arch_re = re.compile(
+                        r'^Architecture:\s*' + re.escape(triplet_name) + r'\s*$',
+                        re.MULTILINE,
+                    )
                     kept = [s for s in stanzas if not arch_re.search(s)]
                     cleaned = '\n\n'.join(kept)
                     # Preserve trailing blank line if the original had one
@@ -767,7 +823,7 @@ set(VCPKG_CMAKE_CONFIGURE_OPTIONS
                         f.write(cleaned)
             except Exception as e:
                 print(f"[CESIUM] Warning: could not clean vcpkg status file: {e}")
-            print("[CESIUM] Cleared wasm32-emscripten packages (will rebuild with -pthread -fPIC)")
+            print(f"[CESIUM] Cleared {triplet_name} packages (will rebuild with new flags)")
             # Layer 4: vcpkg binary archive cache. Keyed by a hash that includes
             # triplet content, so a patched triplet normally invalidates old
             # entries — but stale/partial entries from prior attempts can still
@@ -892,7 +948,7 @@ def patch_libjpeg_turbo_port_no_setjmp():
         if os.path.exists(vcpkg_exe):
             subprocess.run(
                 [vcpkg_exe, "--vcpkg-root", vcpkg_base, "remove",
-                 "libjpeg-turbo:wasm32-emscripten", "--recurse"],
+                 f"libjpeg-turbo:{determine_triplet()}", "--recurse"],
                 cwd=vcpkg_base,
             )
         archives_override = os.environ.get("VCPKG_DEFAULT_BINARY_CACHE", "")

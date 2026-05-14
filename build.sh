@@ -54,7 +54,8 @@ case "$TARGET" in
 		scons arch=x86_64 compileTarget=extension target=template_debug precision=double compiledb=yes
         ;;
     web)
-        echo "Building GDExtension for Web (WASM)..."
+        echo "Building GDExtension for Web (WASM, wasm32)..."
+        unset CESIUM_WEB_MEMORY64
         ensure_emsdk
         # Force emscripten-style longjmp to avoid conflict with godot-cpp's exception handling.
 		# -pthread enables atomics/bulk-memory needed for --shared-memory at link time.
@@ -66,6 +67,21 @@ case "$TARGET" in
 		scons platform=web compileTarget=extension target=template_release precision=double production=yes disable_exceptions=no
 		scons platform=web compileTarget=extension target=template_debug precision=double disable_exceptions=no
         ;;
+    web64)
+        echo "Building GDExtension for Web (WASM, wasm64 / Memory64)..."
+        echo "NOTE: requires a Godot engine built with MEMORY64=1; without it the .wasm"
+        echo "      will compile but Godot's web export will refuse to load it."
+        # Signal to CesiumBuildUtils.py: use wasm64-emscripten triplet, build-web64/
+        # cmake tree, and the wasm64 output filename suffix.
+        export CESIUM_WEB_MEMORY64=1
+        ensure_emsdk
+        # Same SIDE_MODULE flags as wasm32 plus -sMEMORY64=1 which switches clang/emcc
+        # into Memory64 codegen (i64 wasm pointers, 64-bit size_t).
+        # MEMORY64 + pthreads is still flagged experimental in emsdk; expect warnings.
+        export EMCC_CFLAGS="-fwasm-exceptions -sSUPPORT_LONGJMP=wasm -pthread -fPIC -sMEMORY64=1"
+		scons platform=web compileTarget=extension target=template_release precision=double production=yes disable_exceptions=no
+		scons platform=web compileTarget=extension target=template_debug precision=double disable_exceptions=no
+        ;;
     module)
         echo "Preparing module dependencies..."
         scons compileTarget=module buildCesium=yes
@@ -74,6 +90,7 @@ case "$TARGET" in
         echo "Cleaning cesium-native build trees..."
         rm -rf cesium_godot/native/build-windows
         rm -rf cesium_godot/native/build-web
+        rm -rf cesium_godot/native/build-web64
         rm -rf cesium_godot/native/build-linux
         echo "Done."
         ;;
@@ -81,25 +98,29 @@ case "$TARGET" in
         echo "Cleaning cesium-native build trees..."
         rm -rf cesium_godot/native/build-windows
         rm -rf cesium_godot/native/build-web
+        rm -rf cesium_godot/native/build-web64
         rm -rf cesium_godot/native/build-linux
-        echo "Cleaning stale wasm32-emscripten vcpkg state..."
+        echo "Cleaning stale wasm32-emscripten and wasm64-emscripten vcpkg state..."
         if [ -n "${EZVCPKG_BASEDIR:-}" ] && [ -d "$EZVCPKG_BASEDIR" ]; then
             for d in "$EZVCPKG_BASEDIR"/*/; do
                 [ -d "$d" ] || continue
                 rm -rf "$d/installed/wasm32-emscripten"
+                rm -rf "$d/installed/wasm64-emscripten"
                 rm -f "$d/installed/vcpkg/info/"*_wasm32-emscripten.list 2>/dev/null
+                rm -f "$d/installed/vcpkg/info/"*_wasm64-emscripten.list 2>/dev/null
                 rm -rf "$d/buildtrees/ktx"
             done
         fi
         echo "Done."
         ;;
     *)
-        echo "Usage: ./build.sh [extension|web|module|clean|clean-deep]"
+        echo "Usage: ./build.sh [extension|web|web64|module|clean|clean-deep]"
         echo "  extension  - Build GDExtension for current platform (default)"
-        echo "  web        - Build GDExtension for Web/WASM (requires EMSDK)"
+        echo "  web        - Build GDExtension for Web/WASM (wasm32, universal compat)"
+        echo "  web64      - Build GDExtension for Web/WASM (wasm64 / Memory64, experimental)"
         echo "  module     - Prepare dependencies for Godot engine module build"
         echo "  clean      - Remove cesium-native build-* directories"
-        echo "  clean-deep - clean + nuke stale wasm32-emscripten vcpkg state (recovery)"
+        echo "  clean-deep - clean + nuke stale wasm32/wasm64-emscripten vcpkg state (recovery)"
         exit 1
         ;;
 esac

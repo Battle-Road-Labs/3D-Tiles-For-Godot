@@ -536,9 +536,11 @@ common_libpaths = [
     ) + "/installed/%s/lib" % (cesium_build_utils.determine_triplet(env))
 ]
 
-# Add litehtml path — each platform uses its own compiled libraries
+# Add litehtml path — each platform uses its own compiled libraries.
+# Web build has two variants (wasm32/wasm64) that produce separate static libs.
 if is_web:
-    common_libpaths.append(root + "/third_party/litehtml/web")
+    web_litehtml_subdir = "web64" if cesium_build_utils.is_web_memory64() else "web"
+    common_libpaths.append(root + "/third_party/litehtml/" + web_litehtml_subdir)
 elif sys.platform != cesium_build_utils.PLATFORM_MACOS:
     common_libpaths.append(root + "/third_party/litehtml")
 

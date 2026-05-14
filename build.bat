@@ -28,6 +28,7 @@ if "%TARGET%"=="" set TARGET=extension
 
 if "%TARGET%"=="extension" goto :build_extension
 if "%TARGET%"=="web" goto :build_web
+if "%TARGET%"=="web64" goto :build_web64
 if "%TARGET%"=="module" goto :build_module
 if "%TARGET%"=="clean" goto :clean
 if "%TARGET%"=="clean-deep" goto :clean_deep
@@ -40,7 +41,8 @@ scons arch=x64 compileTarget=extension target=template_debug precision=double co
 goto :done
 
 :build_web
-echo Building GDExtension for Web/WASM...
+echo Building GDExtension for Web/WASM (wasm32)...
+set CESIUM_WEB_MEMORY64=
 call :ensure_emsdk
 if errorlevel 1 goto :done
 rem Force emscripten-style longjmp to avoid conflict with godot-cpp's exception handling.
@@ -50,6 +52,23 @@ rem -fwasm-exceptions: native wasm exception handling (no JS invoke_* wrappers)
 rem -sSUPPORT_LONGJMP=wasm: native wasm longjmp (pairs with -fwasm-exceptions)
 rem -pthread -fPIC: required for threaded SIDE_MODULE builds
 set EMCC_CFLAGS=-fwasm-exceptions -sSUPPORT_LONGJMP=wasm -pthread -fPIC
+scons platform=web compileTarget=extension target=template_release precision=double production=yes disable_exceptions=no
+scons platform=web compileTarget=extension target=template_debug precision=double disable_exceptions=no
+goto :done
+
+:build_web64
+echo Building GDExtension for Web/WASM (wasm64 / Memory64)...
+echo NOTE: requires a Godot engine built with MEMORY64=1; without it the .wasm
+echo       will compile but Godot's web export will refuse to load it.
+rem Signal to CesiumBuildUtils.py to select the wasm64-emscripten vcpkg triplet,
+rem the build-web64/ cmake tree, and the wasm64 output filename suffix.
+set CESIUM_WEB_MEMORY64=1
+call :ensure_emsdk
+if errorlevel 1 goto :done
+rem Same SIDE_MODULE prerequisites as wasm32, plus -sMEMORY64=1 which switches
+rem clang/emcc into Memory64 codegen (i64 wasm pointers, 64-bit size_t).
+rem MEMORY64 + pthreads is still flagged experimental in emsdk; expect warnings.
+set EMCC_CFLAGS=-fwasm-exceptions -sSUPPORT_LONGJMP=wasm -pthread -fPIC -sMEMORY64=1
 scons platform=web compileTarget=extension target=template_release precision=double production=yes disable_exceptions=no
 scons platform=web compileTarget=extension target=template_debug precision=double disable_exceptions=no
 goto :done
@@ -64,6 +83,7 @@ goto :done
 echo Cleaning cesium-native build trees...
 if exist cesium_godot\native\build-windows rmdir /s /q cesium_godot\native\build-windows
 if exist cesium_godot\native\build-web rmdir /s /q cesium_godot\native\build-web
+if exist cesium_godot\native\build-web64 rmdir /s /q cesium_godot\native\build-web64
 echo Done.
 goto :done
 
@@ -71,11 +91,14 @@ goto :done
 echo Cleaning cesium-native build trees...
 if exist cesium_godot\native\build-windows rmdir /s /q cesium_godot\native\build-windows
 if exist cesium_godot\native\build-web rmdir /s /q cesium_godot\native\build-web
-echo Cleaning stale wasm32-emscripten vcpkg state...
+if exist cesium_godot\native\build-web64 rmdir /s /q cesium_godot\native\build-web64
+echo Cleaning stale wasm32-emscripten and wasm64-emscripten vcpkg state...
 if exist "%EZVCPKG_BASEDIR%" (
     for /d %%d in ("%EZVCPKG_BASEDIR%\*") do (
         if exist "%%d\installed\wasm32-emscripten" rmdir /s /q "%%d\installed\wasm32-emscripten"
+        if exist "%%d\installed\wasm64-emscripten" rmdir /s /q "%%d\installed\wasm64-emscripten"
         if exist "%%d\installed\vcpkg\info" del /q "%%d\installed\vcpkg\info\*_wasm32-emscripten.list" 2>nul
+        if exist "%%d\installed\vcpkg\info" del /q "%%d\installed\vcpkg\info\*_wasm64-emscripten.list" 2>nul
         if exist "%%d\buildtrees\ktx" rmdir /s /q "%%d\buildtrees\ktx"
     )
 )
@@ -83,12 +106,13 @@ echo Done.
 goto :done
 
 :usage
-echo Usage: build.bat [extension/web/module/clean/clean-deep]
+echo Usage: build.bat [extension/web/web64/module/clean/clean-deep]
 echo   extension  - Build GDExtension for Windows x64 (default)
-echo   web        - Build GDExtension for Web/WASM
+echo   web        - Build GDExtension for Web/WASM (wasm32, universal compat)
+echo   web64      - Build GDExtension for Web/WASM (wasm64 / Memory64, experimental)
 echo   module     - Prepare dependencies for Godot engine module build
-echo   clean      - Remove cesium-native build-windows and build-web directories
-echo   clean-deep - clean + nuke stale wasm32-emscripten vcpkg state (recovery)
+echo   clean      - Remove cesium-native build-windows / build-web / build-web64 dirs
+echo   clean-deep - clean + nuke stale wasm32/wasm64-emscripten vcpkg state (recovery)
 goto :done
 
 rem --- Ensure Emscripten SDK is installed and activated in this shell --------

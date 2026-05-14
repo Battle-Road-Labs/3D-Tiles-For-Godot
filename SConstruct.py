@@ -63,7 +63,15 @@ else:
     # On web, emcc defaults to no-exceptions. We must explicitly enable wasm
     # exceptions via CCFLAGS (affects all C/C++) to override the default.
     if env.get("platform", "") == cesium_build_utils.PLATFORM_WEB:
-        env.Append(CCFLAGS=["-fwasm-exceptions", "-sSUPPORT_LONGJMP=wasm"])
+        ccflags = ["-fwasm-exceptions", "-sSUPPORT_LONGJMP=wasm"]
+        if cesium_build_utils.is_web_memory64():
+            ccflags.append("-sMEMORY64=1")
+            # godot-cpp hard-codes "wasm32" in env["suffix"]; rewrite so the
+            # output .wasm filename reflects the actual binary format and the
+            # two variants don't clobber each other in addons/cesium_godot/lib/.
+            if "wasm32" in env.get("suffix", ""):
+                env["suffix"] = env["suffix"].replace("wasm32", "wasm64")
+        env.Append(CCFLAGS=ccflags)
 
     cesium_build_utils.install_additional_libs(ARGUMENTS)
 
