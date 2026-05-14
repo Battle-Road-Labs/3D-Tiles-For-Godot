@@ -19,13 +19,19 @@ export EZVCPKG_BASEDIR="${EZVCPKG_BASEDIR:-$HOME/.ezvcpkg}"
 #     stabilized in 3.1.62 — building the extension at 3.1.60 against a 3.1.62+
 #     main module yields "Cannot set properties of undefined (setting 'sig')"
 #     at runtime because function-table entries fail to wire up.
+#   3.1.62 -> 3.1.74: 3.1.62 + MEMORY64 + SIDE_MODULE link is broken — wasm-opt's
+#     --table64-lowering pass aborts with "i32 != i64: call-indirect call target
+#     must match the table index type" because parts of the linker-generated
+#     startup code emit table64 call_indirects while user TUs emit i32.wrap_i64
+#     table32 indices, and the pass refuses to lower mixed inputs. 3.1.74
+#     completes the MEMORY64 dlink work so every TU agrees on table64.
 # If KTX or any other dep regresses at a higher emsdk, step up incrementally
-# (3.1.64, 3.1.70, 4.0.x) rather than reverting — older toolchains have known
-# dlink-ABI gaps that re-surface as opaque runtime errors. Kept in a separate
-# directory from any other emsdk (e.g. the Godot engine's) so both can coexist
-# with independent configs.
+# (3.1.76, 4.0.x) rather than reverting — older toolchains have known dlink-ABI
+# gaps that re-surface as opaque runtime errors. Kept in a separate directory
+# from any other emsdk (e.g. the Godot engine's) so both can coexist with
+# independent configs.
 export EMSDK_DIR="${EMSDK_DIR:-$HOME/emsdk-cesium}"
-export EMSDK_VERSION="${EMSDK_VERSION:-3.1.62}"
+export EMSDK_VERSION="${EMSDK_VERSION:-3.1.74}"
 
 # Always activate this repo's pinned emsdk, even if the parent shell has a
 # different one active. Checking $EMSDK and skipping activation would
