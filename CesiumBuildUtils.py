@@ -908,20 +908,23 @@ def patch_fmt_consteval(env=None):
 
 
 def patch_ktx_disable_js_bindings():
-    """Disable KTX's interface/js_binding subdirectory in the vcpkg KTX port.
+    """Patch KTX's ktx_wrapper.cpp to fix the deleted-copy-ctor compile error
+    that breaks the `ktx_js` target under MEMORY64 codegen.
 
-    KTX's ktx_wrapper.cpp registers an emscripten::class_<ktx::texture>::constructor
-    binding. Under MEMORY64 codegen, emscripten's GenericBindingType<ktx::texture>::
-    toWireType template path resolves to `new ktx::texture(v)` where v binds to
-    the deleted `texture(texture&)` non-const copy ctor — compilation aborts.
-    Under wasm32 a different binding specialization is selected and it works.
+    Under MEMORY64, emscripten's GenericBindingType<ktx::texture>::toWireType
+    template resolves to `new ktx::texture(v)` where v is an lvalue bound to
+    `texture(texture&)` — explicitly marked `= delete` in ktx_wrapper.cpp:22,
+    so compilation aborts. Under wasm32 a different binding specialization
+    avoids that path.
 
-    Cesium-native consumes KTX through its C API; the JS bindings (ktx_js,
-    msc_basis_transcoder_js) are unused dead weight for either triplet. Patching
-    the port to skip building them via overwriting interface/js_binding/CMakeLists.txt
-    with a stub is safe for both wasm32 and wasm64.
+    The minimal-surface fix: rewrite the deletion to `texture(const texture&) = default`,
+    which lets the compiler synthesize a working copy ctor for the wire-type
+    instantiation. The class only stores a pointer to ktxTexture and a small
+    set of value types, so a default copy is semantically benign for this
+    wrapper class — the wire path uses it to materialize a wrapper instance
+    that JS doesn't actually own (Godot doesn't load ktx_js anyway).
 
-    Idempotent — detects marker and skips if already applied."""
+    Idempotent — detects marker on portfile.cmake and skips if already applied."""
     try:
         vcpkg_base = find_ezvcpkg_path()
         port_dir = os.path.join(vcpkg_base, "ports", "ktx")
@@ -930,26 +933,41 @@ def patch_ktx_disable_js_bindings():
             return
         with open(portfile, "r", encoding="utf-8") as f:
             content = f.read()
-        marker = "# CESIUM_DISABLE_KTX_JS"
+        marker = "# CESIUM_KTX_WRAPPER_DTOR_PATCH"
         if marker in content:
             return  # already patched
-        # Stub-out the JS-binding subdir CMakeLists. This runs after source
-        # extraction, before vcpkg_cmake_configure, so the top-level
-        # `add_subdirectory(interface/js_binding)` still resolves (no missing
-        # path error) but contributes zero targets.
+        # Inject a vcpkg_replace_string that rewrites the deleted non-const
+        # copy ctor in ktx_wrapper.cpp. Place before vcpkg_cmake_configure so
+        # the substitution happens after source extraction but before build.
         injection = (
             "\n"
             f"{marker}\n"
-            "# Disable KTX JS bindings (ktx_js, msc_basis_transcoder_js) — they\n"
-            "# fail to compile under MEMORY64 due to emscripten's bind.h template\n"
-            "# path hitting ktx::texture's deleted non-const copy ctor. JS bindings\n"
-            "# are unused by cesium-native (which uses the C API), so disabling is\n"
-            "# safe for both wasm32 and wasm64.\n"
-            "file(WRITE \"${SOURCE_PATH}/interface/js_binding/CMakeLists.txt\"\n"
-            "     \"# Disabled by cesium-build-utils\\n\")\n\n"
+            "# Rewrite ktx::texture's deleted non-const copy ctor in ktx_wrapper.cpp\n"
+            "# so the file compiles under MEMORY64 codegen. emscripten's bind.h\n"
+            "# template path resolves to `new texture(v)` where v binds to the\n"
+            "# deleted signature, aborting compilation. Replacing the deletion\n"
+            "# with `= default` on the const-ref form lets the compiler synthesize\n"
+            "# a copy ctor that the wire-type instantiation can use. This file is\n"
+            "# only consumed by the ktx_js target which cesium-native ignores —\n"
+            "# the relaxed copy semantics here have no downstream effect.\n"
+            "vcpkg_replace_string(\n"
+            "    \"${SOURCE_PATH}/interface/js_binding/ktx_wrapper.cpp\"\n"
+            "    \"texture(texture&) = delete\"\n"
+            "    \"texture(const texture&) = default\"\n"
+            ")\n\n"
         )
         if "vcpkg_cmake_configure(" not in content:
             return  # unfamiliar port shape; skip rather than corrupt
+        # Also clean up the earlier file(WRITE ...) stub-CMakeLists injection
+        # if it's still present from the previous attempt — it didn't help and
+        # leaving it could mask the real fix.
+        import re
+        content = re.sub(
+            r"\n# CESIUM_DISABLE_KTX_JS\n(?:#[^\n]*\n)*"
+            r"file\(WRITE \"\$\{SOURCE_PATH\}/interface/js_binding/CMakeLists\.txt\"[\s\S]*?\)\n\n",
+            "\n",
+            content,
+        )
         content = content.replace(
             "vcpkg_cmake_configure(",
             injection + "vcpkg_cmake_configure(",
@@ -957,9 +975,8 @@ def patch_ktx_disable_js_bindings():
         )
         with open(portfile, "w", encoding="utf-8") as f:
             f.write(content)
-        print("[CESIUM] Patched KTX port to disable JS bindings (wasm64 compat)")
-        # Force vcpkg to rebuild KTX for the current triplet so the new port
-        # patch actually applies. ktx is the only port with this concern.
+        print("[CESIUM] Patched KTX port: rewrote ktx::texture deleted copy ctor (wasm64 compat)")
+        # Force vcpkg to rebuild KTX for the current triplet so the new patch applies.
         exec_ext = ".exe" if os.name == OS_WIN else ""
         vcpkg_exe = os.path.join(vcpkg_base, "vcpkg" + exec_ext)
         if os.path.exists(vcpkg_exe):
@@ -969,7 +986,7 @@ def patch_ktx_disable_js_bindings():
                 cwd=vcpkg_base,
             )
     except Exception as e:
-        print(f"[CESIUM] Warning: could not patch KTX port to disable JS bindings: {e}")
+        print(f"[CESIUM] Warning: could not patch KTX port ktx_wrapper.cpp: {e}")
 
 
 def patch_libjpeg_turbo_port_no_setjmp():
