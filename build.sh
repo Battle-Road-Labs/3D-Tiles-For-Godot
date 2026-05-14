@@ -111,6 +111,14 @@ case "$TARGET" in
                 rm -f "$d/installed/vcpkg/info/"*_wasm32-emscripten.list 2>/dev/null
                 rm -f "$d/installed/vcpkg/info/"*_wasm64-emscripten.list 2>/dev/null
                 rm -rf "$d/buildtrees/ktx"
+                # Strip orphaned wasm32/wasm64 stanzas from vcpkg's status file.
+                # Without this, any subsequent vcpkg op fails with
+                # "read_lines(...wasm*-emscripten.list): no such file or directory"
+                # because status still references entries whose .list files we
+                # just deleted.
+                if [ -f "$d/installed/vcpkg/status" ]; then
+                    python3 -c "import re,sys; p=sys.argv[1]; c=open(p,'r',encoding='utf-8').read(); k=[s for s in re.split(r'\n\n+',c) if not re.search(r'^Architecture:\s*wasm\d+-emscripten\s*$',s,re.MULTILINE)]; open(p,'w',encoding='utf-8').write('\n\n'.join(k))" "$d/installed/vcpkg/status" || true
+                fi
             done
         fi
         echo "Done."

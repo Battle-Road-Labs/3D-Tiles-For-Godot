@@ -102,6 +102,11 @@ if exist "%EZVCPKG_BASEDIR%" (
         if exist "%%d\installed\vcpkg\info" del /q "%%d\installed\vcpkg\info\*_wasm32-emscripten.list" 2>nul
         if exist "%%d\installed\vcpkg\info" del /q "%%d\installed\vcpkg\info\*_wasm64-emscripten.list" 2>nul
         if exist "%%d\buildtrees\ktx" rmdir /s /q "%%d\buildtrees\ktx"
+        rem Strip orphaned wasm32/wasm64 stanzas from vcpkg's status file. Without
+        rem this, any subsequent vcpkg op fails with "read_lines(...wasm*-emscripten.list):
+        rem no such file or directory" because status still references entries
+        rem whose .list files we just deleted.
+        if exist "%%d\installed\vcpkg\status" python -c "import re; p=r'%%d\installed\vcpkg\status'; c=open(p,'r',encoding='utf-8').read(); k=[s for s in re.split(r'\n\n+',c) if not re.search(r'^Architecture:\s*wasm\d+-emscripten\s*$',s,re.MULTILINE)]; open(p,'w',encoding='utf-8').write('\n\n'.join(k))"
     )
 )
 echo Done.
