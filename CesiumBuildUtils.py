@@ -491,16 +491,6 @@ def configure_native(argumentsDict):
         "-DVCPKG_TARGET_TRIPLET=%s" % triplet,
     ]
 
-    # wasm64: lift MEMORY64=1 into cesium-native's own cmake build (not just
-    # the vcpkg ports). All compile units in the cesium-native libs need the
-    # same flag or the final link mixes wasm32/wasm64 calling conventions.
-    if is_web and is_web_memory64():
-        cmake_args.extend([
-            "-DCMAKE_C_FLAGS=-sMEMORY64=1",
-            "-DCMAKE_CXX_FLAGS=-sMEMORY64=1",
-            "-DCMAKE_EXE_LINKER_FLAGS=-sMEMORY64=1",
-        ])
-
     # Workaround: cmake's find_package picks up configs from the x64-windows
     # (shared/DLL) triplet even when VCPKG_TARGET_TRIPLET is x64-windows-static.
     # Temporarily hide conflicting triplet directories during configure so cmake
@@ -523,16 +513,33 @@ def configure_native(argumentsDict):
             emsdk, "upstream", "emscripten", "cmake", "Modules", "Platform", "Emscripten.cmake"
         )
         node_path = find_emsdk_node(emsdk)
+        # -pthread enables atomics+bulk-memory needed for --shared-memory at link time.
+        # wasm32 has 32-bit size_t/ptrdiff_t; cesium-native code assumes 64-bit and
+        # triggers -Werror. Downgrade these to warnings.
+        cxx_flags = "-pthread -fPIC -fwasm-exceptions -Wno-error=constant-conversion -Wno-error=shift-count-overflow -Wno-error=shorten-64-to-32 -Wno-error=sign-conversion"
+        c_flags = "-pthread -fPIC"
+        # wasm64: lift MEMORY64=1 into cesium-native's own cmake build. All TUs
+        # in cesium-native must use the same pointer width as the deps in the
+        # wasm64-emscripten triplet, or CMake's package version checks reject
+        # 64-bit configs (ada-config.cmake etc.) when the consumer is 32-bit,
+        # and the final link mixes wasm32/wasm64 calling conventions. Must
+        # merge with the existing flag strings — separate -D args would lose
+        # because the last -DCMAKE_*_FLAGS on the command line wins.
+        linker_flags = ""
+        if is_web_memory64():
+            memory64 = " -sMEMORY64=1 -Wno-experimental"
+            cxx_flags += memory64
+            c_flags += memory64
+            linker_flags = "-sMEMORY64=1"
         cmake_args.extend([
             "-G", "Ninja",
             f"-DVCPKG_CHAINLOAD_TOOLCHAIN_FILE={toolchain}",
             f"-DCMAKE_CROSSCOMPILING_EMULATOR={node_path}",
-            # wasm32 has 32-bit size_t/ptrdiff_t; cesium-native code assumes
-            # 64-bit and triggers -Werror. Downgrade these to warnings.
-            # -pthread enables atomics+bulk-memory needed for --shared-memory at link time.
-            "-DCMAKE_CXX_FLAGS=-pthread -fPIC -fwasm-exceptions -Wno-error=constant-conversion -Wno-error=shift-count-overflow -Wno-error=shorten-64-to-32 -Wno-error=sign-conversion",
-            "-DCMAKE_C_FLAGS=-pthread -fPIC",
+            f"-DCMAKE_CXX_FLAGS={cxx_flags}",
+            f"-DCMAKE_C_FLAGS={c_flags}",
         ])
+        if linker_flags:
+            cmake_args.append(f"-DCMAKE_EXE_LINKER_FLAGS={linker_flags}")
 
     print(f"[CESIUM] Build directory: {buildDir}")
     result = subprocess.run(cmake_args)
