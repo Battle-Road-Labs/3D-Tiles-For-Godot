@@ -457,7 +457,10 @@ def configure_native(argumentsDict):
     if is_web:
         patch_ezvcpkg_allow_unsupported(sourceDir)
         # For wasm64, add -sMEMORY64=1 to all vcpkg port builds via the triplet.
-        web_extra_flags = "-sMEMORY64=1" if is_web_memory64() else ""
+        # -Wno-experimental is required because emsdk emits a -Wexperimental
+        # warning on every MEMORY64 compile, and KTX's astc-encoder subbuild
+        # has -Werror -Wpedantic which then upgrades that warning to an error.
+        web_extra_flags = "-sMEMORY64=1 -Wno-experimental" if is_web_memory64() else ""
         patch_vcpkg_wasm_triplet_pthread(triplet, web_extra_flags)
         patch_libjpeg_turbo_port_no_setjmp()
         # KTX's vcpkg port applies 0001-Use-vcpkg-zstd.patch which replaces
@@ -679,10 +682,16 @@ def patch_vcpkg_wasm_triplet_pthread(triplet_name="wasm32-emscripten", extra_fla
         vcpkg_base = find_ezvcpkg_path()
         triplet_path = os.path.join(vcpkg_base, "triplets", "community", f"{triplet_name}.cmake")
         # Seed a wasm64-emscripten community triplet from wasm32-emscripten if missing.
+        # If the wasm32 source already had Cesium patches applied, the seeded copy
+        # inherits them — including the wasm32 zstd_DIR path, which would silently
+        # leak wasm32 zstd headers into the wasm64 build. Track whether we just
+        # seeded so we can force-rewrite the patches with the correct triplet name.
+        just_seeded = False
         if not os.path.exists(triplet_path) and triplet_name == "wasm64-emscripten":
             src_path = os.path.join(vcpkg_base, "triplets", "community", "wasm32-emscripten.cmake")
             if os.path.exists(src_path):
                 shutil.copy2(src_path, triplet_path)
+                just_seeded = True
                 print(f"[CESIUM] Seeded {triplet_name}.cmake from wasm32-emscripten")
         if not os.path.exists(triplet_path):
             return
@@ -706,6 +715,19 @@ def patch_vcpkg_wasm_triplet_pthread(triplet_name="wasm32-emscripten", extra_fla
             and "-fwasm-exceptions" in content
             and '"-DCMAKE_C_FLAGS=${_cesiumFlags}"' in content
         )
+        # If we just seeded this file by copying an already-patched wasm32 triplet,
+        # the inherited patch block has the WRONG triplet name baked into zstd_DIR.
+        # Force a re-patch so the strip-then-append logic below rewrites it with
+        # the correct triplet name.
+        if just_seeded:
+            already_patched = False
+        # Defensive: even on a non-seed run, if the patch block's zstd_DIR points
+        # at some other triplet (e.g. the wasm32 path leaked into the wasm64 file
+        # from an earlier run that lacked the just_seeded check), force a re-patch
+        # so it gets rewritten with the correct triplet path.
+        expected_zstd_marker = "/installed/" + triplet_name + "/share/zstd"
+        if "zstd_DIR" in content and expected_zstd_marker not in content.replace("\\", "/"):
+            already_patched = False
         # Two `set()` calls concatenated with no whitespace between them —
         # CMake parses `)set(` as a syntax error. This shape only appears if
         # an earlier buggy version of this function collapsed lines during

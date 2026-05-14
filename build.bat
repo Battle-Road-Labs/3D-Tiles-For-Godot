@@ -67,8 +67,10 @@ call :ensure_emsdk
 if errorlevel 1 goto :done
 rem Same SIDE_MODULE prerequisites as wasm32, plus -sMEMORY64=1 which switches
 rem clang/emcc into Memory64 codegen (i64 wasm pointers, 64-bit size_t).
-rem MEMORY64 + pthreads is still flagged experimental in emsdk; expect warnings.
-set EMCC_CFLAGS=-fwasm-exceptions -sSUPPORT_LONGJMP=wasm -pthread -fPIC -sMEMORY64=1
+rem -Wno-experimental: emsdk emits a -Wexperimental warning on every MEMORY64
+rem compile; some deps (KTX/astc-encoder) build with -Werror -Wpedantic which
+rem upgrades it to a fatal error without this suppress.
+set EMCC_CFLAGS=-fwasm-exceptions -sSUPPORT_LONGJMP=wasm -pthread -fPIC -sMEMORY64=1 -Wno-experimental
 scons platform=web compileTarget=extension target=template_release precision=double production=yes disable_exceptions=no
 scons platform=web compileTarget=extension target=template_debug precision=double disable_exceptions=no
 goto :done

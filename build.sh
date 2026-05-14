@@ -77,8 +77,10 @@ case "$TARGET" in
         ensure_emsdk
         # Same SIDE_MODULE flags as wasm32 plus -sMEMORY64=1 which switches clang/emcc
         # into Memory64 codegen (i64 wasm pointers, 64-bit size_t).
-        # MEMORY64 + pthreads is still flagged experimental in emsdk; expect warnings.
-        export EMCC_CFLAGS="-fwasm-exceptions -sSUPPORT_LONGJMP=wasm -pthread -fPIC -sMEMORY64=1"
+        # -Wno-experimental: emsdk emits a -Wexperimental warning on every MEMORY64
+        # compile; some deps (KTX/astc-encoder) build with -Werror -Wpedantic which
+        # upgrades it to a fatal error without this suppress.
+        export EMCC_CFLAGS="-fwasm-exceptions -sSUPPORT_LONGJMP=wasm -pthread -fPIC -sMEMORY64=1 -Wno-experimental"
 		scons platform=web compileTarget=extension target=template_release precision=double production=yes disable_exceptions=no
 		scons platform=web compileTarget=extension target=template_debug precision=double disable_exceptions=no
         ;;
