@@ -63,7 +63,10 @@ rem EMCC_CFLAGS is read by emcc/em++ for ALL compilations (vcpkg, cmake, scons).
 rem -fwasm-exceptions: native wasm exception handling (no JS invoke_* wrappers)
 rem -sSUPPORT_LONGJMP=wasm: native wasm longjmp (pairs with -fwasm-exceptions)
 rem -pthread -fPIC: required for threaded SIDE_MODULE builds
-set EMCC_CFLAGS=-fwasm-exceptions -sSUPPORT_LONGJMP=wasm -pthread -fPIC
+rem -Wno-overriding-option: emsdk 3.1.74's clang flags `-ffp-model=precise` +
+rem `-ffp-contract=off` as a redundant override, which KTX's astc-encoder
+rem subbuild upgrades to fatal via -Werror -Wpedantic.
+set EMCC_CFLAGS=-fwasm-exceptions -sSUPPORT_LONGJMP=wasm -pthread -fPIC -Wno-overriding-option
 scons platform=web compileTarget=extension target=template_release precision=double production=yes disable_exceptions=no
 scons platform=web compileTarget=extension target=template_debug precision=double disable_exceptions=no
 goto :done
@@ -82,7 +85,10 @@ rem clang/emcc into Memory64 codegen (i64 wasm pointers, 64-bit size_t).
 rem -Wno-experimental: emsdk emits a -Wexperimental warning on every MEMORY64
 rem compile; some deps (KTX/astc-encoder) build with -Werror -Wpedantic which
 rem upgrades it to a fatal error without this suppress.
-set EMCC_CFLAGS=-fwasm-exceptions -sSUPPORT_LONGJMP=wasm -pthread -fPIC -sMEMORY64=1 -Wno-experimental
+rem -Wno-overriding-option: emsdk 3.1.74's clang flags `-ffp-model=precise` +
+rem `-ffp-contract=off` (passed together by KTX's astc-encoder) as a redundant
+rem override, which becomes fatal via -Werror -Wpedantic without this suppress.
+set EMCC_CFLAGS=-fwasm-exceptions -sSUPPORT_LONGJMP=wasm -pthread -fPIC -sMEMORY64=1 -Wno-experimental -Wno-overriding-option
 rem arch=wasm64 routes through godot-cpp's tools/web.py (CESIUM-patched to accept
 rem wasm64 and emit -sMEMORY64=1). Without it godot-cpp defaults to wasm32 and
 rem builds its library with i32 table indices, which wasm-opt --table64-lowering

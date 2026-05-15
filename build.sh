@@ -77,7 +77,10 @@ case "$TARGET" in
 		# -fwasm-exceptions: native wasm exception handling (no JS invoke_* wrappers)
 		# -sSUPPORT_LONGJMP=wasm: native wasm longjmp (pairs with -fwasm-exceptions)
 		# -pthread -fPIC: required for threaded SIDE_MODULE builds
-        export EMCC_CFLAGS="-fwasm-exceptions -sSUPPORT_LONGJMP=wasm -pthread -fPIC"
+		# -Wno-overriding-option: emsdk 3.1.74's clang flags `-ffp-model=precise`
+		# + `-ffp-contract=off` as a redundant override, which KTX's astc-encoder
+		# subbuild upgrades to fatal via -Werror -Wpedantic.
+        export EMCC_CFLAGS="-fwasm-exceptions -sSUPPORT_LONGJMP=wasm -pthread -fPIC -Wno-overriding-option"
 		scons platform=web compileTarget=extension target=template_release precision=double production=yes disable_exceptions=no
 		scons platform=web compileTarget=extension target=template_debug precision=double disable_exceptions=no
         ;;
@@ -94,7 +97,11 @@ case "$TARGET" in
         # -Wno-experimental: emsdk emits a -Wexperimental warning on every MEMORY64
         # compile; some deps (KTX/astc-encoder) build with -Werror -Wpedantic which
         # upgrades it to a fatal error without this suppress.
-        export EMCC_CFLAGS="-fwasm-exceptions -sSUPPORT_LONGJMP=wasm -pthread -fPIC -sMEMORY64=1 -Wno-experimental"
+        # -Wno-overriding-option: emsdk 3.1.74's clang flags `-ffp-model=precise`
+        # + `-ffp-contract=off` (passed together by KTX's astc-encoder) as a
+        # redundant override, which becomes fatal via -Werror -Wpedantic without
+        # this suppress.
+        export EMCC_CFLAGS="-fwasm-exceptions -sSUPPORT_LONGJMP=wasm -pthread -fPIC -sMEMORY64=1 -Wno-experimental -Wno-overriding-option"
 		# arch=wasm64 routes through godot-cpp's tools/web.py (CESIUM-patched to
 		# accept wasm64 and emit -sMEMORY64=1). Without it godot-cpp defaults to
 		# wasm32 and builds its library with i32 table indices, which wasm-opt
