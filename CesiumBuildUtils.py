@@ -1180,6 +1180,16 @@ def compile_native(argumentsDict):
     sourceDir = scons_to_abs_path(nativeDir)
     buildDir = os.path.join(sourceDir, get_native_build_dir_name(platform))
 
+    # Patch ezvcpkg-installed fmt's FMT_USE_CONSTEVAL before the cesium-native
+    # build starts. spdlog's SPDLOG_FMT_STRING path instantiates a consteval
+    # fmt::basic_format_string ctor that emsdk 3.1.74+ clang rejects as not a
+    # constant expression. Must run *after* configure (so the fmt header is
+    # installed in the triplet) and *before* the build. Previously this only
+    # ran inside install_additional_libs, which executes after compile_native,
+    # so the cesium-native build failed on every fresh wasm64 run.
+    if platform == PLATFORM_WEB:
+        patch_fmt_consteval({"platform": platform})
+
     result = None
     if platform == PLATFORM_WEB:
         result = build_native_web(buildDir)
@@ -1194,7 +1204,14 @@ def compile_native(argumentsDict):
             "Compiling for platform %s is not yet supported!" % os.name, file=sys.stderr
         )
     if result.returncode != 0:
-        print("Error building Cesium Native: %s" % str(result.stderr))
+        # Hard-fail here. Letting scons continue produces a misleading wasm-ld
+        # "unable to find library -lCesiumAsync" error 200 lines later that
+        # buries the actual cesium-native compile failure.
+        print(
+            "Error building Cesium Native (exit %s). See compile errors above." % result.returncode,
+            file=sys.stderr,
+        )
+        exit(1)
     print("Cleaning definitions on generated files...")
     clean_cesium_definitions()
     print("Finished building Cesium Native!")
