@@ -30,18 +30,20 @@ rem     must match the table index type" because parts of the linker-generated
 rem     startup code emit table64 call_indirects while user TUs emit i32.wrap_i64
 rem     table32 indices, and the pass refuses to lower mixed inputs. 3.1.74
 rem     completes the MEMORY64 dlink work so every TU agrees on table64.
-rem   3.1.74 -> 3.1.76: 3.1.74 still had a codegen bug somewhere in the
+rem   3.1.74 -> 3.1.78: 3.1.74 still had a codegen bug somewhere in the
 rem     MEMORY64 + SIDE_MODULE + pthreads combo (flagged at link time as
 rem     `-sSIDE_MODULE + pthreads is experimental [-Wexperimental]`). The
 rem     produced wasm passed wasm-opt validation but the browser rejected at
 rem     instantiation: "call[3] expected type i32, found i64.add of type i64"
 rem     — a direct-call argument mismatch deterministic at the same function
 rem     index across rebuilds, so it's a toolchain bug rather than our build
-rem     config. 3.1.76 continued MEMORY64 dlink hardening.
+rem     config. 3.1.76 was not tagged as an emsdk release, so jumped to 3.1.78
+rem     (the next available emscripten release) for further MEMORY64 dlink
+rem     hardening.
 rem If KTX or any other dep regresses at a higher emsdk, step up incrementally
-rem (3.1.78, 4.0.x) rather than reverting — older toolchains have known
+rem (3.1.80, 4.0.x) rather than reverting — older toolchains have known
 rem dlink-ABI gaps that re-surface as opaque runtime errors.
-if "%EMSDK_VERSION%"=="" set EMSDK_VERSION=3.1.76
+if "%EMSDK_VERSION%"=="" set EMSDK_VERSION=3.1.78
 
 set TARGET=%1
 if "%TARGET%"=="" set TARGET=extension

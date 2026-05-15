@@ -25,21 +25,23 @@ export EZVCPKG_BASEDIR="${EZVCPKG_BASEDIR:-$HOME/.ezvcpkg}"
 #     startup code emit table64 call_indirects while user TUs emit i32.wrap_i64
 #     table32 indices, and the pass refuses to lower mixed inputs. 3.1.74
 #     completes the MEMORY64 dlink work so every TU agrees on table64.
-#   3.1.74 -> 3.1.76: 3.1.74 still had a codegen bug somewhere in the
+#   3.1.74 -> 3.1.78: 3.1.74 still had a codegen bug somewhere in the
 #     MEMORY64 + SIDE_MODULE + pthreads combo (flagged at link time as
 #     `-sSIDE_MODULE + pthreads is experimental [-Wexperimental]`). The
 #     produced wasm passed wasm-opt validation but the browser rejected at
 #     instantiation: "call[3] expected type i32, found i64.add of type i64"
 #     — a direct-call argument mismatch deterministic at the same function
 #     index across rebuilds, so it's a toolchain bug rather than our build
-#     config. 3.1.76 continued MEMORY64 dlink hardening.
+#     config. 3.1.76 was not tagged as an emsdk release, so jumped to 3.1.78
+#     (the next available emscripten release) for further MEMORY64 dlink
+#     hardening.
 # If KTX or any other dep regresses at a higher emsdk, step up incrementally
-# (3.1.78, 4.0.x) rather than reverting — older toolchains have known
+# (3.1.80, 4.0.x) rather than reverting — older toolchains have known
 # dlink-ABI gaps that re-surface as opaque runtime errors. Kept in a separate
 # directory from any other emsdk (e.g. the Godot engine's) so both can coexist
 # with independent configs.
 export EMSDK_DIR="${EMSDK_DIR:-$HOME/emsdk-cesium}"
-export EMSDK_VERSION="${EMSDK_VERSION:-3.1.76}"
+export EMSDK_VERSION="${EMSDK_VERSION:-3.1.78}"
 
 # Always activate this repo's pinned emsdk, even if the parent shell has a
 # different one active. Checking $EMSDK and skipping activation would
