@@ -108,6 +108,19 @@ echo Cleaning cesium-native build trees...
 if exist cesium_godot\native\build-windows rmdir /s /q cesium_godot\native\build-windows
 if exist cesium_godot\native\build-web rmdir /s /q cesium_godot\native\build-web
 if exist cesium_godot\native\build-web64 rmdir /s /q cesium_godot\native\build-web64
+rem Wipe godot-cpp's library cache. SCons treats the lib as "up to date" once
+rem the .a file exists, so flag changes (e.g. MEMORY64 added on emsdk bump) or
+rem ABI shifts between emsdk versions don't trigger a rebuild. The lib then
+rem ships stale wasm32-style call_indirects into the wasm64 link, which the
+rem browser rejects at instantiation: "call_indirect[0] expected type i64,
+rem found i32.wrap_i64".
+if exist godot-cpp\bin rmdir /s /q godot-cpp\bin
+rem Same reasoning for pre-built litehtml/gumbo. `build_litehtml_web()` skips
+rem when the .a files exist, so an old emsdk's table-convention .a's persist.
+if exist cesium_godot\third_party\litehtml\web rmdir /s /q cesium_godot\third_party\litehtml\web
+if exist cesium_godot\third_party\litehtml\web64 rmdir /s /q cesium_godot\third_party\litehtml\web64
+if exist cesium_godot\third_party\litehtml-src\build-web rmdir /s /q cesium_godot\third_party\litehtml-src\build-web
+if exist cesium_godot\third_party\litehtml-src\build-web64 rmdir /s /q cesium_godot\third_party\litehtml-src\build-web64
 echo Done.
 goto :done
 
@@ -116,6 +129,12 @@ echo Cleaning cesium-native build trees...
 if exist cesium_godot\native\build-windows rmdir /s /q cesium_godot\native\build-windows
 if exist cesium_godot\native\build-web rmdir /s /q cesium_godot\native\build-web
 if exist cesium_godot\native\build-web64 rmdir /s /q cesium_godot\native\build-web64
+rem Wipe godot-cpp + pre-built litehtml caches — see :clean for why.
+if exist godot-cpp\bin rmdir /s /q godot-cpp\bin
+if exist cesium_godot\third_party\litehtml\web rmdir /s /q cesium_godot\third_party\litehtml\web
+if exist cesium_godot\third_party\litehtml\web64 rmdir /s /q cesium_godot\third_party\litehtml\web64
+if exist cesium_godot\third_party\litehtml-src\build-web rmdir /s /q cesium_godot\third_party\litehtml-src\build-web
+if exist cesium_godot\third_party\litehtml-src\build-web64 rmdir /s /q cesium_godot\third_party\litehtml-src\build-web64
 echo Cleaning stale wasm32-emscripten and wasm64-emscripten vcpkg state...
 if exist "%EZVCPKG_BASEDIR%" (
     for /d %%d in ("%EZVCPKG_BASEDIR%\*") do (

@@ -120,6 +120,18 @@ case "$TARGET" in
         rm -rf cesium_godot/native/build-web
         rm -rf cesium_godot/native/build-web64
         rm -rf cesium_godot/native/build-linux
+        # SCons treats the godot-cpp lib as "up to date" once the .a file
+        # exists, so flag changes (e.g. MEMORY64 added on emsdk bump) or ABI
+        # shifts between emsdk versions don't trigger a rebuild. The lib then
+        # ships stale wasm32-style call_indirects into the wasm64 link, which
+        # the browser rejects at instantiation:
+        #   "call_indirect[0] expected type i64, found i32.wrap_i64".
+        # Same reasoning for pre-built litehtml/gumbo.
+        rm -rf godot-cpp/bin
+        rm -rf cesium_godot/third_party/litehtml/web
+        rm -rf cesium_godot/third_party/litehtml/web64
+        rm -rf cesium_godot/third_party/litehtml-src/build-web
+        rm -rf cesium_godot/third_party/litehtml-src/build-web64
         echo "Done."
         ;;
     clean-deep)
@@ -128,6 +140,12 @@ case "$TARGET" in
         rm -rf cesium_godot/native/build-web
         rm -rf cesium_godot/native/build-web64
         rm -rf cesium_godot/native/build-linux
+        # Wipe godot-cpp + pre-built litehtml caches — see clean for why.
+        rm -rf godot-cpp/bin
+        rm -rf cesium_godot/third_party/litehtml/web
+        rm -rf cesium_godot/third_party/litehtml/web64
+        rm -rf cesium_godot/third_party/litehtml-src/build-web
+        rm -rf cesium_godot/third_party/litehtml-src/build-web64
         echo "Cleaning stale wasm32-emscripten and wasm64-emscripten vcpkg state..."
         if [ -n "${EZVCPKG_BASEDIR:-}" ] && [ -d "$EZVCPKG_BASEDIR" ]; then
             for d in "$EZVCPKG_BASEDIR"/*/; do
