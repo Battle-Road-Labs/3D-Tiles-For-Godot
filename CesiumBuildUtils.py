@@ -959,23 +959,29 @@ def patch_fmt_consteval(env=None):
 
 
 def patch_ktx_disable_js_bindings():
-    """Replace KTX's ktx_wrapper.cpp with an empty stub so the `ktx_js` target
-    compiles to an inert .wasm under MEMORY64 codegen.
+    """Replace KTX's two JS-binding wrapper sources with empty stubs so the
+    `ktx_js` and `msc_basis_transcoder_js` targets compile to inert .wasms.
 
-    Under MEMORY64, emscripten's bind.h template path for `class_<ktx::texture>`
-    instantiates `new ktx::texture(v)` and so requires a callable copy ctor.
-    `texture` holds a `std::unique_ptr<ktxTexture, ...>` — move-only — so its
-    copy ctor is *implicitly* deleted, and there is no source-level declaration
-    that can rescue it (= default still produces a deleted function because of
-    the unique_ptr member). wasm32 sidesteps the issue via a different binding
-    specialization. KTX 4.3.2 declares ktx_js directly in the top-level
-    CMakeLists.txt (lines 885+), so stubbing interface/js_binding/CMakeLists.txt
-    doesn't disable it.
+    KTX 4.3.2 builds two Embind-based JS interface targets, both declared at
+    the top-level CMakeLists.txt (lines 885+ and 917+):
+      1. ktx_js — wraps ktx::texture (unique_ptr-holding wrapper)
+      2. msc_basis_transcoder_js — wraps msc::TranscodedImage (raw pointer)
 
-    Replacing ktx_wrapper.cpp with an empty translation unit makes ktx_js
-    compile and link to a wasm with no Embind registrations. cesium-native
-    never loads ktx_js — it consumes libktx.a / libktx_read.a directly — so
-    the lost JS bindings have no downstream effect.
+    Each fails to compile under successive emsdk bumps:
+      - MEMORY64 codegen (emsdk 3.1.x): emscripten's bind.h `class_<ktx::texture>`
+        path requires a callable copy ctor, but `texture` holds a std::unique_ptr
+        (move-only) so the copy ctor is implicitly deleted. wasm32 sidesteps this
+        via a different binding specialization.
+      - emsdk 4.0.x: Embind tightened `val::set(name, ptr)` to require
+        `allow_raw_pointer<arg<?>>`. transcoder_wrapper.cpp's
+        `ret.set("transcodedImage", dst)` (raw msc::TranscodedImage*) trips a
+        static_assert in wire.h: "Implicitly binding raw pointers is illegal".
+
+    Stubbing CMakeLists.txt subdirectories doesn't work — KTX declares both
+    add_executable() calls directly in the top-level. Replacing each wrapper
+    source with an empty TU lets both targets compile/link to inert wasms.
+    cesium-native links libktx.a / libktx_read.a directly and never loads
+    these JS bindings, so the loss is harmless.
 
     Idempotent — detects marker on portfile.cmake and skips if already applied.
     Cleans up earlier failed-attempt markers so the portfile stays tidy."""
@@ -987,13 +993,13 @@ def patch_ktx_disable_js_bindings():
             return
         with open(portfile, "r", encoding="utf-8") as f:
             content = f.read()
-        marker = "# CESIUM_KTX_WRAPPER_STUB_PATCH"
-        # Strip prior (failed) attempts from portfile.cmake so they don't pile
-        # up or mask the real fix. Both old markers ended with a `)` on its
-        # own line followed by a blank line.
+        marker = "# CESIUM_KTX_WRAPPERS_STUB_PATCH"
+        # Strip prior (failed/superseded) attempts from portfile.cmake so they
+        # don't pile up or mask the real fix. All historical markers ended with
+        # a `)` on its own line followed by a blank line.
         import re
         content = re.sub(
-            r"\n# CESIUM_(KTX_WRAPPER_DTOR_PATCH|DISABLE_KTX_JS)\n[\s\S]*?\n\)\n\n",
+            r"\n# CESIUM_(KTX_WRAPPER_DTOR_PATCH|KTX_WRAPPER_STUB_PATCH|DISABLE_KTX_JS)\n[\s\S]*?\n\)\n\n",
             "\n",
             content,
         )
@@ -1006,15 +1012,20 @@ def patch_ktx_disable_js_bindings():
         injection = (
             "\n"
             f"{marker}\n"
-            "# Stub out ktx_wrapper.cpp so the ktx_js target compiles to an inert wasm.\n"
-            "# Under MEMORY64 emscripten's bind.h instantiates the copy-ctor template\n"
-            "# path for ktx::texture, but that wrapper holds a std::unique_ptr (move-\n"
-            "# only), so any copy ctor — including = default — is implicitly deleted.\n"
-            "# wasm32 uses a different binding specialization that doesn't hit this.\n"
-            "# cesium-native links libktx.a directly and never loads ktx_js, so losing\n"
-            "# the JS bindings is harmless.\n"
+            "# Stub out both JS-binding wrapper sources. KTX 4.3.2 builds two\n"
+            "# Embind-based interface targets (ktx_js, msc_basis_transcoder_js)\n"
+            "# from the top-level CMakeLists.txt; both fail at higher emsdks:\n"
+            "#   - emsdk 3.1.x MEMORY64: class_<ktx::texture>'s copy ctor path is\n"
+            "#     implicitly deleted (unique_ptr member).\n"
+            "#   - emsdk 4.0.x: val::set(name, rawPtr) hard-fails wire.h's\n"
+            "#     'Implicitly binding raw pointers is illegal' static_assert.\n"
+            "# cesium-native links libktx.a/libktx_read.a directly and never\n"
+            "# loads these JS bindings, so empty stubs are harmless.\n"
             "file(WRITE \"${SOURCE_PATH}/interface/js_binding/ktx_wrapper.cpp\"\n"
             "    \"// Stub - ktx_js bindings disabled by Cesium build patch (unused)\\n\"\n"
+            ")\n"
+            "file(WRITE \"${SOURCE_PATH}/interface/js_binding/transcoder_wrapper.cpp\"\n"
+            "    \"// Stub - msc_basis_transcoder_js bindings disabled by Cesium build patch (unused)\\n\"\n"
             ")\n\n"
         )
         content = content.replace(
@@ -1024,7 +1035,7 @@ def patch_ktx_disable_js_bindings():
         )
         with open(portfile, "w", encoding="utf-8") as f:
             f.write(content)
-        print("[CESIUM] Patched KTX port: stubbed ktx_wrapper.cpp (wasm64 compat)")
+        print("[CESIUM] Patched KTX port: stubbed ktx_wrapper.cpp + transcoder_wrapper.cpp (wasm64 compat)")
         # Force vcpkg to rebuild KTX for the current triplet so the new patch applies.
         exec_ext = ".exe" if os.name == OS_WIN else ""
         vcpkg_exe = os.path.join(vcpkg_base, "vcpkg" + exec_ext)
