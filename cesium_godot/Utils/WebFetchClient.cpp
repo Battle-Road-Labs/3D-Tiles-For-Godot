@@ -235,8 +235,23 @@ void start_fetch(int32_t request_id,
 		// Worker thread's JS event loop is blocked in Atomics.wait while the
 		// pthread idles, so a fetch() launched from here would register but its
 		// Promise .then would never fire. Main thread's event loop always runs.
+		//
+		// Use a void(pointer) signature, not void(int): under MEMORY64 the
+		// function takes a 64-bit pointer, so the wasm signature is void(i64).
+		// Declaring SIG_VI here makes the task-queue executor do a
+		// call_indirect with type void(i32) against a wasm function whose real
+		// type is void(i64) — the engine traps with "function signature
+		// mismatch" the first time a worker thread (e.g. cesium's async tile
+		// loader) hands a fetch off to main. emsdk 4.0.11 doesn't ship an
+		// EM_FUNC_SIG_VP convenience macro, but EM_FUNC_SIG_PARAM_P resolves
+		// to PARAM_J (i64) under MEMORY64 and PARAM_I (i32) under wasm32, so
+		// constructing the sig manually works on both arches.
+		constexpr EM_FUNC_SIGNATURE sig_vp =
+			EM_FUNC_SIG_RETURN_VALUE_V
+			| EM_FUNC_SIG_WITH_N_PARAMETERS(1)
+			| EM_FUNC_SIG_SET_PARAM(0, EM_FUNC_SIG_PARAM_P);
 		emscripten_async_run_in_main_runtime_thread(
-			EM_FUNC_SIG_VI,
+			sig_vp,
 			(void*)&cesium_web_fetch_invoke_on_main,
 			dispatch);
 	}
