@@ -79,26 +79,49 @@ EM_JS(void, cesium_web_fetch_js_start, (
 		throw new Error('cesium: cannot resolve wasm function pointer');
 	};
 
+	// Under MEMORY64, EM_JS pointer args arrive as BigInt; HEAPU64 exists.
+	// Under wasm32 pointers are Number and HEAPU64 is undefined. The Number()
+	// coercion is a no-op on Number and lossless on BigInt below 2^53.
+	var wasm64 = (typeof HEAPU64 !== 'undefined');
+
 	var invokeCb = function(status, dataPtr, dataLen) {
 		try {
 			var fn = resolveFn(callback_fn_ptr);
-			fn(request_id, status, dataPtr, dataLen);
+			// cesium_web_fetch_complete signature on the C side is
+			//   (int32, int32, uint8_t*, int32)
+			// under MEMORY64 the uint8_t* arg is i64, so dataPtr must be a
+			// BigInt at the wasm boundary. Number 0 is the no-data sentinel
+			// passed by the error paths, so wrap whatever we got.
+			var dataArg = wasm64 ? BigInt(dataPtr || 0) : dataPtr;
+			fn(request_id, status, dataArg, dataLen);
 		} catch (e) {
 			console.error('[cesium] dispatch to C++ fetch-complete failed:', e);
 		}
 	};
+	var refreshViews = function() {
+		// Refresh HEAP* typed-array views after a potential memory.grow inside
+		// _malloc. Without this, HEAPU8 etc. may point at a detached buffer,
+		// so HEAPU8.set silently writes nothing and the wasm-side pointer
+		// reads uninitialized garbage. Symptom: cesium parses tile responses
+		// as JSON/glTF and hits a cascade of Invalid UTF-8 errors.
+		if (typeof growMemViews === 'function') growMemViews();
+	};
 
 	try {
-		var url = UTF8ToString(url_ptr);
-		var method = UTF8ToString(method_ptr);
+		var url = UTF8ToString(Number(url_ptr));
+		var method = UTF8ToString(Number(method_ptr));
 		var headers = new Headers();
 		if (headers_kv_ptr) {
-			var idx = headers_kv_ptr >>> 2;
+			// char* const* is an array of pointers — 4 bytes wide on wasm32,
+			// 8 bytes on wasm64. Use the matching heap view and stride.
+			var stride = wasm64 ? 8 : 4;
+			var heap = wasm64 ? HEAPU64 : HEAPU32;
+			var idx = Number(headers_kv_ptr) / stride;
 			while (true) {
-				var keyPtr = HEAPU32[idx];
-				if (keyPtr === 0) break;
-				var valPtr = HEAPU32[idx + 1];
-				var name = UTF8ToString(keyPtr);
+				var keyPtr = heap[idx];
+				if (keyPtr === 0 || keyPtr === 0n) break;
+				var valPtr = heap[idx + 1];
+				var name = UTF8ToString(Number(keyPtr));
 				// Strip x-cesium-* telemetry headers — third-party hosts (Bing,
 				// Mapbox, etc.) don't whitelist them in CORS preflight, which
 				// causes the preflight to fail and the real request to be blocked.
@@ -110,14 +133,15 @@ EM_JS(void, cesium_web_fetch_js_start, (
 					continue;
 				}
 				try {
-					headers.append(name, UTF8ToString(valPtr));
+					headers.append(name, UTF8ToString(Number(valPtr)));
 				} catch (e) { /* invalid header name — skip */ }
 				idx += 2;
 			}
 		}
 		var init = { method: method, headers: headers };
 		if (body_len > 0 && body_ptr) {
-			init.body = HEAPU8.slice(body_ptr, body_ptr + body_len);
+			var bodyStart = Number(body_ptr);
+			init.body = HEAPU8.slice(bodyStart, bodyStart + body_len);
 		}
 
 		fetch(url, init).then(function(resp) {
@@ -126,7 +150,12 @@ EM_JS(void, cesium_web_fetch_js_start, (
 				var dataPtr = 0;
 				if (bytes.length > 0) {
 					dataPtr = _malloc(bytes.length);
-					HEAPU8.set(bytes, dataPtr);
+					// Refresh HEAPU8 in case _malloc grew memory. Without
+					// this, .set() writes to a detached buffer and the
+					// wasm-side dataPtr ends up holding garbage — which
+					// cesium then mis-parses as UTF-8.
+					refreshViews();
+					HEAPU8.set(bytes, Number(dataPtr));
 				}
 				invokeCb(resp.status | 0, dataPtr, bytes.length | 0);
 				if (dataPtr) _free(dataPtr);

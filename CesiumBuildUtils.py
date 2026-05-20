@@ -228,6 +228,10 @@ def clone_bindings_repo_if_needed():
     # Always run the patch — clone_repo_if_needed skips if dir exists,
     # but the patch is idempotent and needs to be applied regardless.
     patch_godot_cpp_web_flags()
+    # Patch emsdk's libpthread.js to BigInt-wrap pthread_ptr in dlsync_threads
+    # (see function docstring). Applies to whatever emsdk is currently active
+    # via the EMSDK env var (set by ensure_emsdk in build.bat/build.sh).
+    patch_emsdk_libpthread_wasm64_bigint()
 
 
 def patch_godot_cpp_web_flags():
@@ -296,6 +300,87 @@ def patch_godot_cpp_web_flags():
 
     if changed:
         print("[CESIUM] Patched godot-cpp web/godotcpp tools (longjmp + wasm64 support)")
+
+
+def patch_emsdk_libpthread_wasm64_bigint(emsdk_dir=None):
+    """Patch emsdk's libpthread.js for MEMORY64 + SIDE_MODULE + pthreads dlopen.
+
+    Bug: emsdk 4.0.x's `_emscripten_dlsync_threads` (and `_async` variant) pass
+    `pthread_ptr` directly to wasm exports without BigInt-wrapping it. The JS
+    body converts the input via `bigintToI53Checked` to a Number, but the wasm
+    side under MEMORY64 expects i64 (BigInt). V8 refuses the Number→BigInt
+    coercion at the wasm boundary and throws:
+
+        TypeError: Cannot convert <addr> to a BigInt
+            at __emscripten_proxy_dlsync (or _async)
+            at _emscripten_dlsync_threads
+            at dlsync → load_library_done → _dlopen → dlopen
+
+    The dlopen path is what loads every GDExtension, so this single bug blocks
+    the entire wasm64 web template from instantiating any GDExtension.
+
+    Fix: wrap pthread_ptr with emscripten's `{{{ to64('pthread_ptr') }}}` macro
+    at both call sites in `src/lib/libpthread.js`. The macro expands to
+    `BigInt(pthread_ptr)` under MEMORY64 and to plain `pthread_ptr` under
+    wasm32 — so the patch is safe for both build modes.
+
+    Notes:
+    - Targets the emsdk pointed at by EMSDK env var (set by ensure_emsdk).
+      If you have a separate emsdk for your Godot fork (e.g. %USERPROFILE%\emsdk
+      vs C:\emsdk-cesium), patch that one independently by calling this
+      function with an explicit emsdk_dir, or by setting EMSDK before running.
+    - Idempotent: detects the to64 macro on the line and skips if present.
+    - Clears emcc cache afterward so the next link re-processes libpthread.js.
+    - Submitted upstream as an emscripten bug; remove this patch when emsdk
+      ships the fix natively (likely 4.0.x point release).
+    """
+    try:
+        if emsdk_dir is None:
+            emsdk_dir = os.environ.get("EMSDK", "")
+        if not emsdk_dir:
+            return
+        libpthread_js = os.path.join(
+            emsdk_dir, "upstream", "emscripten", "src", "lib", "libpthread.js"
+        )
+        if not os.path.exists(libpthread_js):
+            return  # emsdk too old, different layout, or wrong path — skip silently
+        with open(libpthread_js, "r", encoding="utf-8") as f:
+            content = f.read()
+        # Already patched? The to64 macro is a unique-enough marker.
+        if "to64('pthread_ptr')" in content:
+            return
+        replacements = [
+            (
+                "__emscripten_proxy_dlsync(pthread_ptr);",
+                "__emscripten_proxy_dlsync({{{ to64('pthread_ptr') }}});",
+            ),
+            (
+                "__emscripten_proxy_dlsync_async(pthread_ptr, info.id);",
+                "__emscripten_proxy_dlsync_async({{{ to64('pthread_ptr') }}}, info.id);",
+            ),
+        ]
+        patched = content
+        applied = 0
+        for old, new in replacements:
+            if old in patched:
+                patched = patched.replace(old, new)
+                applied += 1
+        if applied == 0:
+            return  # neither call site found — unfamiliar emsdk version
+        with open(libpthread_js, "w", encoding="utf-8") as f:
+            f.write(patched)
+        print(
+            f"[CESIUM] Patched {libpthread_js}: "
+            f"{applied}/2 dlsync_threads call site(s) BigInt-wrapped"
+        )
+        # Clear emcc cache so the next link re-reads the patched library JS
+        # instead of serving a stale preprocessed copy.
+        exec_ext = ".bat" if os.name == OS_WIN else ""
+        emcc = os.path.join(emsdk_dir, "upstream", "emscripten", f"emcc{exec_ext}")
+        if os.path.exists(emcc):
+            subprocess.run([emcc, "--clear-cache"], cwd=emsdk_dir)
+    except Exception as e:
+        print(f"[CESIUM] Warning: could not patch emsdk libpthread.js: {e}")
 
 
 def clone_lite_html_if_needed():
