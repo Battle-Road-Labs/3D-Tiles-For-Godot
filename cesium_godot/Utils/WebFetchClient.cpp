@@ -4,6 +4,7 @@
 
 #include <cstring>
 #include <emscripten.h>
+#include <emscripten/proxying.h>
 #include <emscripten/threading.h>
 
 namespace cesium_web_fetch_detail {
@@ -236,23 +237,21 @@ void start_fetch(int32_t request_id,
 		// pthread idles, so a fetch() launched from here would register but its
 		// Promise .then would never fire. Main thread's event loop always runs.
 		//
-		// Use a void(pointer) signature, not void(int): under MEMORY64 the
-		// function takes a 64-bit pointer, so the wasm signature is void(i64).
-		// Declaring SIG_VI here makes the task-queue executor do a
-		// call_indirect with type void(i32) against a wasm function whose real
-		// type is void(i64) — the engine traps with "function signature
-		// mismatch" the first time a worker thread (e.g. cesium's async tile
-		// loader) hands a fetch off to main. emsdk 4.0.11 doesn't ship an
-		// EM_FUNC_SIG_VP convenience macro, but EM_FUNC_SIG_PARAM_P resolves
-		// to PARAM_J (i64) under MEMORY64 and PARAM_I (i32) under wasm32, so
-		// constructing the sig manually works on both arches.
-		constexpr EM_FUNC_SIGNATURE sig_vp =
-			EM_FUNC_SIG_RETURN_VALUE_V
-			| EM_FUNC_SIG_WITH_N_PARAMETERS(1)
-			| EM_FUNC_SIG_SET_PARAM(0, EM_FUNC_SIG_PARAM_P);
-		emscripten_async_run_in_main_runtime_thread(
-			sig_vp,
-			(void*)&cesium_web_fetch_invoke_on_main,
+		// Use the modern <emscripten/proxying.h> API rather than the legacy
+		// emscripten_async_run_in_main_runtime_thread. The legacy path encodes
+		// the target function's signature as a hand-rolled opcode bitfield and
+		// dispatches via a hardcoded switch in proxying_legacy.c; non-stock
+		// signatures (anything outside the small VI/VII/VIII list) trip its
+		// assertion ("Invalid Emscripten pthread _do_call opcode!"). A
+		// pointer-arg-only function isn't in that list — and even if we
+		// constructed a valid PARAM_P SIG, _do_call still wouldn't know how
+		// to dispatch it. The modern API uses a fixed `void(*)(void*)`
+		// signature and a direct call (no opcode), so it's both correct under
+		// MEMORY64 and immune to the legacy switch's allowlist.
+		emscripten_proxy_async(
+			emscripten_proxy_get_system_queue(),
+			emscripten_main_runtime_thread_id(),
+			(void(*)(void*))&cesium_web_fetch_invoke_on_main,
 			dispatch);
 	}
 }
