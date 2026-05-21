@@ -67,23 +67,31 @@ EM_JS(void, cesium_web_fetch_js_start, (
 		const char* const* headers_kv_ptr,
 		const uint8_t* body_ptr,
 		int32_t body_len), {
+	// Under MEMORY64, EM_JS pointer args arrive as BigInt; HEAPU64 exists.
+	// Under wasm32 pointers are Number and HEAPU64 is undefined. The Number()
+	// coercion is a no-op on Number and lossless on BigInt below 2^53.
+	var wasm64 = (typeof HEAPU64 !== 'undefined');
+
 	var resolveFn = function(ptr) {
+		// Under wasm64 with dlink, the wasm function table is i64-indexed
+		// (table64), so .get() requires a BigInt index. wasm32 wants a
+		// Number. callback_fn_ptr is declared int32_t in the EM_JS signature
+		// above, so it arrives in JS as a Number even on wasm64 — we wrap
+		// here, not at the EM_JS boundary. Table indices stay small (~10^5),
+		// so BigInt() is lossless. getWasmTableEntry, when available, does
+		// the conversion internally, so it accepts either form.
+		var tableIdx = wasm64 ? BigInt(ptr) : ptr;
 		if (typeof wasmTable !== 'undefined' && wasmTable && typeof wasmTable.get === 'function') {
-			return wasmTable.get(ptr);
+			return wasmTable.get(tableIdx);
 		}
 		if (typeof Module !== 'undefined' && Module['wasmTable'] && typeof Module['wasmTable'].get === 'function') {
-			return Module['wasmTable'].get(ptr);
+			return Module['wasmTable'].get(tableIdx);
 		}
 		if (typeof getWasmTableEntry === 'function') {
 			return getWasmTableEntry(ptr);
 		}
 		throw new Error('cesium: cannot resolve wasm function pointer');
 	};
-
-	// Under MEMORY64, EM_JS pointer args arrive as BigInt; HEAPU64 exists.
-	// Under wasm32 pointers are Number and HEAPU64 is undefined. The Number()
-	// coercion is a no-op on Number and lossless on BigInt below 2^53.
-	var wasm64 = (typeof HEAPU64 !== 'undefined');
 
 	var invokeCb = function(status, dataPtr, dataLen) {
 		try {
