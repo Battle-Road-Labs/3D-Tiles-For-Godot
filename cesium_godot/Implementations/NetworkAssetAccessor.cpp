@@ -26,11 +26,16 @@ NetworkAssetAccessor::NetworkAssetAccessor()
 {
 	constexpr size_t maxThreadsPerClient = 16;
 	this->m_httpClient.init_client(maxThreadsPerClient);
-	// Set all the default headers
+#ifndef __EMSCRIPTEN__
+	// x-cesium-* are telemetry headers api.cesium.com whitelists, but third-party
+	// tile hosts (Bing, Mapbox, etc.) don't — any custom x-* header forces a CORS
+	// preflight the third-party servers reject. Browsers enforce CORS; native
+	// builds don't, so skip only on web.
 	this->m_httpClient.add_default_header({"x-cesium-client", "3D Tiles For Godot"});
 	this->m_httpClient.add_default_header({"x-cesium-client-version", "1.0"});
 	String godotBuildInfo = Engine::get_singleton()->get_version_info().get("string", "");
 	this->m_httpClient.add_default_header({"x-cesium-client-engine", godotBuildInfo.utf8().get_data()});
+#endif
 }
 
 CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>> NetworkAssetAccessor::get(const CesiumAsync::AsyncSystem& asyncSystem, const std::string& url, const std::vector<THeader>& headers /*= {}*/)
@@ -119,9 +124,12 @@ CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>> NetworkAssetAcc
 			method,
 			[url, p_promise = std::move(p_promise)](int32_t responseCode, const PackedByteArray &body) mutable {
 				// For file:// URLs, libcurl returns response code 0 on success (no HTTP layer).
-				// Treat code 0 with a non-empty body as a successful response.
+				// On web, HTTPClientWeb can also report code 0 while the body still arrives,
+				// due to a worker-thread / main-thread fetch-poll race where polled_response_code
+				// has not yet been populated by the time the C++ side reads it.
+				// In both cases: if we have a body, the HTTP exchange succeeded — treat as 200.
 				const bool isFileUrl = url.rfind("file://", 0) == 0;
-				if (isFileUrl && responseCode == 0 && body.size() > 0) {
+				if (responseCode == 0 && body.size() > 0) {
 					responseCode = HTTPClient::ResponseCode::RESPONSE_OK;
 				}
 

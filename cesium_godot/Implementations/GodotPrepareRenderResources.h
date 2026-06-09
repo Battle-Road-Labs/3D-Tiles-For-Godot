@@ -10,8 +10,7 @@ class Cesium3DTileset;
 
 class GodotPrepareRenderResources final : public Cesium3DTilesSelection::IPrepareRendererResources {
 public:
-	GodotPrepareRenderResources(Cesium3DTileset* source) : m_tileset(source) {
-		constexpr size_t physicsMeshLoaderThreadCount = 4;
+	GodotPrepareRenderResources(Cesium3DTileset* source, size_t physicsMeshLoaderThreadCount) : m_tileset(source) {
 		this->m_physicsMeshThread.init(physicsMeshLoaderThreadCount);
 	}
 

@@ -11,9 +11,14 @@ using namespace godot;
 
 #include <CesiumAsync/IAssetAccessor.h>
 
-// Use Godot's native HTTPClient on macOS for better compatibility
-// (curl has DNS/SSL issues with macOS's network stack)
-#ifdef __APPLE__
+// Networking backend selection:
+//   - Web: browser fetch() via EM_JS — async, no spin-polling, no main-thread
+//     proxy storm. Avoids Godot's HTTPClientWeb entirely on this path.
+//   - macOS: Godot's HTTPClient — curl has DNS/SSL issues with macOS's network stack.
+//   - Everywhere else: libcurl.
+#if defined(__EMSCRIPTEN__)
+#include "../Utils/WebFetchClient.h"
+#elif defined(__APPLE__)
 #include "../Utils/GodotHttpClient.h"
 #else
 #include "../Utils/CurlHttpClient.h"
@@ -44,7 +49,9 @@ public:
 private:
 	CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>> process_request(HTTPClient::Method method, const CesiumAsync::AsyncSystem &asyncSystem, const std::string &url, const std::vector<THeader> &headers = {});
 
-#ifdef __APPLE__
+#if defined(__EMSCRIPTEN__)
+	WebFetchClient<100> m_httpClient{};
+#elif defined(__APPLE__)
 	GodotHttpClient<100> m_httpClient{};
 #else
 	CurlHttpClient<100> m_httpClient{};

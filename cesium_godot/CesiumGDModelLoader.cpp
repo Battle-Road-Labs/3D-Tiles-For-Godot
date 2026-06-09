@@ -35,11 +35,45 @@ using namespace godot;
 #include "CesiumGltf/ExtensionKhrTextureTransform.h"
 #include <CesiumGltf/ExtensionKhrMaterialsUnlit.h>
 #include "CesiumGeometry/Transforms.h"
+#include <CesiumGltfContent/SkirtMeshMetadata.h>
+#include <cstdlib>
+#include <string>
 
 #undef OPAQUE
 
 constexpr int32_t RGBA_CHANNEL_COUNT = 4;
 constexpr int32_t RGB_CHANNEL_COUNT = 3;
+
+namespace {
+	bool cesium_env_skip_skirts() {
+		const char* env = std::getenv("CESIUM_SKIP_SKIRTS");
+		if (!env || !*env) return false;
+		std::string v(env);
+		return v != "0" && v != "false" && v != "False" && v != "FALSE";
+	}
+
+#ifdef __EMSCRIPTEN__
+	// Web builds skip BaseMaterial3D entirely (see project_web_material_path memory).
+	// This helper pulls the baseColorTexture straight out of the cesium model so we
+	// never instantiate a StandardMaterial3D on worker threads.
+	Ref<Texture2D> load_albedo_texture_for_cesium_material(
+			const CesiumGltf::Material& cesiumMaterial,
+			const CesiumGltf::Model& model) {
+		if (!cesiumMaterial.pbrMetallicRoughness.has_value()) {
+			return Ref<Texture2D>();
+		}
+		const std::optional<CesiumGltf::TextureInfo>& baseTexture =
+				cesiumMaterial.pbrMetallicRoughness->baseColorTexture;
+		if (!baseTexture.has_value()) {
+			return Ref<Texture2D>();
+		}
+		const int32_t imageIndex = model.textures.at(baseTexture->index).source;
+		const CesiumGltf::Image& image = model.images.at(imageIndex);
+		return CesiumGDTextureLoader::load_image_texture(*image.pAsset.get(), true, false);
+	}
+#endif
+}
+bool CesiumGDModelLoader::skip_skirts = cesium_env_skip_skirts();
 
 Ref<ArrayMesh> CesiumGDModelLoader::generate_meshes_from_model(const CesiumGltf::Model& model, Error* error)
 {	
@@ -49,40 +83,6 @@ Ref<ArrayMesh> CesiumGDModelLoader::generate_meshes_from_model(const CesiumGltf:
 
 	Ref<ArrayMesh> meshInstance = memnew(ArrayMesh);
 
-	Ref<Shader> texture_transform_shader = godot::ResourceLoader::get_singleton()->load("res://Shaders/spatial_texture_rotation.gdshader");
-	texture_transform_shader.instantiate();
-	if (!texture_transform_shader.is_valid()) {
-		texture_transform_shader.instantiate();
-
-		String code = R"(
-		shader_type spatial;
-
-		uniform sampler2D albedo_texture : source_color;
-		uniform vec2 uv_offset = vec2(0.0);
-		uniform vec2 uv_scale = vec2(1.0);
-		uniform float uv_rotation = 0.0;
-
-		vec2 rotate_uv(vec2 uv, float angle) {
-			float s = sin(angle);
-			float c = cos(angle);
-			mat2 rot = mat2(c, -s, s, c);
-			return rot * uv;
-		}
-
-		void fragment() {
-			vec2 uv = UV;
-			uv *= uv_scale;
-			uv = rotate_uv(uv, uv_rotation);
-			uv += uv_offset;
-			vec4 albedo = texture(albedo_texture, uv);
-			ALBEDO = albedo.rgb;
-			ALPHA = albedo.a;
-		}
-		)";
-
-		texture_transform_shader->set_code(code);
-	}
-
 	*error = Error::OK;
 	for (const CesiumGltf::Mesh& mesh : gltfMeshes) {
 		int32_t surfaceIndex = 0;
@@ -90,10 +90,16 @@ Ref<ArrayMesh> CesiumGDModelLoader::generate_meshes_from_model(const CesiumGltf:
 
 			const CesiumGltf::Model* modelReference = &model;
 
-			// Create the material for the gltf
-			Ref<StandardMaterial3D> godotMaterial = memnew(StandardMaterial3D);
 			const CesiumGltf::Material& mat = modelReference->materials.at(primitive.material);
+			// On web we skip BaseMaterial3D entirely — it registers into a global
+			// SelfList on construction and is touched from the main thread's
+			// physics_process, but we're building meshes on cesium-native worker
+			// threads. The resulting WASM out-of-bounds on flush_changes() is what
+			// this guard prevents. See project_web_material_path memory.
+#ifndef __EMSCRIPTEN__
+			Ref<StandardMaterial3D> godotMaterial = memnew(StandardMaterial3D);
 			copy_material_properties(mat, godotMaterial, *modelReference);
+#endif
 
 			// Then copy all the other properties defined in the file
 			Vector<Vector3> vertices = get_attribute_from_primitive<Vector3>(primitive, model, "POSITION");
@@ -135,16 +141,45 @@ Ref<ArrayMesh> CesiumGDModelLoader::generate_meshes_from_model(const CesiumGltf:
 				}
 			}
 
+			// DIAGNOSTIC: Optionally drop skirt geometry. 3D Tiles producers
+			// attach CesiumGltfContent::SkirtMeshMetadata to the mesh's
+			// extras describing a contiguous non-skirt index range; anything
+			// outside [noSkirtIndicesBegin, noSkirtIndicesBegin+Count) is
+			// skirt. Slicing to just the non-skirt portion is enough to
+			// remove them from rendering. If the metadata is absent (e.g.
+			// tilesets that don't emit it), this is a no-op and a log line
+			// is printed once so we can tell the difference between
+			// "skipped-nothing" and "skirts-gone".
+			if (skip_skirts && !indexBuffer.is_empty()) {
+				std::optional<CesiumGltfContent::SkirtMeshMetadata> skirt =
+					CesiumGltfContent::SkirtMeshMetadata::parseFromGltfExtras(mesh.extras);
+				if (skirt.has_value() && skirt->noSkirtIndicesCount > 0) {
+					const uint32_t begin = skirt->noSkirtIndicesBegin;
+					const uint32_t count = skirt->noSkirtIndicesCount;
+					const uint32_t end = begin + count;
+					if (end <= static_cast<uint32_t>(indexBuffer.size())) {
+						Vector<int32_t> trimmed;
+						trimmed.resize(count);
+						for (uint32_t i = 0; i < count; ++i) {
+							trimmed.write[i] = indexBuffer[begin + i];
+						}
+						indexBuffer = trimmed;
+					}
+				}
+			}
+
 			// Required mesh data
 			Array arrays;
 			// We need to do some extra stuff if we're on the extension
 			#if defined(CESIUM_GD_EXT)
 			arrays = generate_array_mesh_ext(vertices, indexBuffer, normals, textureCoords, textureCoords1);
 
+#ifndef __EMSCRIPTEN__
 			if (normals.is_empty()) {
 				godotMaterial->set_shading_mode(BaseMaterial3D::ShadingMode::SHADING_MODE_UNSHADED);
 			}
-			
+#endif
+
 			#elif defined(CESIUM_GD_MODULE)
 			arrays.resize(ArrayMesh::ARRAY_MAX);
 			arrays[ArrayMesh::ARRAY_VERTEX] = vertices;
@@ -166,57 +201,93 @@ Ref<ArrayMesh> CesiumGDModelLoader::generate_meshes_from_model(const CesiumGltf:
 			}
 			#endif
 			
+#ifndef __EMSCRIPTEN__
 			Ref<Material> finalMaterial = godotMaterial;
 			if (modelReference->hasExtension<CesiumGltf::ExtensionKhrMaterialsUnlit>()) {
 				godotMaterial->set_shading_mode(BaseMaterial3D::ShadingMode::SHADING_MODE_UNSHADED);
 			}
+#else
+			// On web the shader path is mandatory (see force_shader_material below),
+			// so finalMaterial is assigned inside the shader-routing block. If the
+			// shader fails to load we fall through with a null Ref, producing a
+			// Godot-default-material surface — degraded but non-crashing.
+			Ref<Material> finalMaterial;
+#endif
 
+			// Gather UV transform (identity if extension absent)
+			Vector3 offsetVector3 = Vector3(0, 0, 0);
+			Vector3 scaleVector3 = Vector3(1, 1, 1);
+			float rotation_value = 0.0f;
+			bool has_texture_transform = false;
 			if (modelReference->hasExtension<CesiumGltf::ExtensionKhrTextureTransform>()) {
 				const CesiumGltf::ExtensionKhrTextureTransform* texture_transform_ext = modelReference->getExtension<CesiumGltf::ExtensionKhrTextureTransform>();
 				if (texture_transform_ext) {
 					const std::vector<double>& offsetVec = texture_transform_ext->offset;
 					const std::vector<double>& scaleVec = texture_transform_ext->scale;
-					float rotation_value = texture_transform_ext->rotation;
-
-					Vector3 offsetVector3 = Vector3(0, 0, 0);
-					Vector3 scaleVector3 = Vector3(1, 1, 1);
-
+					rotation_value = texture_transform_ext->rotation;
 					if (offsetVec.size() == 2) {
 						offsetVector3 = Vector3(offsetVec[0], offsetVec[1], 0);
 					}
-
 					if (scaleVec.size() == 2) {
 						scaleVector3 = Vector3(scaleVec[0], scaleVec[1], 1);
 					}
-
-					if (texture_transform_shader.is_valid()) {
-						Ref<ShaderMaterial> shaderMat;
-						shaderMat.instantiate();
-						shaderMat->set_shader(texture_transform_shader);
-
-						Ref<Texture2D> albedo_texture_mat = godotMaterial->get_texture(BaseMaterial3D::TEXTURE_ALBEDO);
-						shaderMat->set_shader_parameter("albedo_texture", albedo_texture_mat);
-
-						shaderMat->set_shader_parameter("uv_offset", offsetVector3);
-						shaderMat->set_shader_parameter("uv_scale", scaleVector3);
-						shaderMat->set_shader_parameter("uv_rotation", rotation_value);
-						
-						finalMaterial = shaderMat;
-					}
-					else {
-
-						if (offsetVec.size() == 2) {
-							godotMaterial->set_uv1_offset(offsetVector3);
-						}
-
-
-						if (scaleVec.size() == 2) {
-							godotMaterial->set_uv1_scale(scaleVector3);
-						}
-					}
-					
+					has_texture_transform = true;
 				}
 			}
+
+			// Route through ShaderMaterial when:
+			//   - KHR_texture_transform is present (any platform), OR
+			//   - We're on web, to apply albedo_amplification that compensates for the
+			//     scene's aggressive web tonemap (globe_rig.gd sets tonemap_exposure=0.04).
+			// The shader mirrors globe_tile_shd2's lit + pre-amplified ALBEDO pattern.
+			bool force_shader_material = false;
+#ifdef __EMSCRIPTEN__
+			force_shader_material = true;
+#endif
+			Ref<Shader> tile_shader = get_tile_shader(mat.doubleSided);
+			if ((has_texture_transform || force_shader_material) && tile_shader.is_valid()) {
+				Ref<ShaderMaterial> shaderMat;
+				shaderMat.instantiate();
+				shaderMat->set_shader(tile_shader);
+
+#ifdef __EMSCRIPTEN__
+				Ref<Texture2D> albedo_texture_mat = load_albedo_texture_for_cesium_material(mat, *modelReference);
+#else
+				Ref<Texture2D> albedo_texture_mat = godotMaterial->get_texture(BaseMaterial3D::TEXTURE_ALBEDO);
+#endif
+				shaderMat->set_shader_parameter("albedo_texture", albedo_texture_mat);
+
+				shaderMat->set_shader_parameter("uv_offset", offsetVector3);
+				shaderMat->set_shader_parameter("uv_scale", scaleVector3);
+				shaderMat->set_shader_parameter("uv_rotation", rotation_value);
+
+				// albedo_amplification: 1.0 elsewhere (shader matches StandardMaterial3D
+				// output), ~3.0 on web to match the legacy tile shader's doubled basecolor
+				// contribution and survive the aggressive tonemap.
+				// ambient_level (web only): lifts dark raster-overlay tiles (ocean
+				// imagery, shadow-side terrain) via texture-modulated EMISSION.
+				// See shader comment; treat this as the tunable knob for overall
+				// baseline brightness on non-Google datasets. Google photogrammetry
+				// is unaffected at modest values because its textures are already
+				// mid-bright — crank it higher if Google also looks washed out.
+#ifdef __EMSCRIPTEN__
+				shaderMat->set_shader_parameter("albedo_amplification", 3.0f);
+				shaderMat->set_shader_parameter("ambient_level", 1.0f);
+#else
+				shaderMat->set_shader_parameter("albedo_amplification", 1.0f);
+				shaderMat->set_shader_parameter("ambient_level", 0.0f);
+#endif
+
+				finalMaterial = shaderMat;
+			}
+#ifndef __EMSCRIPTEN__
+			else if (has_texture_transform) {
+				// Fallback: shader didn't load and we have a texture transform — fold
+				// offset/scale into the StandardMaterial3D's UV1 settings.
+				godotMaterial->set_uv1_offset(offsetVector3);
+				godotMaterial->set_uv1_scale(scaleVector3);
+			}
+#endif
 
 			*error = apply_surface_to_mesh(primitive, meshInstance, arrays);
 			meshInstance->surface_set_material(surfaceIndex, finalMaterial);
@@ -422,6 +493,71 @@ Error CesiumGDModelLoader::apply_surface_to_mesh(const CesiumGltf::MeshPrimitive
 	return Error::OK;
 }
 
+Ref<Shader> CesiumGDModelLoader::get_tile_shader(bool doubleSided)
+{
+	// Magic statics (C++11): each initializer runs exactly once even under
+	// concurrent calls. Worker threads create meshes; the main thread attaches
+	// raster overlays — both reach here. render_mode can't be uniform-driven,
+	// so we cache one shader per cull variant and pick at material-creation.
+	auto build = [](const char* cull_mode) -> Ref<Shader> {
+		Ref<Shader> s;
+		s.instantiate();
+		// Mirrors the legacy globe_tile_shd2 pattern: lit spatial pipeline with
+		// pre-amplified ALBEDO so a Cesium tile survives the web scene's aggressive
+		// tonemap_exposure (0.04). On non-web the amplification uniform defaults to
+		// 1.0 and the shader behaves like a plain lit texture.
+		// `albedo_texture : source_color` handles sRGB→linear on sample.
+		// cull_front: default Cesium terrain has inward-facing winding in this
+		// pipeline, so cull_front hides the invisible-from-outside side.
+		// cull_disabled: matches the StandardMaterial3D path for doubleSided=true
+		// glTF materials (e.g. Google 3D Tiles photogrammetry), whose winding +
+		// normals are authored outward and would be wrong-side-culled by cull_front.
+		String code = String(R"(
+		shader_type spatial;
+		render_mode blend_mix, depth_draw_opaque, )") + cull_mode + R"(, diffuse_lambert, specular_schlick_ggx;
+
+		uniform sampler2D albedo_texture : source_color;
+		uniform float albedo_amplification : hint_range(0.25, 50.0) = 1.0;
+		// ambient_level: constant self-illumination scaled by the texture color.
+		// Acts like a directionless ambient light source that each tile fragment
+		// reflects based on its own albedo — dark areas (e.g. ocean) get lifted
+		// out of the shadow, bright areas scale proportionally. Unlike
+		// albedo_amplification (a pure multiplier on the lit contribution), this
+		// survives into pixels that happen to be oriented away from the sun.
+		uniform float ambient_level : hint_range(0.0, 3.0) = 0.0;
+		uniform vec2 uv_offset = vec2(0.0);
+		uniform vec2 uv_scale = vec2(1.0);
+		uniform float uv_rotation = 0.0;
+
+		vec2 rotate_uv(vec2 uv, float angle) {
+			float s = sin(angle);
+			float c = cos(angle);
+			mat2 rot = mat2(vec2(c, -s), vec2(s, c));
+			return rot * uv;
+		}
+
+		void fragment() {
+			vec2 uv = UV;
+			uv *= uv_scale;
+			uv = rotate_uv(uv, uv_rotation);
+			uv += uv_offset;
+			vec4 tex = texture(albedo_texture, uv);
+			ALBEDO = tex.rgb * albedo_amplification;
+			EMISSION = tex.rgb * ambient_level;
+			ALPHA = tex.a;
+			ROUGHNESS = 1.0;
+			METALLIC = 0.0;
+		}
+		)";
+		s->set_code(code);
+		return s;
+	};
+
+	static Ref<Shader> cached_cull_front = build("cull_front");
+	static Ref<Shader> cached_cull_disabled = build("cull_disabled");
+	return doubleSided ? cached_cull_disabled : cached_cull_front;
+}
+
 Error CesiumGDModelLoader::copy_material_properties(const CesiumGltf::Material& cesiumMaterial, Ref<StandardMaterial3D>& godotMaterial, const CesiumGltf::Model& modelReference)
 {
 	set_colors_and_texture(cesiumMaterial, godotMaterial, modelReference);
@@ -443,8 +579,22 @@ Error CesiumGDModelLoader::copy_material_properties(const CesiumGltf::Material& 
 	godotMaterial->set_cull_mode(cullMode);
 	godotMaterial->set_name(cesiumMaterial.name.c_str());
 	godotMaterial->set_alpha_antialiasing(BaseMaterial3D::ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE);
+	// Option A (force unshaded): Cesium imagery/photogrammetry has lighting baked in
+	// from the satellite source, so re-lighting causes double-lighting and renderer-
+	// dependent darkness. Match Cesium for Unity/Unreal by rendering tiles unshaded.
+	// Kept commented pending a decision — currently pursuing Option B (keep lighting,
+	// fix environment).
+	// godotMaterial->set_shading_mode(BaseMaterial3D::SHADING_MODE_UNSHADED);
 	godotMaterial->set_shading_mode(BaseMaterial3D::SHADING_MODE_PER_PIXEL);
 	godotMaterial->set_flag(BaseMaterial3D::FLAG_USE_TEXTURE_REPEAT, false);
+	// glTF albedo PNGs/JPEGs are sRGB-encoded, but our ImageTexture is created as
+	// FORMAT_RGBA8 with no color-space tag. Forward+ (Vulkan) often papers over this
+	// via sRGB format variants; Compatibility (GLES3/WebGL) does not — without this
+	// flag the texture samples as linear and web renders noticeably darker/desaturated.
+	godotMaterial->set_flag(BaseMaterial3D::FLAG_ALBEDO_TEXTURE_FORCE_SRGB, true);
+
+	// Web exposure compensation is handled in the ShaderMaterial path — see the
+	// force_shader_material block where albedo_amplification is set to ~3.0 on web.
 	return Error::OK;
 }
 

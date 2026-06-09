@@ -7,6 +7,7 @@
 #include <godot_cpp/classes/mesh.hpp>
 #include <godot_cpp/classes/array_mesh.hpp>
 #include "godot_cpp/classes/standard_material3d.hpp"
+#include <godot_cpp/classes/shader.hpp>
 #include <godot_cpp/templates/vector.hpp>
 using namespace godot;
 
@@ -15,6 +16,7 @@ namespace godot {
 }
 #elif defined(CESIUM_GD_MODULE)
 #include <scene/resources/mesh.h>
+#include "scene/resources/shader.h"
 class MeshInstance3D;
 #endif
 
@@ -82,6 +84,24 @@ public:
 	static Error copy_material_properties(const CesiumGltf::Material& cesiumMaterial, Ref<StandardMaterial3D>& godotMaterial, const CesiumGltf::Model& modelReference);
 
 	static Error apply_surface_to_mesh(const CesiumGltf::MeshPrimitive& meshPrimitive, Ref<ArrayMesh>& meshInstance, const Array& arrays);
+
+	// Returns a cached Shader used for all Cesium tile surfaces. Lit pipeline
+	// with an `albedo_amplification` uniform so the same shader serves both the
+	// initial mesh load and the raster-overlay attach path. Two variants are
+	// cached: cull_front (default, matches inward-winding Cesium terrain) and
+	// cull_disabled (for glTF materials with doubleSided=true, e.g. Google 3D
+	// Tiles photogrammetry, whose winding + normals are authored outward).
+	static Ref<Shader> get_tile_shader(bool doubleSided = false);
+
+	// Diagnostic: drop skirt geometry from tile meshes, keeping only
+	// non-skirt indices as indicated by CesiumGltfContent::SkirtMeshMetadata
+	// on the mesh extras. When true, the tile edges can crack (cross-LOD
+	// seams) but any on-screen artifact caused by skirt polygons themselves
+	// disappears, which tells us whether a reported seam is *caused by*
+	// skirts or merely *revealed when skirts are absent*.
+	// Overridable via the CESIUM_SKIP_SKIRTS env var at process start;
+	// non-empty + not "0"/"false" enables. Default: false (keep skirts).
+	static bool skip_skirts;
 
 private:
 

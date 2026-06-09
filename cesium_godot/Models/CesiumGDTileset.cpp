@@ -81,6 +81,13 @@ constexpr const char* URL_P_NAME = "url";
 
 constexpr const char* MAXIMUM_SCREEN_SPACE_DESC = "The maximum number of pixels of error when rendering this tileset.\nThis is used to select an appropriate level-of-detail.\n\nWhen a tileset uses the older layer.json / quantized-mesh format rather than 3D Tiles, this value is effectively divided by 8.0.\nSo the default value of 16.0 corresponds to the standard value for quantized-mesh terrain of 2.0";
 constexpr const char* MAXIMUM_SIMULTANEOUS_TILE_LOADS_DESC = "The maximum number of tiles that may simultaneously be in the process of loading.";
+
+// Sanity bounds for maximum_cached_bytes. Below the floor the cache thrashes
+// (tiles unload faster than they render). Above the ceiling we risk exhausting
+// the process heap — even desktop builds with growable memory cap at ~2 GiB
+// for typical 32-bit-addressable buffers and 4 GiB for wasm32.
+constexpr int64_t MAX_CACHED_BYTES_FLOOR = 4LL * 1024 * 1024;           // 4 MiB
+constexpr int64_t MAX_CACHED_BYTES_CEILING = 4LL * 1024 * 1024 * 1024;  // 4 GiB
 constexpr const char* PRELOAD_ANCESTORS_DESC = "Indicates whether the ancestors of rendered tiles should be preloaded.\nSetting this to true optimizes the zoom-out experience and provides more detail in newly-exposed areas when panning.\nThe down side is that it requires loading more tiles";
 constexpr const char* PRELOAD_SIBLINGS_DESC = "Indicates whether the siblings of rendered tiles should bepreloaded.\nSetting this to true causes tiles with the same parent as arendered tile to be loaded, even if they are culled.\nSetting this to truemay provide a better panning experience at the cost of loading more tiles.";
 constexpr const char* LOADING_DESCENDANT_LIMIT_DESC = "The number of loading descendant tiles that is considered \"too many\".\nIf a tile has too many loading descendants, that tile will be loaded and rendered before any of its descendants are loaded and rendered. \nThis means more feedback for the user that something is happening at the cost of a longer overall load time.\nSetting this to 0 will cause each tile level to be loaded successively, significantly increasing load time.\nSetting it to a large number (e.g. 1000) will minimize the number of tiles that are loaded but tend to make detail appear all at once after a long wait.";
@@ -204,6 +211,15 @@ Cesium3DTileset::Cesium3DTileset()
 	this->m_tilesetConfig->options.mainThreadLoadingTimeLimit = LOADING_LIMIT_SECONDS;
 	this->m_tilesetConfig->options.tileCacheUnloadTimeLimit = LOADING_LIMIT_SECONDS;
 	this->m_tilesetConfig->contentOptions.applyTextureTransform = false;
+#ifdef __EMSCRIPTEN__
+	// Web WASM heaps are tight compared to desktop. Cesium's 512 MB default tile
+	// cache plus Godot's own allocations (sky panorama, meshes, shader buffers)
+	// easily exhausts the heap. When alloc_static returns null, Godot's error
+	// handler (ScriptServer::capture_script_backtraces) itself allocates, failing
+	// again — producing infinite recursion and a Maximum-call-stack-exceeded abort.
+	// Cap at 256 MB on web; tune down if memory pressure persists.
+	this->m_tilesetConfig->options.maximumCachedBytes = 256LL * 1024 * 1024;
+#endif
 	CesiumGltf::SupportedGpuCompressedPixelFormats supportedFormats;
 
 	supportedFormats.ETC1_RGB = true;
@@ -220,7 +236,9 @@ Cesium3DTileset::Cesium3DTileset()
 		ERR_PRINT(String("Failed to load a given tileset, error: ") + failData.message.c_str());
 	};
 
-	this->m_signalingThreadPool.init(5);
+	// m_signalingThreadPool.init() is deferred to create_tileset_externals() so
+	// scene-set properties (signaling_thread_count) take effect before any
+	// workers are spawned. See set_signaling_thread_count.
 
 	Cesium3DTilesContent::registerAllTileContentTypes();
 }
@@ -248,6 +266,24 @@ void Cesium3DTileset::set_maximum_simultaneous_tile_loads(uint32_t count)
 uint32_t Cesium3DTileset::get_maximum_simultaneous_tile_loads() const
 {
 	return this->m_tilesetConfig->options.maximumSimultaneousTileLoads;
+}
+
+void Cesium3DTileset::set_maximum_cached_bytes(int64_t bytes)
+{
+	ERR_FAIL_COND_MSG(bytes < MAX_CACHED_BYTES_FLOOR,
+		String("Cesium3DTileset: maximum_cached_bytes=") + itos(bytes) +
+		" is below the " + itos(MAX_CACHED_BYTES_FLOOR) +
+		"-byte floor; ignored. A value this small thrashes the tile cache.");
+	ERR_FAIL_COND_MSG(bytes > MAX_CACHED_BYTES_CEILING,
+		String("Cesium3DTileset: maximum_cached_bytes=") + itos(bytes) +
+		" is above the " + itos(MAX_CACHED_BYTES_CEILING) +
+		"-byte ceiling; ignored. This would exhaust process memory.");
+	this->m_tilesetConfig->options.maximumCachedBytes = bytes;
+}
+
+int64_t Cesium3DTileset::get_maximum_cached_bytes() const
+{
+	return this->m_tilesetConfig->options.maximumCachedBytes;
 }
 
 void Cesium3DTileset::set_preload_ancestors(bool preload)
@@ -342,6 +378,26 @@ void Cesium3DTileset::set_create_physics_meshes(bool shouldCreate)
 bool Cesium3DTileset::get_create_physics_meshes() const
 {
 	return this->m_createPhysicsMeshes;
+}
+
+void Cesium3DTileset::set_signaling_thread_count(uint32_t count)
+{
+	this->m_signalingThreadCount = count;
+}
+
+uint32_t Cesium3DTileset::get_signaling_thread_count() const
+{
+	return this->m_signalingThreadCount;
+}
+
+void Cesium3DTileset::set_physics_mesh_thread_count(uint32_t count)
+{
+	this->m_physicsMeshThreadCount = count;
+}
+
+uint32_t Cesium3DTileset::get_physics_mesh_thread_count() const
+{
+	return this->m_physicsMeshThreadCount;
 }
 
 void Cesium3DTileset::update_tileset(const Transform3D& cameraTransform)
@@ -517,10 +573,17 @@ Cesium3DTilesSelection::TilesetExternals Cesium3DTileset::create_tileset_externa
 	auto gunzipAccessor = std::make_shared<CesiumAsync::GunzipAssetAccessor>(
 		cachedAccessor
 	);
-	
+
+	// Lazy pool init — scene properties have been applied by the time we get
+	// here, so m_signalingThreadCount reflects what the user (or platform
+	// default) wants. Guard against re-init if the tileset is reloaded.
+	if (this->m_signalingThreadPool.size() == 0) {
+		this->m_signalingThreadPool.init(this->m_signalingThreadCount);
+	}
+
 	auto taskProcessor = std::make_shared<SimpleTaskProcessor>();
 	CesiumAsync::AsyncSystem asyncSystem(taskProcessor);
-	auto renderResourcesProvider = std::make_shared<GodotPrepareRenderResources>(this);
+	auto renderResourcesProvider = std::make_shared<GodotPrepareRenderResources>(this, this->m_physicsMeshThreadCount);
 	auto creditSystem = std::make_shared<CesiumUtility::CreditSystem>();
 	CesiumGDCreditSystem::get_singleton(this)->add_credit_system(creditSystem);
 	
@@ -652,6 +715,11 @@ void Cesium3DTileset::_bind_methods()
 	ClassDB::bind_method(D_METHOD("get_maximum_simultaneous_tile_loads"), &Cesium3DTileset::get_maximum_simultaneous_tile_loads);
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "maximum_simultaneous_tile_loads", PROPERTY_HINT_NONE, MAXIMUM_SIMULTANEOUS_TILE_LOADS_DESC), "set_maximum_simultaneous_tile_loads", "get_maximum_simultaneous_tile_loads");
 
+	// Intentionally not exposed as a property — tile cache size is a runtime-tuning
+	// knob rather than scene-serializable configuration. Use the methods directly.
+	ClassDB::bind_method(D_METHOD("set_maximum_cached_bytes", "bytes"), &Cesium3DTileset::set_maximum_cached_bytes);
+	ClassDB::bind_method(D_METHOD("get_maximum_cached_bytes"), &Cesium3DTileset::get_maximum_cached_bytes);
+
 	ClassDB::bind_method(D_METHOD("set_preload_ancestors", "preload"), &Cesium3DTileset::set_preload_ancestors);
 	ClassDB::bind_method(D_METHOD("get_preload_ancestors"), &Cesium3DTileset::get_preload_ancestors);
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "preload_ancestors", PROPERTY_HINT_NONE, PRELOAD_ANCESTORS_DESC), "set_preload_ancestors", "get_preload_ancestors");
@@ -675,6 +743,14 @@ void Cesium3DTileset::_bind_methods()
 	ClassDB::bind_method(D_METHOD("set_create_physics_meshes", "shouldGenerate"), &Cesium3DTileset::set_create_physics_meshes);
 	ClassDB::bind_method(D_METHOD("get_create_physics_meshes"), &Cesium3DTileset::get_create_physics_meshes);
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "create_physics_meshes"), "set_create_physics_meshes", "get_create_physics_meshes");
+
+	ClassDB::bind_method(D_METHOD("set_signaling_thread_count", "count"), &Cesium3DTileset::set_signaling_thread_count);
+	ClassDB::bind_method(D_METHOD("get_signaling_thread_count"), &Cesium3DTileset::get_signaling_thread_count);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "signaling_thread_count"), "set_signaling_thread_count", "get_signaling_thread_count");
+
+	ClassDB::bind_method(D_METHOD("set_physics_mesh_thread_count", "count"), &Cesium3DTileset::set_physics_mesh_thread_count);
+	ClassDB::bind_method(D_METHOD("get_physics_mesh_thread_count"), &Cesium3DTileset::get_physics_mesh_thread_count);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "physics_mesh_thread_count"), "set_physics_mesh_thread_count", "get_physics_mesh_thread_count");
 
 	ClassDB::bind_method(D_METHOD("get_data_source"), &Cesium3DTileset::get_data_source);
 	ClassDB::bind_method(D_METHOD("set_data_source", "data_source"), &Cesium3DTileset::set_data_source);
