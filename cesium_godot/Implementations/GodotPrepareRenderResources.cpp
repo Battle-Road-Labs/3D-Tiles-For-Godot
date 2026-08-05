@@ -1,4 +1,4 @@
-#include "GodotPrepareRenderResources.h"
+﻿#include "GodotPrepareRenderResources.h"
 #include "CesiumGltf/ImageAsset.h"
 #include "CesiumGltfReader/ImageDecoder.h"
 #include "Models/Cesium3DTile.h"

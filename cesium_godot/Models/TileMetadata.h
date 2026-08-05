@@ -1,6 +1,7 @@
-#ifndef TILE_METADATA_H
+﻿#ifndef TILE_METADATA_H
 #define TILE_METADATA_H
 
+#include "CesiumPropertyInfo.h"
 #include "CesiumGltf/PropertyTableView.h"
 #include "CesiumGltf/PropertyTypeTraits.h"
 #include "glm/detail/qualifier.hpp"
@@ -23,49 +24,6 @@
 using namespace godot;
 #endif
 
-enum class EPropertyType 
-{
-    Invalid = 0,
-    Scalar,
-    Vec2,
-    Vec3,
-    Vec4,
-    Mat2,
-    Mat3,
-    Mat4,
-    String,
-    Boolean,
-    Enum
-};
-
-/// @brief type of the underlying components of a type, i.e. if the type is a Vec3f, the components are 32-bit floats 
-enum class EComponentType : int64_t 
-{
-    None = 0,
-    Int8,
-    Uint8,
-    Int16,
-    Uint16,
-    Int32,
-    Uint32,
-    Int64,
-    Uint64,
-    Float32,
-    Float64
-};
-
-class CesiumPropertyInfo : public RefCounted {
-	GDCLASS(CesiumPropertyInfo, RefCounted)
-	
-protected:
-	static void _bind_methods();
-
-public:
-	EPropertyType propertyType;
-	EComponentType componentType;
-	bool isArray;
-	Variant data;
-};
 
 // using CesiumPropertyTable_t = std::unordered_map<std::string, CesiumPropertyInfo>;
 using CesiumPropertyTable_t = Dictionary;
@@ -199,32 +157,92 @@ private:
 
 	template<class T>
 	Ref<CesiumPropertyInfo> make_metadata_value(const T& nativeValue) {
-		CesiumPropertyInfo result;
-		if constexpr (CesiumGltf::IsMetadataArray<T>::value) {
-			// TODO: Make an array here
-			result = this->make_array_type(nativeValue);
-		}
-		
-		if constexpr (CesiumGltf::IsMetadataVecN<T>::value) {
-			constexpr glm::length_t length = T::length();
-			result = this->make_vector_type(nativeValue);
-		}
-		if constexpr (CesiumGltf::IsMetadataString<T>::value) {
-			result.propertyType = EPropertyType::String;
-			result.data = std::string(nativeValue.data(), nativeValue.size()).c_str();
+		CesiumPropertyInfo* result = memnew(CesiumPropertyInfo);
+		//CesiumGltf::PropertyType nativeType = nativeValue.propertyType();
+		int64_t rowCount = nativeValue.size();
+		if (rowCount == 0) {
+			return result;
 		}
 
-		if constexpr(CesiumGltf::IsMetadataBoolean<T>::value || CesiumGltf::IsMetadataScalar<T>::value) {
-			result.propertyType = EPropertyType::Boolean;
-			result.data = nativeValue;
+		using OptionalType = std::decay_t<decltype(nativeValue.get(0))>;
+		using ValueType = typename OptionalType::value_type;
+
+		if constexpr (CesiumGltf::IsMetadataString<ValueType>::value) {
+			
+			std::string result_str;
+			std::string str_temp = "";
+			std::string last_str = "";
+			for (int64_t idx = 0; idx < rowCount; idx++) {
+				auto data_value = nativeValue.get(idx);
+				
+				if (!data_value) continue;
+				if (!data_value.has_value()) continue;
+				
+				std::string_view sv = *data_value;
+				auto first_value = sv.data();
+				str_temp = std::string(sv.data(), sv.size());
+				if (str_temp == last_str) continue;
+				if (str_temp.empty()) continue;
+
+				result_str += std::string(sv.data(), sv.size());
+				last_str = std::string(sv.data(), sv.size());
+			}
+			//printf(" string_value: %s\n", result_str.c_str());
+			
+			result->componentType = EComponentType::None;
+			result->propertyType = EPropertyType::String;
+			result->data = godot::Variant(godot::String(result_str.c_str()));
 		}
-		
-		return &result;
+		else if constexpr (CesiumGltf::IsMetadataScalar<ValueType>::value) {
+
+			auto data_value = nativeValue.get(0);
+			if (data_value && data_value.has_value()) {
+				if constexpr (std::is_same_v<ValueType, float>) {
+					float num_data = static_cast<float>(*data_value);
+					result->data = godot::Variant(num_data);
+					result->componentType = EComponentType::Float32;
+				}
+				else if constexpr (std::is_same_v<ValueType, double>) {
+					double num_data = static_cast<double>(*data_value);
+					result->data = godot::Variant(num_data);
+					result->componentType = EComponentType::Float64;
+				}
+				else if constexpr (std::is_same_v<ValueType, int>) {
+					int num_data = static_cast<int>(*data_value);
+					result->data = godot::Variant(num_data);
+					result->componentType = EComponentType::Int32;
+				}
+
+				result->propertyType = EPropertyType::Scalar;
+				//printf(" scalar_value: %s\n", std::string(godot::String(result->data).utf8().get_data()).c_str());
+			}
+
+		}
+		else if constexpr (CesiumGltf::IsMetadataArray<ValueType>::value) {
+			// TODO: Make an array here
+			// result = this->make_array_type(nativeValue);
+			WARN_PRINT("The metadata array type is not yet implemented.");
+		}
+		else if constexpr (CesiumGltf::IsMetadataVecN<ValueType>::value) {
+			//constexpr glm::length_t length = T::length();
+			//*result = this->make_vector_type(nativeValue);
+			WARN_PRINT("The metadata vector type is not yet implemented.");
+		}
+		else if constexpr (CesiumGltf::IsMetadataBoolean<ValueType>::value) {
+			auto data_value = nativeValue.get(0);
+			if (data_value && data_value.has_value()) {
+				bool bool_data = static_cast<bool>(*data_value);
+				result->propertyType = EPropertyType::Boolean;
+				result->data = godot::Variant(bool_data);
+			}
+		}
+
+		return result;
 	}
-	
+
 	std::vector<CesiumPropertyTable_t> m_tables;
 
-	Dictionary m_accesibleRepresentation;
+	Dictionary m_empty;
 	
 };
 

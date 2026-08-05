@@ -114,6 +114,8 @@ public:
 
 	void move_origin(const glm::dvec3& enginePos);
 
+	void set_for_each_tile_func(const Callable& onTileFunc);
+
 	CesiumGeoreference* get_georeference_node() const;
 	
 	void _enter_tree() override;
@@ -164,6 +166,8 @@ private:
 	BRThreadPool m_signalingThreadPool;
 
 	Callable m_debugVolumesFunction;
+
+	Callable m_forEachTileFunction;
 protected:
 	static void _bind_methods();
 
